@@ -1,0 +1,498 @@
+#!/usr/bin/env python3
+"""fleet: run the plugin's agents on Hermes Kanban. Agents and models come from fleet/models.yaml,
+projects from fleet/projects.yaml.
+
+    fleet models show                     every agent, its level and its model
+    fleet models check                    models exist where they run, providers are logged in, projects are sound
+    fleet models apply [--dry-run]        push the models to every Hermes profile and to omp
+    fleet models cmd <lane> <tier>        the CLI argv a lane runs for a card, one argument per line
+    fleet models reviewer <lane>          "<lane> <tier>" that reviews work written in <lane>
+    fleet models subagent <name>          the Claude Code model for a plugin subagent (used by the build)
+    fleet project add <name> --repo <path> --github <owner/repo> [--description "..."] [--dry-run]
+    fleet project list
+    fleet project sync <name> [--dry-run] manager profile, board and Hermes project for one project
+    fleet bootstrap [--dry-run]           every profile (root, managers, lanes), tools, skills, board settings
+    fleet lane run|review ...             run one card through a lane (see fleet-lane)
+    fleet merge <pr> --risk R --sha S [--repo owner/repo] [--approved] [--dry-run]
+                                          the merge gate, then gh pr merge --squash --auto
+    fleet name                            the plugin name ($PLUGIN_NAME, else plugin.env, default swe)
+
+Environment: FLEET_MODELS, FLEET_PROJECTS (file paths), OMP_CONFIG, HERMES_HOME.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+import yaml
+
+FLEET = Path(__file__).resolve().parents[1]
+REPO = FLEET.parent
+MODELS = Path(os.environ.get("FLEET_MODELS", FLEET / "models.yaml"))
+PROJECTS = Path(os.environ.get("FLEET_PROJECTS", FLEET / "projects.yaml"))
+OMP_CONFIG = Path(os.environ.get("OMP_CONFIG", Path.home() / ".omp/agent/config.yml"))
+CLAUDE_ALIASES = {"opus", "sonnet", "haiku", "fable"}
+TIERS = ("top", "mid", "low")
+LEVELS = ("board", "lanes", "workers", "reviewers", "subagents", "omp_roles", "kanban", "autopilot")
+NEVER_AUTO_MERGE = {"money-path"}
+NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+GITHUB_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+
+
+# ------------------------------------------------------------------------------------------------ config
+
+
+def load() -> dict:
+    cfg = yaml.safe_load(MODELS.read_text(encoding="utf-8")) or {}
+    missing = [level for level in LEVELS if level not in cfg]
+    if missing:
+        sys.exit(f"fleet: {MODELS} is missing: {', '.join(missing)}")
+    return cfg
+
+
+def load_projects() -> dict[str, dict]:
+    if not PROJECTS.exists():
+        return {}
+    return (yaml.safe_load(PROJECTS.read_text(encoding="utf-8")) or {}).get("projects") or {}
+
+
+def save_projects(projects: dict[str, dict]) -> None:
+    header = []
+    if PROJECTS.exists():
+        for line in PROJECTS.read_text(encoding="utf-8").splitlines():
+            if line.startswith("projects:"):
+                break
+            header.append(line)
+    body = yaml.safe_dump({"projects": dict(sorted(projects.items()))}, sort_keys=False, allow_unicode=True)
+    PROJECTS.write_text("\n".join(header) + ("\n" if header else "") + body, encoding="utf-8")
+
+
+def plugin_name() -> str:
+    if os.environ.get("PLUGIN_NAME"):
+        return os.environ["PLUGIN_NAME"]
+    for env_file in (REPO / "plugin.local.env", REPO / "plugin.env"):
+        if env_file.exists():
+            for line in env_file.read_text(encoding="utf-8").splitlines():
+                match = re.match(r"^\s*PLUGIN_NAME\s*\??=\s*(\S+)", line)
+                if match:
+                    return match.group(1)
+    return "swe"
+
+
+def manager_profile(project: str) -> str:
+    return f"pm-{project}"
+
+
+def worker(cfg: dict, lane: str, tier: str) -> dict:
+    try:
+        return cfg["workers"][lane][tier]
+    except KeyError:
+        sys.exit(f"fleet: no worker for lane {lane!r} tier {tier!r} in {MODELS}")
+
+
+def argv(cfg: dict, lane: str, tier: str) -> list[str]:
+    spec = worker(cfg, lane, tier)
+    cli = cfg["lanes"][lane]["cli"]
+    if cli == "claude":
+        args = ["claude", "-p", "--model", spec["model"]]
+        if spec.get("effort"):
+            args += ["--effort", spec["effort"]]
+        return args + ["--permission-mode", "bypassPermissions"]
+    if cli == "omp":
+        args = ["omp", "-p", "--model", spec["model"]]
+        if spec.get("thinking"):
+            args += ["--thinking", spec["thinking"]]
+        return args + ["--approval-mode", "yolo", "--max-time", "45m"]
+    sys.exit(f"fleet: lane {lane!r} has unknown cli {cli!r}")
+
+
+def profiles(cfg: dict, projects: dict[str, dict]) -> dict[str, dict]:
+    """Every Hermes profile: name -> spec with level, role, brain, tools, skills, description."""
+    result: dict[str, dict] = {}
+    root = cfg["board"]["root"]
+    result[root["profile"]] = {**root, "level": "board", "role": "root"}
+    template = cfg["board"]["manager"]
+    for name, project in projects.items():
+        description = template["description"].format(project=name, description=project.get("description", ""))
+        result[manager_profile(name)] = {**template, "description": description, "level": "board",
+                                         "role": "manager", "project": name}
+    for lane, spec in cfg["lanes"].items():
+        result[lane] = {**spec, "level": "lanes", "role": "lane"}
+    return result
+
+
+# ------------------------------------------------------------------------------------------------ hermes
+
+
+def run(args: list[str], timeout: int = 180) -> subprocess.CompletedProcess:
+    return subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+
+
+def hermes(profile: str, *args: str) -> list[str]:
+    return (["hermes"] if profile == "default" else ["hermes", "-p", profile]) + list(args)
+
+
+def hermes_profiles() -> set[str]:
+    names = set()
+    for line in run(["hermes", "profile", "list"]).stdout.splitlines():
+        first = line.strip().lstrip("◆").split()
+        if first:
+            names.add(first[0])
+    return names
+
+
+def execute(commands: list[list[str]], dry: bool) -> int:
+    for command in commands:
+        print(("would run: " if dry else "run: ") + " ".join(command))
+        if dry:
+            continue
+        result = run(command)
+        if result.returncode != 0:
+            print(result.stdout + result.stderr, file=sys.stderr)
+            return 1
+    return 0
+
+
+def listed(output: str, name: str) -> bool:
+    return re.search(rf"(^|\s){re.escape(name)}(\s|$)", output, re.M) is not None
+
+
+# ------------------------------------------------------------------------------------------------ models
+
+
+def subagent_model(cfg: dict, name: str) -> str:
+    spec = cfg["subagents"].get(name)
+    if not spec:
+        return "inherit"
+    return worker(cfg, "claude", spec["tier"])["model"]
+
+
+def models_show(cfg: dict, projects: dict[str, dict]) -> int:
+    rows = []
+    for name, spec in profiles(cfg, projects).items():
+        if spec["level"] == "board":
+            agent = "root" if spec["role"] == "root" else f"manager {spec['project']}"
+            rows.append(("board", agent, name, spec["brain"]["model"], spec["brain"]["provider"]))
+    if not projects:
+        template = cfg["board"]["manager"]["brain"]
+        rows.append(("board", "manager (template)", "pm-<project>", template["model"], template["provider"]))
+    for lane, spec in cfg["lanes"].items():
+        rows.append(("lane", lane, lane, spec["brain"]["model"], f"{spec['brain']['provider']} (drives {spec['cli']})"))
+    for lane, tiers in cfg["workers"].items():
+        for tier in TIERS:
+            spec = tiers[tier]
+            rows.append(("worker", f"{lane} {tier}", lane, spec["model"], spec.get("effort") or spec.get("thinking") or ""))
+    for author, spec in cfg["reviewers"].items():
+        rows.append(("reviewer", f"of {author}", spec["lane"], worker(cfg, spec["lane"], spec["tier"])["model"], spec["tier"]))
+    for name, spec in cfg["subagents"].items():
+        rows.append(("subagent", f"{plugin_name()}:{name}", "claude code", subagent_model(cfg, name), spec["tier"]))
+    for role, model in cfg["omp_roles"].items():
+        rows.append(("omp role", role, "omp", model, ""))
+    print(f"{'level':<10}{'agent':<24}{'runs as':<16}{'model':<40}extra")
+    for row in rows:
+        print(f"{row[0]:<10}{row[1]:<24}{row[2]:<16}{row[3]:<40}{row[4]}")
+    print(f"projects: {', '.join(sorted(projects)) or 'none (fleet project add)'}")
+    print(f"autopilot auto_merge: {cfg['autopilot'].get('auto_merge') or 'off'}")
+    return 0
+
+
+def omp_models() -> set[str]:
+    out = run(["omp", "models", "ls", "--json"]).stdout if shutil.which("omp") else ""
+    data = json.loads(out or "[]")
+    items = data if isinstance(data, list) else data.get("models", [])
+    return {f"{m.get('provider')}/{m.get('id')}" for m in items if isinstance(m, dict)}
+
+
+def project_problems(name: str, project: dict) -> list[str]:
+    problems = []
+    if not NAME_RE.match(name):
+        problems.append(f"project {name!r}: name must match {NAME_RE.pattern}")
+    repo = Path(os.path.expanduser(project.get("repo", "")))
+    if not (repo / ".git").exists():
+        problems.append(f"project {name}: repo {repo} is not a git clone")
+    if not GITHUB_RE.match(project.get("github", "")):
+        problems.append(f"project {name}: github must be owner/repo, got {project.get('github')!r}")
+    return problems
+
+
+def models_check(cfg: dict, projects: dict[str, dict]) -> int:
+    problems = []
+    for author, spec in cfg["reviewers"].items():
+        if spec["lane"] == author and len(cfg["lanes"]) > 1:
+            problems.append(f"reviewers.{author} must be the other lane, not {author} (two lanes are configured)")
+        worker(cfg, spec["lane"], spec["tier"])
+    for lane, spec in cfg["lanes"].items():
+        if lane not in cfg["workers"]:
+            problems.append(f"lane {lane} has no workers")
+        if spec["cli"] == "claude":
+            for tier, w in cfg["workers"][lane].items():
+                if w["model"] not in CLAUDE_ALIASES and not w["model"].startswith("claude-"):
+                    problems.append(f"workers.{lane}.{tier}: {w['model']!r} is not a Claude model")
+    for name, spec in cfg["subagents"].items():
+        if spec["tier"] not in TIERS:
+            problems.append(f"subagents.{name}: tier must be one of {', '.join(TIERS)}")
+    if NEVER_AUTO_MERGE & set(cfg["autopilot"].get("auto_merge") or []):
+        problems.append("autopilot.auto_merge must never include money-path")
+    for name, project in projects.items():
+        problems += project_problems(name, project)
+    available = omp_models()
+    omp_lanes = [lane for lane, spec in cfg["lanes"].items() if spec["cli"] == "omp"]
+    used = [w["model"] for lane in omp_lanes for w in cfg["workers"][lane].values()] + list(cfg["omp_roles"].values())
+    for model in sorted(set(used)):
+        if model not in available:
+            problems.append(f"omp has no model {model} (log in: omp login <provider>; list: omp models ls)")
+    existing = hermes_profiles()
+    for profile in profiles(cfg, projects):
+        if profile != "default" and profile not in existing:
+            problems.append(f"hermes profile {profile} does not exist (run: fleet bootstrap)")
+    for provider in sorted({spec["brain"]["provider"] for spec in profiles(cfg, projects).values()}):
+        result = run(["hermes", "auth", "status", provider])
+        status = result.stdout + result.stderr
+        if "logged in" not in status or "logged out" in status:
+            problems.append(f"hermes provider {provider} is logged out (hermes auth add {provider})")
+    if shutil.which("gh") and run(["gh", "auth", "status"]).returncode != 0:
+        problems.append("gh is not logged in (gh auth login): agents cannot push, open PRs or manage issues")
+    for message in problems:
+        print("PROBLEM", message)
+    print(f"{len(problems)} problem(s)")
+    return 1 if problems else 0
+
+
+def models_apply(cfg: dict, projects: dict[str, dict], dry: bool) -> int:
+    existing = set(profiles(cfg, projects)) if dry else hermes_profiles() | {"default"}
+    commands = []
+    for name, spec in profiles(cfg, projects).items():
+        if name not in existing:
+            print(f"skip {name}: profile missing (run: fleet bootstrap)")
+            continue
+        commands.append(hermes(name, "config", "set", "model.default", spec["brain"]["model"]))
+        commands.append(hermes(name, "config", "set", "model.provider", spec["brain"]["provider"]))
+    if execute(commands, dry):
+        return 1
+    data = (yaml.safe_load(OMP_CONFIG.read_text(encoding="utf-8")) if OMP_CONFIG.exists() else None) or {}
+    data.setdefault("setupVersion", 2)
+    data["modelRoles"] = {**(data.get("modelRoles") or {}), **cfg["omp_roles"]}
+    print(("would write: " if dry else "write: ") + f"{OMP_CONFIG} modelRoles = {cfg['omp_roles']}")
+    if not dry:
+        if OMP_CONFIG.exists():
+            shutil.copy2(OMP_CONFIG, OMP_CONFIG.with_name(f"{OMP_CONFIG.name}.bak-{int(time.time())}"))
+        OMP_CONFIG.parent.mkdir(parents=True, exist_ok=True)
+        OMP_CONFIG.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    print("workers and reviewers need no apply: fleet lane reads models.yaml on every card run")
+    print("plugin subagents: rebuild and reinstall the plugin (make claude)")
+    return 0
+
+
+# ------------------------------------------------------------------------------------------------ bootstrap
+
+
+def skill_dirs() -> list[str]:
+    name = plugin_name()
+    return [str((REPO / "dist" / name / "fleet" / "skills").resolve()), str((REPO / "dist" / name / "skills").resolve())]
+
+
+def profile_commands(name: str, spec: dict, existing: set[str]) -> list[list[str]]:
+    commands = []
+    if name != "default" and name not in existing:
+        commands.append(["hermes", "profile", "create", name, "--no-alias", "--description", spec["description"]])
+    elif name != "default":
+        commands.append(["hermes", "profile", "describe", name, "--text", spec["description"]])
+    commands.append(hermes(name, "config", "set", "skills.external_dirs", json.dumps(skill_dirs())))
+    tools = spec.get("tools") or {}
+    if tools.get("enable"):
+        commands.append(hermes(name, "tools", "enable", *tools["enable"]))
+    if tools.get("disable"):
+        commands.append(hermes(name, "tools", "disable", *tools["disable"]))
+    return commands
+
+
+def build_plugin() -> int:
+    build = run([sys.executable, str(REPO / "scripts" / "build.py")], timeout=300)
+    if build.returncode != 0:
+        print(build.stdout + build.stderr, file=sys.stderr)
+    return build.returncode
+
+
+def project_sync(cfg: dict, projects: dict[str, dict], name: str, dry: bool) -> int:
+    if name not in projects:
+        sys.exit(f"fleet: no project {name!r} in {PROJECTS}")
+    project = projects[name]
+    problems = project_problems(name, project)
+    if problems:
+        print("\n".join("PROBLEM " + p for p in problems))
+        return 1
+    manager = manager_profile(name)
+    spec = profiles(cfg, projects)[manager]
+    repo = str(Path(os.path.expanduser(project["repo"])).resolve())
+    existing = set() if dry else hermes_profiles()
+    commands = profile_commands(manager, spec, existing)
+    commands.append(hermes(manager, "config", "set", "model.default", spec["brain"]["model"]))
+    commands.append(hermes(manager, "config", "set", "model.provider", spec["brain"]["provider"]))
+    if execute(commands, dry):
+        return 1
+    boards = "" if dry else run(["hermes", "kanban", "boards", "list"]).stdout
+    if listed(boards, name):
+        print(f"board {name} exists")
+    elif execute([["hermes", "kanban", "boards", "create", name, "--default-workdir", repo,
+                   "--description", project.get("description", "")]], dry):
+        return 1
+    for profile in ("default", manager):
+        known = "" if dry else run(hermes(profile, "project", "list")).stdout
+        if listed(known, name):
+            print(f"project {name} exists for {profile}")
+            continue
+        if execute([hermes(profile, "project", "create", name, repo, "--slug", name, "--board", name)], dry):
+            return 1
+    print(f"project {name}: manager {manager}, board {name}, repo {repo}, github {project['github']}")
+    return 0
+
+
+def project_add(cfg: dict, args: list[str], dry: bool) -> int:
+    usage = "usage: fleet project add <name> --repo <path> --github <owner/repo> [--description \"...\"]"
+    if not args:
+        sys.exit(usage)
+    name, flags = args[0], dict(zip(args[1::2], args[2::2]))
+    if "--repo" not in flags or "--github" not in flags:
+        sys.exit(usage)
+    projects = load_projects()
+    entry = {"repo": flags["--repo"], "github": flags["--github"], "description": flags.get("--description", name)}
+    problems = project_problems(name, entry)
+    if problems:
+        print("\n".join("PROBLEM " + p for p in problems))
+        return 1
+    projects[name] = entry
+    if dry:
+        print(f"would add project {name} to {PROJECTS}: {entry}")
+    else:
+        save_projects(projects)
+        print(f"added project {name} to {PROJECTS}")
+        if build_plugin():
+            return 1
+    return project_sync(cfg, projects, name, dry)
+
+
+def bootstrap(cfg: dict, projects: dict[str, dict], dry: bool) -> int:
+    if not dry and build_plugin():
+        return 1
+    existing = set() if dry else hermes_profiles()
+    commands: list[list[str]] = []
+    for name, spec in profiles(cfg, projects).items():
+        if spec.get("role") != "manager":
+            commands += profile_commands(name, spec, existing)
+    for key, value in cfg["kanban"].items():
+        rendered = str(value).lower() if isinstance(value, bool) else str(value)
+        commands.append(["hermes", "config", "set", f"kanban.{key}", rendered])
+    if execute(commands, dry):
+        return 1
+    for name in sorted(projects):
+        if project_sync(cfg, projects, name, dry):
+            return 1
+    return models_apply(cfg, projects, dry)
+
+
+# ------------------------------------------------------------------------------------------------ merge
+
+
+def merge(cfg: dict, pr: str, risk: str, sha: str, repo: str, approved: bool, dry: bool) -> int:
+    """The merge gate: an allowed risk class (or the human's approval), the verified SHA, green checks."""
+    allowed = set(cfg["autopilot"].get("auto_merge") or []) - NEVER_AUTO_MERGE
+    target = ["--repo", repo] if repo else []
+
+    def refuse(reason: str) -> int:
+        print(f"REFUSED {pr}: {reason}")
+        return 3
+
+    if not approved:
+        if risk in NEVER_AUTO_MERGE:
+            return refuse("money-path is never auto-merged: it needs the human's approval (--approved)")
+        if risk not in allowed:
+            return refuse(f"risk {risk!r} is not in autopilot.auto_merge {sorted(allowed) or '(off)'}: wait for the human")
+    view = run(["gh", "pr", "view", pr, *target, "--json", "headRefOid,state,isDraft"])
+    if view.returncode != 0:
+        return refuse(f"gh pr view failed: {view.stderr.strip()}")
+    info = json.loads(view.stdout)
+    if info.get("state") != "OPEN" or info.get("isDraft"):
+        return refuse(f"PR is {info.get('state')}{' (draft)' if info.get('isDraft') else ''}")
+    if info.get("headRefOid") != sha:
+        return refuse(f"head {info.get('headRefOid')} is not the verified SHA {sha}: a new push needs a new review")
+    checks = run(["gh", "pr", "checks", pr, *target, "--required", "--json", "name,bucket"])
+    if checks.returncode != 0 and not checks.stdout.strip():
+        return refuse(f"gh pr checks failed: {checks.stderr.strip()}")
+    required = json.loads(checks.stdout or "[]")
+    if not required:
+        return refuse("no required checks on this PR: make `make verify` a required check first (project skill)")
+    red = [f"{c['name']} ({c.get('bucket')})" for c in required if c.get("bucket") != "pass"]
+    if red:
+        return refuse("required checks not green: " + ", ".join(red))
+    print(f"gate passed for {pr} at {sha} ({'approved by the human' if approved else 'autopilot: ' + risk})")
+    merge_command = ["gh", "pr", "merge", pr, *target, "--squash", "--auto", "--delete-branch", "--match-head-commit", sha]
+    return execute([merge_command], dry)
+
+
+# ------------------------------------------------------------------------------------------------ main
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    if not args or args[0] in ("-h", "--help"):
+        print(__doc__)
+        return 0
+    command, rest = args[0], args[1:]
+    if command == "name":
+        print(plugin_name())
+        return 0
+    if command == "lane":
+        os.execv(str(FLEET / "bin" / "fleet-lane"), [str(FLEET / "bin" / "fleet-lane"), *rest])
+    cfg = load()
+    projects = load_projects()
+    dry = "--dry-run" in rest
+    approved = "--approved" in rest
+    rest = [a for a in rest if a not in ("--dry-run", "--approved")]
+    if command == "models":
+        action = rest[0] if rest else "show"
+        if action == "show":
+            return models_show(cfg, projects)
+        if action == "check":
+            return models_check(cfg, projects)
+        if action == "apply":
+            return models_apply(cfg, projects, dry)
+        if action == "cmd" and len(rest) == 3:
+            print("\n".join(argv(cfg, rest[1], rest[2])))
+            return 0
+        if action == "reviewer" and len(rest) == 2:
+            spec = cfg["reviewers"][rest[1]]
+            print(spec["lane"], spec["tier"])
+            return 0
+        if action == "subagent" and len(rest) == 2:
+            print(subagent_model(cfg, rest[1]))
+            return 0
+    if command == "project" and rest:
+        if rest[0] == "add":
+            return project_add(cfg, rest[1:], dry)
+        if rest[0] == "list":
+            for name, project in sorted(projects.items()):
+                print(f"{name:<20}{manager_profile(name):<24}{project.get('github', ''):<36}{project.get('repo', '')}")
+            return 0
+        if rest[0] == "sync" and len(rest) == 2:
+            return project_sync(cfg, projects, rest[1], dry)
+    if command == "bootstrap":
+        return bootstrap(cfg, projects, dry)
+    if command == "merge" and rest:
+        flags = dict(zip(rest[1::2], rest[2::2]))
+        if "--risk" not in flags or "--sha" not in flags:
+            sys.exit("usage: fleet merge <pr> --risk <low|standard|money-path> --sha <verified sha> "
+                     "[--repo owner/repo] [--approved] [--dry-run]")
+        return merge(cfg, rest[0], flags["--risk"], flags["--sha"], flags.get("--repo", ""), approved, dry)
+    print(__doc__, file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

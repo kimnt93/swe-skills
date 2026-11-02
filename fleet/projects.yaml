@@ -1,0 +1,9 @@
+# fleet/projects.yaml: one entry per project. `fleet project add` writes it; edit it freely, then
+# `fleet project sync <name>` (or `fleet bootstrap`) applies it.
+#
+# <name>:
+#   repo: <local clone path>          worktrees for cards are created from it
+#   github: <owner>/<repo>            PR completion contracts, issues, branch protection
+#   description: <one line>           shown to the manager and the router
+# Derived: the manager profile is pm-<name>, the kanban board and the Hermes project are <name>.
+projects: {}
