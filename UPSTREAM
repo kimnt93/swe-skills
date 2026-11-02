@@ -1,0 +1,61 @@
+# Forked from github.com/cursor/plugins (pstack, MIT, (c) 2026 Lauren Tan). See LICENSES/pstack-MIT.txt.
+# Columns: our path (relative to src/ or the repo), the upstream path, how it was taken.
+# Every file is rewritten for our stack; the ideas are upstream's. scripts/upstream.sh lists upstream
+# changes since the pin for these paths, so improvements can be ported by hand.
+pin ae5650f
+skills/router                                                             pstack/skills/poteto-mode                                                  rewritten
+skills/router/references/investigation.md                                 pstack/skills/poteto-mode/playbooks/investigation.md                       rewritten
+skills/router/references/bug-fix.md                                       pstack/skills/poteto-mode/playbooks/bug-fix.md                             rewritten
+skills/router/references/feature.md                                       pstack/skills/poteto-mode/playbooks/feature.md                             rewritten
+skills/router/references/refactoring.md                                   pstack/skills/poteto-mode/playbooks/refactoring.md                         rewritten
+skills/router/references/multi-phase.md                                   pstack/skills/poteto-mode/playbooks/multi-phase-plan.md                    rewritten
+skills/router/references/perf-issue.md                                    pstack/skills/poteto-mode/playbooks/perf-issue.md                          rewritten
+skills/router/references/profiling.md                                     pstack/skills/poteto-mode/playbooks/trace-forensics.md                     rewritten
+skills/router/references/hillclimb.md                                     pstack/skills/poteto-mode/playbooks/hillclimb.md                           rewritten
+skills/router/references/incident.md                                      pstack/skills/poteto-mode/playbooks/runtime-forensics.md                   rewritten
+skills/router/references/prototype.md                                     pstack/skills/poteto-mode/playbooks/prototype.md                           rewritten
+skills/router/references/babysit.md                                       pstack/skills/poteto-mode/playbooks/babysit.md                             rewritten
+skills/router/references/opening-a-pr.md                                  pstack/skills/poteto-mode/playbooks/opening-a-pr.md                        rewritten
+skills/router/references/autonomous-run.md                                pstack/skills/poteto-mode/playbooks/autonomous-run.md                      rewritten
+skills/router/references/session-pickup.md                                pstack/skills/poteto-mode/playbooks/session-pickup.md                      rewritten
+skills/router/references/pause-safely.md                                  pstack/skills/poteto-mode/playbooks/pause-safely.md                        rewritten
+skills/router/references/figure-it-out.md                                 pstack/skills/figure-it-out/SKILL.md                                       rewritten
+skills/router/references/eval.md                                          pstack/skills/poteto-mode/playbooks/eval.md                                rewritten
+skills/tdd                                                                pstack/skills/tdd                                                          rewritten
+skills/architect                                                          pstack/skills/architect                                                    rewritten
+skills/interrogate                                                        pstack/skills/interrogate                                                  rewritten
+skills/blast-radius                                                       pstack/skills/blast-radius                                                 rewritten
+skills/benchmark-checklist                                                pstack/skills/benchmark-checklist                                          rewritten
+skills/correct                                                            pstack/skills/correct                                                      rewritten
+skills/verify-create                                                      pstack/skills/create-verification-skill                                    rewritten
+skills/verify-maintain                                                    pstack/skills/maintain-verification-skill                                  rewritten
+skills/ketchup                                                            pstack/skills/ketchup                                                      rewritten
+skills/reflect                                                            pstack/skills/reflect                                                      rewritten
+skills/how                                                                pstack/skills/how                                                          rewritten
+skills/why                                                                pstack/skills/why                                                          rewritten
+skills/deslop                                                             pstack/skills/no-comments                                                  rewritten (merged with unslop, technical-writing)
+skills/formal-verify/references/create.md                                 pstack/skills/create-formal-verification-skill/SKILL.md                    rewritten
+skills/formal-verify/references/maintain.md                               pstack/skills/maintain-formal-verification-skill/SKILL.md                  rewritten
+skills/principles/references/attack-the-premise.md                        pstack/skills/principle-attack-the-premise/SKILL.md                        rewritten
+skills/principles/references/boundary-discipline.md                       pstack/skills/principle-boundary-discipline/SKILL.md                       rewritten
+skills/principles/references/build-the-lever.md                           pstack/skills/principle-build-the-lever/SKILL.md                           rewritten
+skills/principles/references/encode-lessons-in-structure.md               pstack/skills/principle-encode-lessons-in-structure/SKILL.md               rewritten
+skills/principles/references/explain-the-number.md                        pstack/skills/principle-explain-the-number/SKILL.md                        rewritten
+skills/principles/references/fix-root-causes.md                           pstack/skills/principle-fix-root-causes/SKILL.md                           rewritten
+skills/principles/references/foundational-thinking.md                     pstack/skills/principle-foundational-thinking/SKILL.md                     rewritten
+skills/principles/references/guard-the-context-window.md                  pstack/skills/principle-guard-the-context-window/SKILL.md                  rewritten
+skills/principles/references/laziness-protocol.md                         pstack/skills/principle-laziness-protocol/SKILL.md                         rewritten
+skills/principles/references/make-operations-idempotent.md                pstack/skills/principle-make-operations-idempotent/SKILL.md                rewritten
+skills/principles/references/migrate-callers-then-delete-legacy-apis.md   pstack/skills/principle-migrate-callers-then-delete-legacy-apis/SKILL.md   rewritten
+skills/principles/references/minimize-reader-load.md                      pstack/skills/principle-minimize-reader-load/SKILL.md                      rewritten
+skills/principles/references/model-the-domain.md                          pstack/skills/principle-model-the-domain/SKILL.md                          rewritten
+skills/principles/references/never-block-on-the-human.md                  pstack/skills/principle-never-block-on-the-human/SKILL.md                  rewritten
+skills/principles/references/prove-it-works.md                            pstack/skills/principle-prove-it-works/SKILL.md                            rewritten
+skills/principles/references/redesign-from-first-principles.md            pstack/skills/principle-redesign-from-first-principles/SKILL.md            rewritten
+skills/principles/references/separate-before-serializing-shared-state.md  pstack/skills/principle-separate-before-serializing-shared-state/SKILL.md  rewritten
+skills/principles/references/sequence-verifiable-units.md                 pstack/skills/principle-sequence-verifiable-units/SKILL.md                 rewritten
+skills/principles/references/subtract-before-you-add.md                   pstack/skills/principle-subtract-before-you-add/SKILL.md                   rewritten
+skills/principles/references/test-behavior-not-implementation.md          pstack/skills/principle-test-behavior-not-implementation/SKILL.md          rewritten
+skills/principles/references/type-system-discipline.md                    pstack/skills/principle-type-system-discipline/SKILL.md                    rewritten
+fleet/skills/fleet-chef                                                   pstack/skills/poteto-mode/playbooks/orchestrate.md                         rewritten
+fleet/skills/fleet-worker                                                 pstack/skills/poteto-mode/playbooks/autopilot-full.md                      rewritten
