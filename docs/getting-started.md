@@ -32,7 +32,8 @@ make codex             # Codex (optional): $swe:swe
 make hermes            # Hermes (optional): skills swe, swe-<skill>
 ```
 
-Start a new session afterwards. Per-agent details: [setup-claude.md](setup-claude.md) and
+Any of 31 harnesses works the same way (`make cursor`, `make gemini-cli`, `make opencode`, ...): see
+[harnesses.md](harnesses.md). Start a new session afterwards. Per-agent details: [setup-claude.md](setup-claude.md) and
 [setup-omp.md](setup-omp.md).
 
 ## 4. First task

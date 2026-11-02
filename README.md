@@ -30,6 +30,8 @@ variable always wins.
 | Read | When |
 |---|---|
 | [docs/getting-started.md](docs/getting-started.md) | install and the first task, troubleshooting |
+| [docs/harnesses.md](docs/harnesses.md) | install into Claude Code, Codex, oh-my-pi and 28 more harnesses (generated) |
+| [docs/runbooks.md](docs/runbooks.md) | the steps that need you: pilot service, fleet live, autopilot, publish |
 | [docs/setup-claude.md](docs/setup-claude.md) | **Setup A:** Claude Code on your Claude subscription as the coding agent |
 | [docs/setup-omp.md](docs/setup-omp.md) | **Setup B:** oh-my-pi as the coding agent |
 | [docs/usage.md](docs/usage.md) | what to say for each kind of task; skills; GitHub; the fleet |
@@ -126,11 +128,10 @@ src/manifests/       plugin manifests with placeholders
 scripts/             build.py, install.py, validate_skills.py, publish.sh, upstream.sh
 fleet/               models.yaml, projects.yaml, the fleet command, fleet skills, self-test
 docs/                architecture.md (the design), agents-and-skills.md (the recommended setup)
-plans/               what is done, and the steps that need a human
 tests/               build_test.sh, enforcement_test.sh, fixtures
 UPSTREAM, LICENSES/  where each forked file came from, and pstack's MIT licence
 CHANGELOG.md         one entry per version (make publish requires it)
 dist/                build output (git-ignored); never edit it
 ```
 
-Agents working in this repo: read `AGENTS.md`, then `plans/README.md`.
+Agents working in this repo: read `AGENTS.md`, then `docs/README.md`.

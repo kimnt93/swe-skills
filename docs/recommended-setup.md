@@ -30,7 +30,7 @@ What to run, in what order, and what to keep switched off until it has earned tr
 7. **Autopilot.** Pin full model ids; after 20 clean merges set `autopilot.auto_merge: [low]`; sample
    merged PRs weekly; widen only after two clean weeks.
 
-The step-by-step runbooks, with commands and exit checks, are in `plans/`.
+The step-by-step runbooks, with commands and exit checks, are in [runbooks.md](runbooks.md).
 
 ## Daily routine
 

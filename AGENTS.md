@@ -1,6 +1,6 @@
 # Working in swe-skills (for AI agents)
 
-Read this file fully, then `plans/README.md`, before you change anything.
+Read this file fully, then `docs/README.md` (and `docs/runbooks.md` for operations), before you change anything.
 
 ## What this repo is
 
@@ -11,7 +11,7 @@ coding lanes (`claude`, `omp`); every agent and model is set in `fleet/models.ya
 
 ## Rules
 
-1. **Edit `src/`, `fleet/`, `scripts/`, `tests/`, `plans/`, `docs/`. Never edit `dist/`.** It is rebuilt from
+1. **Edit `src/`, `fleet/`, `scripts/`, `tests/`, `docs/`. Never edit `dist/`.** `docs/skills.md` and `docs/harnesses.md` are generated (`make docs`). It is rebuilt from
    scratch on every `make build`.
 2. **Never hard-code the plugin's name or the org's values.** The build fills these placeholders:
    `@PLUGIN@` (plugin and router name), `@DOMAIN@` (hosts and URLs: `<service>.<env>.@DOMAIN@`),
@@ -47,9 +47,9 @@ bash fleet/tests/selftest.sh --hermes       # also bootstrap a scratch Hermes ho
 PLUGIN_NAME=acme PLUGIN_DOMAIN=acme.test make validate   # any name and domain must build too
 ```
 
-Done means `make validate` and `make test` pass, and you ran the plan's own verify steps.
+Done means `make validate` and `make test` pass, and you ran the checks of the runbook you touched.
 
 ## Commits
 
-Conventional Commits, small and ordered: `feat(skills): ...`, `fix(build): ...`, `docs(plans): ...`.
+Conventional Commits, small and ordered: `feat(skills): ...`, `fix(build): ...`, `docs(runbooks): ...`.
 Don't commit `dist/` or `plugin.local.env`. Don't push unless the plan or the human says so.

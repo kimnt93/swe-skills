@@ -3,6 +3,8 @@
 | Read | When |
 |---|---|
 | [getting-started.md](getting-started.md) | first install, first task, troubleshooting |
+| [harnesses.md](harnesses.md) | every supported harness (Claude Code, Codex, oh-my-pi and 28 more): install command, directories, how to invoke (generated) |
+| [runbooks.md](runbooks.md) | the steps that need you: pilot service, fleet live, autopilot, model upgrade, publish, local install |
 | [setup-claude.md](setup-claude.md) | Claude Code on your Claude subscription as the coding agent |
 | [setup-omp.md](setup-omp.md) | oh-my-pi as the coding agent |
 | [usage.md](usage.md) | what to say for each kind of task; skills; GitHub; the fleet |
@@ -11,5 +13,4 @@
 | [agents-and-skills.md](agents-and-skills.md) | which Hermes profile and coding agent gets which skills and GitHub rights |
 | [skills.md](skills.md) | the reference for every skill (generated from the skills) |
 | `../fleet/README.md` | the `fleet` command and `models.yaml` |
-| `../plans/` | runbooks with exit checks: what is done and what needs a human |
 | `../AGENTS.md` | rules for agents (and people) changing this repository |
