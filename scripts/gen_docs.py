@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-"""Generate docs/skills.md, the skill reference, from the skills' own frontmatter and references.
+"""Generate docs/skills.md (the skill reference, from the skills' own frontmatter and references) and
+docs/harnesses.md (every supported harness, from the installer's table).
 
-    python3 scripts/gen_docs.py            write docs/skills.md
-    python3 scripts/gen_docs.py --check    exit 1 when docs/skills.md is out of date (make test runs it)
+    python3 scripts/gen_docs.py            write both files
+    python3 scripts/gen_docs.py --check    exit 1 when either is out of date (make test runs it)
 
 The text is the default plugin name's (plugin.env); replace `swe` with your PLUGIN_NAME.
 """
 
 from __future__ import annotations
 
+import ast
 import re
 import sys
 from pathlib import Path
@@ -16,6 +18,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = ROOT / "src" / "skills"
 OUT = ROOT / "docs" / "skills.md"
+OUT_HARNESS = ROOT / "docs" / "harnesses.md"
+INSTALLER = ROOT / "scripts" / "install.py"
 GROUPS = (
     ("start", "Start here"),
     ("process", "Process and proof"),
@@ -103,16 +107,98 @@ def render() -> str:
     return "\n".join(out).rstrip() + "\n"
 
 
+def harnesses() -> list[dict]:
+    """The installer's AGENTS table, read from its source (it needs a built stack to import)."""
+    tree = ast.parse(INSTALLER.read_text(encoding="utf-8"))
+    table = next(n.value for n in ast.walk(tree) if isinstance(n, ast.AnnAssign)
+                 and getattr(n.target, "id", "") == "AGENTS")
+    rows = []
+    for key, call in zip(table.keys, table.values):
+        args = [ast.literal_eval(a) if not isinstance(a, ast.Name) else "" for a in call.args]
+        kwargs = {k.arg: (ast.literal_eval(k.value) if not isinstance(k.value, ast.Name) else "<plugin>") for k in call.keywords}
+        rows.append({"key": ast.literal_eval(key), "label": args[0], "user": args[1], "project": args[2],
+                     "plugin": kwargs.get("plugin", ""), "subdir": kwargs.get("subdir", "")})
+    return rows
+
+
+def render_harnesses() -> str:
+    name = plugin_name()
+    rows = harnesses()
+    out = [
+        "# Harnesses",
+        "",
+        f"The plugin installs into {len(rows)} agent harnesses with one command each: `make <harness>` (several at once:",
+        "`make claude codex omp hermes`; everything found on the machine: `make install`; remove: add `REMOVE=1`).",
+        "Generated from the installer's table by `scripts/gen_docs.py`: do not edit by hand.",
+        "",
+        "## Plugin harnesses",
+        "",
+        f"Claude Code, Codex and oh-my-pi install the plugin from `dist/{name}` through their marketplace, so skills are",
+        f"namespaced and the plugin updates in place on rebuild.",
+        "",
+        "| Harness | Install | Router | Another skill | Extras |",
+        "|---|---|---|---|---|",
+        f"| Claude Code | `make claude` | `/{name} <task>` | `/{name}:<skill>` | subagents `{name}:worker`, `{name}:adversary` |",
+        f"| Codex | `make codex` | `${name}:{name} <task>` | `${name}:<skill>` | |",
+        f"| oh-my-pi | `make omp` | `/skill:{name} <task>` | `/skill:<skill>` | omp's own subagent roles |",
+        "",
+        "## Skill-directory harnesses",
+        "",
+        f"Every other harness reads a directory of `<skill>/SKILL.md` folders. The installer copies each skill as",
+        f"`{name}-<skill>` (the router keeps the name `{name}`) and rewrites `name:` and the links between skills,",
+        "because the Agent Skills format needs `name` to equal the directory, with no colon. Agents load a skill by",
+        f"its description, so a plain request finds the right one; name `{name}` to start the router explicitly.",
+        "",
+        "| Harness | Install | User skills directory | Project skills directory (`SCOPE=project`) |",
+        "|---|---|---|---|",
+    ]
+    for row in rows:
+        if row["plugin"]:
+            continue
+        subdir = f"/{name}" if row["subdir"] else ""
+        out.append(f"| {row['label']} | `make {row['key']}` | `{row['user']}{subdir}` | `{row['project']}` |")
+    out += [
+        "",
+        "Options for any target: `SCOPE=project PROJECT_DIR=~/code/app` (commit the skills with the repo),",
+        "`PREFIX=acme` (another prefix), `SKILLS=\"go-code py-code\"` (a subset), `PLUGIN=no` (copy skills even for",
+        "Claude Code, Codex and omp), `DRY_RUN=1` (show what would happen). A harness that is not listed:",
+        "`make custom DIR=<its skills directory>`.",
+        "",
+        "## Which harness does what",
+        "",
+        "| Use | Harnesses |",
+        "|---|---|",
+        "| interactive coding with the skills | all of the above |",
+        f"| a **fleet lane** (unattended, started by Hermes with `fleet lane`) | Claude Code (`claude`) and oh-my-pi (`omp`) |",
+        "| the **fleet's own agents** (root, project managers) | Hermes Agent (`make hermes` also copies the skills for its profiles) |",
+        "",
+        "Codex and the other harnesses use the same skills by hand; the fleet drives only the two lane CLIs.",
+        "A new lane needs a `cli` branch in `fleet/bin/fleet` (`argv`) and an entry under `lanes:` and",
+        "`workers:` in `fleet/models.yaml`.",
+        "",
+        "## Check an install",
+        "",
+        "```bash",
+        "make status                    # what is installed, per detected harness",
+        "make claude DRY_RUN=1          # what a target would do",
+        f"bash tests/harness_test.sh     # installs into all {len(rows)} harnesses in a scratch home",
+        "```",
+    ]
+    return "\n".join(out) + "\n"
+
+
 def main() -> int:
-    text = render()
+    outputs = {OUT: render(), OUT_HARNESS: render_harnesses()}
     if "--check" in sys.argv[1:]:
-        if not OUT.exists() or OUT.read_text(encoding="utf-8") != text:
-            print("docs/skills.md is out of date: run python3 scripts/gen_docs.py")
-            return 1
-        print("docs/skills.md is up to date")
-        return 0
-    OUT.write_text(text, encoding="utf-8")
-    print(f"wrote {OUT.relative_to(ROOT)} ({text.count(chr(10))} lines)")
+        stale = [path for path, text in outputs.items() if not path.exists() or path.read_text(encoding="utf-8") != text]
+        for path in stale:
+            print(f"{path.relative_to(ROOT)} is out of date: run python3 scripts/gen_docs.py")
+        if not stale:
+            print("docs/skills.md and docs/harnesses.md are up to date")
+        return 1 if stale else 0
+    for path, text in outputs.items():
+        path.write_text(text, encoding="utf-8")
+        print(f"wrote {path.relative_to(ROOT)} ({text.count(chr(10))} lines)")
     return 0
 
 
