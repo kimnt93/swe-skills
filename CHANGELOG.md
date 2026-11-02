@@ -3,6 +3,19 @@
 Versions follow semver: a new skill or a rule a skill newly enforces is a minor version; wording
 and fixes are a patch. `make publish` refuses a version without an entry here.
 
+## 3.5.0
+
+- Context limits in one place (`context:` in `fleet/models.yaml`): Claude models compact at 350k
+  (300 to 400k band), every other model at 245k of a 272k window (the price step). `fleet context
+  show | apply` writes Claude Code (`autoCompactWindow`), Codex and oh-my-pi
+  (`compaction.thresholdTokens`); `fleet lane` exports `CLAUDE_CODE_AUTO_COMPACT_WINDOW` per card;
+  Hermes profiles get `model.context_length` and `compression.*` by their model.
+- `fleet sync` and the Hermes slash command `/sync`: log in once on the default profile; the sync
+  copies provider API keys (never messaging tokens) to every profile, applies models, context limits
+  and skills, reports a profile login that hides the default's, and takes under a second when nothing
+  changed. `fleet bootstrap` installs `/sync` and applies the context policy.
+- `docs/context-and-sync.md`.
+
 ## 3.4.0
 
 - The default plugin name is `swe`: the entry command is `/swe`, skills are `/swe:<skill>`.
