@@ -1,0 +1,23 @@
+# Next.js app (ts-code skill, assets/nextjs): next.config.ts sets output: "standalone".
+ARG NODE_IMAGE=node:22-bookworm-slim
+
+FROM ${NODE_IMAGE} AS build
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+# Public values are compiled in: pass each NEXT_PUBLIC_* as a build arg per environment.
+RUN npm run build
+
+FROM ${NODE_IMAGE} AS runtime
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 TZ=UTC HOSTNAME=0.0.0.0 PORT=3000
+WORKDIR /app
+COPY --from=build --chown=node:node /app/.next/standalone ./
+COPY --from=build --chown=node:node /app/.next/static .next/static
+COPY --from=build --chown=node:node /app/public public
+USER node
+# Every HTTP service listens on 3000 (api-contract skill); /healthz is the app's route handler.
+EXPOSE 3000
+# node is PID 1 so SIGTERM reaches the server.
+CMD ["node", "server.js"]

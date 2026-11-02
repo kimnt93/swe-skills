@@ -1,0 +1,15 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "@MARKETPLACE@",
+  "owner": { "name": "@OWNER@" },
+  "metadata": { "description": "@TITLE@ skill stack", "version": "@VERSION@" },
+  "plugins": [
+    {
+      "name": "@PLUGIN@",
+      "source": "./",
+      "description": "@DESCRIPTION@ In omp: /skill:@PLUGIN@.",
+      "category": "development",
+      "homepage": "@HOMEPAGE@"
+    }
+  ]
+}

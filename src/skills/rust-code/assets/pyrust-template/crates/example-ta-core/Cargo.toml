@@ -1,0 +1,11 @@
+[package]
+name = "example-ta-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+
+[lints]
+workspace = true

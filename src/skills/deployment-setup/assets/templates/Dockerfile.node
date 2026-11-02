@@ -1,0 +1,27 @@
+# Node/TypeScript service. Replace `dist/main.js`.
+ARG NODE_IMAGE=node:22-bookworm-slim
+
+FROM ${NODE_IMAGE} AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY tsconfig.json ./
+COPY src/ src/
+RUN npm run build \
+    && npm prune --omit=dev
+
+FROM ${NODE_IMAGE} AS runtime
+ENV NODE_ENV=production TZ=UTC
+WORKDIR /app
+COPY --from=build --chown=node:node /app/node_modules node_modules
+COPY --from=build --chown=node:node /app/dist dist
+COPY --from=build --chown=node:node /app/package.json ./
+COPY --chown=node:node scripts/health.sh /app/scripts/health.sh
+USER node
+# Every API listens on 3000 (api-contract skill); Traefik reaches it there.
+EXPOSE 3000
+# The entrypoint gate waits for the infrastructure named in $HEALTH_DEPS, then execs the application
+# (no-op when HEALTH_DEPS is empty). It needs bash in the runtime image.
+# `node` itself ends up as PID 1 (not `npm start`) so SIGTERM reaches the app.
+ENTRYPOINT ["/app/scripts/health.sh", "--wait", "--", "node", "dist/main.js"]
+CMD ["serve"]

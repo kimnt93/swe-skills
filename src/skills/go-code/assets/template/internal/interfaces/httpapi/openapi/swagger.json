@@ -1,0 +1,309 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Versioned HTTP API: docs at /docs, health at /healthz.",
+        "title": "Example service API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "basePath": "/",
+    "paths": {
+        "/healthz": {
+            "get": {
+                "tags": [
+                    "health"
+                ],
+                "summary": "Health of the service",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.Health"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.Health"
+                        }
+                    }
+                }
+            }
+        },
+        "/internal": {
+            "get": {
+                "security": [
+                    {
+                        "InternalServiceAuth": []
+                    }
+                ],
+                "tags": [
+                    "internal"
+                ],
+                "summary": "Health of the service for an internal caller",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.InternalHealth"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.Envelope"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.InternalHealth"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/items": {
+            "post": {
+                "security": [
+                    {
+                        "InternalServiceAuth": []
+                    }
+                ],
+                "tags": [
+                    "items"
+                ],
+                "summary": "Create an item",
+                "parameters": [
+                    {
+                        "description": "item",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CreateItemRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/api.Envelope"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/api.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/items/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "InternalServiceAuth": []
+                    }
+                ],
+                "tags": [
+                    "items"
+                ],
+                "summary": "Get an item",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "item id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.Envelope"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "api.Envelope": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error": {
+                    "$ref": "#/definitions/api.ErrorBody"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status_code": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "api.ErrorBody": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "retryable": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "httpapi.Health": {
+            "type": "object",
+            "properties": {
+                "api_versions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "checked_at": {
+                    "type": "string"
+                },
+                "checks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httpapi.HealthCheck"
+                    }
+                },
+                "config": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "env_name": {
+                    "type": "string"
+                },
+                "node_name": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "service_version": {
+                    "type": "string"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "uptime_seconds": {
+                    "type": "integer"
+                }
+            }
+        },
+        "httpapi.HealthCheck": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "latency_ms": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.InternalHealth": {
+            "type": "object",
+            "properties": {
+                "api_versions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "caller": {
+                    "$ref": "#/definitions/middleware.Caller"
+                },
+                "checked_at": {
+                    "type": "string"
+                },
+                "checks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httpapi.HealthCheck"
+                    }
+                },
+                "config": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "env_name": {
+                    "type": "string"
+                },
+                "node_name": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "service_version": {
+                    "type": "string"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "uptime_seconds": {
+                    "type": "integer"
+                }
+            }
+        },
+        "middleware.Caller": {
+            "type": "object",
+            "properties": {
+                "user_id": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.CreateItemRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "example": "pen"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "InternalServiceAuth": {
+            "type": "apiKey",
+            "name": "x-internal-service-token",
+            "in": "header"
+        }
+    }
+}

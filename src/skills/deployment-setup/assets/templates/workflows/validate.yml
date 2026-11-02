@@ -1,0 +1,60 @@
+name: Validate
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    # Same-repository PRs and manual runs only: never run fork code on self-hosted runners.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, local, builder] # declare these labels in .github/actionlint.yaml
+    timeout-minutes: 15
+    steps:
+      # Pin to a full commit SHA with the version as a comment; keep dependabot for github-actions.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Render each plane with dummy values
+        run: |
+          set -eu
+          digest="$(printf '0%.0s' $(seq 1 64))"
+          for plane in stg prod; do
+            set -a; . "deploy/${plane}.env"; set +a
+            RUN_ENV="$plane" APP_IMAGE="example.invalid/app@sha256:${digest}" \
+              docker stack config -c docker-compose.yaml >/dev/null
+          done
+          docker compose -f docker-compose.local.yaml config >/dev/null
+
+      - name: Deployment checks
+        run: >-
+          python3 scripts/check_deploy.py docker-compose.yaml
+          --env-file deploy/stg.env --set RUN_ENV=stg
+          --set APP_IMAGE=example.invalid/app@sha256:0000000000000000000000000000000000000000000000000000000000000000
+
+      - name: Lint workflows
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7 -color
+
+      # Add the project's vet and vulnerability checks here (run in the Dockerfile's toolchain image).
+
+  verify:
+    # The required check: the same `make verify` agents run (static gates, e2e tests, live probe).
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, local, builder]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: make verify
+        run: make verify

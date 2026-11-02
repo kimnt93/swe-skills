@@ -1,0 +1,82 @@
+[
+  {
+    "name": "type:feat",
+    "color": "1d76db",
+    "description": "A new behaviour"
+  },
+  {
+    "name": "type:fix",
+    "color": "d73a4a",
+    "description": "A defect"
+  },
+  {
+    "name": "type:refactor",
+    "color": "c5def5",
+    "description": "Structure only"
+  },
+  {
+    "name": "type:perf",
+    "color": "fbca04",
+    "description": "Faster or smaller"
+  },
+  {
+    "name": "type:docs",
+    "color": "0075ca",
+    "description": "Documents"
+  },
+  {
+    "name": "type:chore",
+    "color": "ededed",
+    "description": "Tooling and upkeep"
+  },
+  {
+    "name": "risk:low",
+    "color": "c2e0c6",
+    "description": "Nobody notices if it is wrong for a day"
+  },
+  {
+    "name": "risk:standard",
+    "color": "fef2c0",
+    "description": "Normal review"
+  },
+  {
+    "name": "risk:money-path",
+    "color": "b60205",
+    "description": "Orders, fills, positions, balances, risk, P&L: never auto-merged"
+  },
+  {
+    "name": "lane:claude",
+    "color": "5319e7",
+    "description": "Worked by the claude lane"
+  },
+  {
+    "name": "lane:omp",
+    "color": "0e8a16",
+    "description": "Worked by the omp lane"
+  },
+  {
+    "name": "tier:low",
+    "color": "f9d0c4",
+    "description": "Mechanical"
+  },
+  {
+    "name": "tier:mid",
+    "color": "f7c6c7",
+    "description": "Default"
+  },
+  {
+    "name": "tier:top",
+    "color": "e99695",
+    "description": "Hard or money-path"
+  },
+  {
+    "name": "size:large",
+    "color": "000000",
+    "description": "Over the PR size limit, with a reason in the PR"
+  },
+  {
+    "name": "blocked",
+    "color": "b60205",
+    "description": "Waiting on something outside the card"
+  }
+]

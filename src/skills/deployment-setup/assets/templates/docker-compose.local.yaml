@@ -1,0 +1,112 @@
+# Local development: same service keys, commands and environment semantics as docker-compose.yaml.
+#   cp .env.example .env            # fill in the required passwords/keys: they have no defaults
+#   docker compose -f docker-compose.infra.local.yaml up -d   # optional local PostgreSQL/Redis/ClickHouse/Kafka/RustFS
+#   docker compose -f docker-compose.local.yaml config
+#   docker compose -f docker-compose.local.yaml up --build
+# Local-only: build context, host networking, plain env passwords (Swarm uses *_FILE secrets).
+name: example-local
+
+x-env: &env
+  TZ: UTC
+  RUN_ENV: ${RUN_ENV:-local}
+  ENV_NAME: ${RUN_ENV:-local} # env label of the host and the healthz body
+  LOG_LEVEL: ${LOG_LEVEL:-debug}
+  HEALTH_WAIT_SECONDS: "60"
+  # Tracing (service-tracing skill, references/env.md): an empty endpoint = no export
+  SERVICE_VERSION: ${SERVICE_VERSION:-local}
+  OTEL_TRACES_EXPORTER: ${OTEL_TRACES_EXPORTER:-otlp}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  OTEL_PROPAGATORS: tracecontext,baggage
+  OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
+  OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1.0}
+  TRACING_DETAIL: ${TRACING_DETAIL:-false}
+  OTEL_AUTH_TOKEN: ${OTEL_AUTH_TOKEN:-} # only when the local endpoint requires a token; never commit a value
+
+# Same names as the Swarm file. Hosts/users/databases are required; passwords are required and have NO default.
+x-postgres: &postgres
+  POSTGRES_HOST: ${POSTGRES_HOST:?POSTGRES_HOST is required}
+  POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+  POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+  POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+  POSTGRES_SSLMODE: ${POSTGRES_SSLMODE:-disable}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+
+x-redis: &redis
+  REDIS_HOST: ${REDIS_HOST:?REDIS_HOST is required}
+  REDIS_PORT: ${REDIS_PORT:-6379}
+  REDIS_DB: ${REDIS_DB:-0}
+  REDIS_USERNAME: ${REDIS_USERNAME:-}
+  REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+
+x-clickhouse: &clickhouse
+  CLICKHOUSE_HOST: ${CLICKHOUSE_HOST:?CLICKHOUSE_HOST is required}
+  CLICKHOUSE_PORT: ${CLICKHOUSE_PORT:-9000}
+  CLICKHOUSE_HTTP_PORT: ${CLICKHOUSE_HTTP_PORT:-8123}
+  CLICKHOUSE_DB: ${CLICKHOUSE_DB:?CLICKHOUSE_DB is required}
+  CLICKHOUSE_USER: ${CLICKHOUSE_USER:?CLICKHOUSE_USER is required}
+  CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?CLICKHOUSE_PASSWORD is required}
+
+x-kafka: &kafka
+  KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:?KAFKA_BOOTSTRAP_SERVERS is required}
+  KAFKA_SECURITY_PROTOCOL: ${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
+  KAFKA_SASL_MECHANISM: ${KAFKA_SASL_MECHANISM:-SCRAM-SHA-256}
+  KAFKA_SASL_USERNAME: ${KAFKA_SASL_USERNAME:-}
+  KAFKA_SASL_PASSWORD: ${KAFKA_SASL_PASSWORD:-} # required (non-empty) only when KAFKA_SECURITY_PROTOCOL is SASL_*
+  KAFKA_CONSUMER_GROUP: ${KAFKA_CONSUMER_GROUP:?KAFKA_CONSUMER_GROUP is required}
+
+x-s3: &s3
+  S3_ENDPOINT: ${S3_ENDPOINT:?S3_ENDPOINT is required}
+  S3_REGION: ${S3_REGION:-us-east-1}
+  S3_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
+  S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+
+services:
+  api:
+    build: .
+    pull_policy: build # always rebuild on `up`, never run a stale image
+    command: ["serve"]
+    environment:
+      <<: [*env, *postgres, *redis, *s3]
+      SERVICE_NAME: ${API_SERVICE_NAME:-example-api}
+      OTEL_SERVICE_NAME: ${API_SERVICE_NAME:-example-api}
+      PORT: "3000"
+      HEALTH_DEPS: postgres,redis,s3
+    network_mode: host # reach infrastructure published on 127.0.0.1 (see docker-compose.infra.local.yaml)
+    healthcheck:
+      test: ["CMD", "/app/scripts/health.sh", "--app"]
+      interval: 15s
+      timeout: 10s
+      start_period: 90s
+      retries: 3
+    # Routing through a local Traefik needs a compose network instead of network_mode: host, plus
+    # Docker-provider labels (service-level `labels:`, `traefik.docker.network`); Swarm uses
+    # deploy.labels + traefik.swarm.network. A local render does not prove the Swarm provider routes it.
+    #   labels:
+    #     traefik.enable: "true"
+    #     traefik.docker.network: example-local_default
+    #     traefik.http.routers.example_api_local.rule: Host(`example-api.local.localhost`)
+    #     traefik.http.services.example_api_local.loadbalancer.server.port: "3000"
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+  worker:
+    build: .
+    pull_policy: build
+    command: ["worker"]
+    environment:
+      <<: [*env, *postgres, *kafka, *clickhouse]
+      SERVICE_NAME: ${WORKER_SERVICE_NAME:-example-worker}
+      OTEL_SERVICE_NAME: ${WORKER_SERVICE_NAME:-example-worker}
+      HEALTH_DEPS: postgres,kafka,clickhouse
+    network_mode: host
+    healthcheck:
+      test: ["CMD", "/app/scripts/health.sh"]
+      interval: 15s
+      timeout: 10s
+      start_period: 90s
+      retries: 3
+    restart: unless-stopped
+    stop_grace_period: 45s

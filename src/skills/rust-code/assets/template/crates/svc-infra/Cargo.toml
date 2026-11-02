@@ -1,0 +1,27 @@
+[package]
+name = "svc-infra"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+svc-core.workspace = true
+tokio.workspace = true
+tokio-postgres.workspace = true
+deadpool-postgres.workspace = true
+redis.workspace = true
+aws-sdk-s3.workspace = true
+rdkafka = { workspace = true, optional = true }
+futures-util = { workspace = true, optional = true }
+uuid.workspace = true
+time.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+
+[features]
+# Kafka needs cmake at build time, so it is opt-in: `cargo build -p svc-infra --features kafka`
+kafka = ["dep:rdkafka", "dep:futures-util"]

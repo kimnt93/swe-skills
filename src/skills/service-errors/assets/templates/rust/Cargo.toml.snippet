@@ -1,0 +1,12 @@
+# Cargo.toml (workspace)
+[workspace.dependencies]
+sentry = { version = "0.49", default-features = false, features = ["backtrace", "contexts", "panic", "reqwest", "rustls"] }
+sentry-tracing = "0.49"
+
+# crates/svc-api/Cargo.toml
+[dependencies]
+sentry.workspace = true
+sentry-tracing.workspace = true
+
+[dev-dependencies]
+sentry = { workspace = true, features = ["test"] }   # with_captured_events_options in the tests

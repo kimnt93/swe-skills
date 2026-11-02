@@ -1,0 +1,35 @@
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+[project]
+name = "example-ta"
+version = "0.1.0"
+description = "Rust-powered indicators with a Python API"
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.26"]
+classifiers = ["Programming Language :: Rust", "Programming Language :: Python :: Implementation :: CPython"]
+
+[project.optional-dependencies]
+polars = ["polars>=1.0"]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6", "polars>=1.0", "pycodestyle>=2.11"]
+
+[tool.maturin]
+manifest-path = "crates/example-ta-python/Cargo.toml"
+python-source = "python"
+module-name = "example_ta._native"
+# extension-module stays OFF for plain `cargo` builds (it omits the libpython link and breaks `cargo test --workspace`);
+# maturin turns it on here.
+features = ["pyo3/extension-module"]
+
+[tool.ruff]
+line-length = 79
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

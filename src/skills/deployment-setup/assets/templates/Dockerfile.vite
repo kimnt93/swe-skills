@@ -1,0 +1,23 @@
+# Vite + React SPA (ts-code skill, assets/vite-react): static files on unprivileged nginx.
+ARG NODE_IMAGE=node:22-bookworm-slim
+ARG NGINX_IMAGE=nginxinc/nginx-unprivileged:1.29-alpine
+
+FROM ${NODE_IMAGE} AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+# VITE_* values are compiled in: pass each as a build arg per environment.
+ARG VITE_API_BASE_URL=""
+ARG SERVICE_NAME=web
+ARG SERVICE_VERSION=0.0.0
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+RUN npx vite build \
+    && printf '{"status":"ok","service_name":"%s","service_version":"%s","api_versions":[]}\n' \
+       "$SERVICE_NAME" "$SERVICE_VERSION" > dist/healthz.json
+
+FROM ${NGINX_IMAGE} AS runtime
+COPY nginx.spa.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html
+# Every HTTP service listens on 3000 (api-contract skill).
+EXPOSE 3000

@@ -1,0 +1,7 @@
+# Cargo.toml [workspace.dependencies]  (versions move as ONE set: pyo3, pyo3-polars, polars; never bump one alone)
+polars = { version = "=0.54.4", default-features = false }
+pyo3-polars = { version = "0.27", default-features = false, features = ["derive", "lazy"] }
+
+# crates/<name>-python/Cargo.toml [dependencies]
+polars.workspace = true
+pyo3-polars.workspace = true

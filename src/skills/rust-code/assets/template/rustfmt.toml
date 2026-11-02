@@ -1,0 +1,5 @@
+# Readable layout: 100 columns, one item per line when a call, signature or literal does not fit.
+# `cargo fmt --all -- --check` runs in CI. Beyond formatting: see references/readable-code.md.
+max_width = 100
+use_small_heuristics = "Default"
+newline_style = "Unix"

@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "/internal response (the /healthz body plus the caller)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "service_name",
+    "env_name",
+    "node_name",
+    "api_versions",
+    "service_version",
+    "started_at",
+    "checked_at",
+    "uptime_seconds",
+    "config",
+    "checks",
+    "caller"
+  ],
+  "properties": {
+    "status": {
+      "enum": [
+        "ok",
+        "down"
+      ],
+      "description": "ok = HTTP 200; down = a registered dependency failed, HTTP 503"
+    },
+    "service_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "SERVICE_NAME; also the first label of the public host"
+    },
+    "env_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "stg, prod, dev, local; the second label of the public host"
+    },
+    "node_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "the Docker host (NODE_NAME), else the hostname"
+    },
+    "api_versions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^v[0-9]+$"
+      },
+      "minItems": 1,
+      "description": "every API version this service serves: [\"v1\"], [\"v1\", \"v2\"]"
+    },
+    "service_version": {
+      "type": "string",
+      "description": "SERVICE_VERSION (image tag or git sha); empty when unknown"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "uptime_seconds": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "config": {
+      "type": "object",
+      "description": "allowlisted non-secret values; must include port, log_level and docs_url",
+      "required": [
+        "port",
+        "log_level",
+        "docs_url"
+      ],
+      "properties": {
+        "port": {
+          "const": 3000
+        },
+        "log_level": {
+          "type": "string"
+        },
+        "docs_url": {
+          "const": "/docs"
+        }
+      },
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "boolean",
+          "array"
+        ]
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "status",
+          "latency_ms",
+          "error"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "down"
+            ]
+          },
+          "latency_ms": {
+            "type": "number",
+            "minimum": 0
+          },
+          "error": {
+            "enum": [
+              "",
+              "timeout",
+              "unavailable"
+            ],
+            "description": "a short code, never exception text"
+          }
+        }
+      }
+    },
+    "caller": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "user_id",
+        "username"
+      ],
+      "properties": {
+        "user_id": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "x-user-id as received, empty when absent"
+        },
+        "username": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "x-username as received, empty when absent"
+        }
+      }
+    }
+  }
+}

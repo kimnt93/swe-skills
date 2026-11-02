@@ -1,0 +1,19 @@
+# Swarm compose fragment: the DSN as an external secret (service-errors skill). Merge into the service.
+# Create it once per plane: the name carries the environment and a generation, as every other secret.
+#   printf '%s' "$DSN" | docker secret create account_api_sentry_dsn_stg_v1 -
+x-sentry-env: &sentry-env
+  SENTRY_DSN_FILE: /run/secrets/account_api_sentry_dsn   # the container-side name, no env or version
+  SERVICE_VERSION: ${APP_IMAGE:?APP_IMAGE is required}   # becomes the release: <service_name>@<image tag or digest>
+
+services:
+  api:
+    environment:
+      <<: *sentry-env
+    secrets:
+      - source: account_api_sentry_dsn
+        target: account_api_sentry_dsn
+
+secrets:
+  account_api_sentry_dsn:
+    external: true
+    name: account_api_sentry_dsn_${RUN_ENV:?RUN_ENV is required}_v1

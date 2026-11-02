@@ -1,0 +1,61 @@
+# Go common coding standard: gofmt + goimports (formatting), go vet + staticcheck + revive (Effective Go, Go Code
+# Review Comments), errcheck (no ignored errors). Run: golangci-lint run ./...   Format: golangci-lint fmt ./...
+version: "2"
+
+run:
+  timeout: 5m
+  build-tags: [integration]
+
+formatters:
+  enable: [gofmt, goimports]
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      # std, third-party, then this module: one blank line between groups
+      local-prefixes: [example.com/service]
+
+linters:
+  default: none
+  enable:
+    - errcheck       # never ignore an error without a reason
+    - govet          # printf, copylocks, lostcancel, ...
+    - staticcheck    # bugs, deprecated APIs, simplifications
+    - unused
+    - ineffassign
+    - revive         # naming (MixedCaps, initialisms), doc comments, receiver names, error strings
+    - misspell
+    - bodyclose
+    - noctx          # HTTP requests carry a context
+    - errorlint      # errors.Is/As, %w
+    - lll            # readable layout: at most 100 columns (gofmt never wraps)
+    - funlen         # a function fits one screen
+    - nestif         # no pyramids of nested if
+  settings:
+    lll:
+      line-length: 100
+      tab-width: 4
+    funlen:
+      lines: 60
+      statements: 40
+      ignore-comments: true
+    nestif:
+      min-complexity: 4
+    revive:
+      rules:
+        - name: exported            # exported identifiers have a doc comment starting with the name
+        - name: package-comments
+        - name: var-naming          # ID, URL, HTTP, JSON, SQL, ... not Id, Url
+        - name: receiver-naming     # short, consistent, never self/this
+        - name: error-strings       # lower-case, no trailing punctuation
+        - name: error-return        # error is the last return value
+        - name: error-naming        # errFoo / ErrFoo
+        - name: indent-error-flow
+        - name: context-as-argument # ctx is the first parameter
+        - name: unexported-return
+        - name: blank-imports
+        - name: increment-decrement
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters: [errcheck, funlen]

@@ -1,0 +1,11 @@
+[package]
+name = "service-tracing-smoke"
+version = "0.1.0"
+edition = "2021"
+
+# Versions tested with the template. Blocking reqwest: the batch processor runs on its own thread.
+[dependencies]
+gethostname = "1"
+opentelemetry = "0.33"
+opentelemetry_sdk = { version = "0.33", features = ["testing"] }
+opentelemetry-otlp = { version = "0.33", default-features = false, features = ["trace", "http-proto", "reqwest-blocking-client"] }

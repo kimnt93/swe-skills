@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "@HOMEPAGE@/service-logging/log-line.schema.json",
+  "title": "Unified service log line",
+  "description": "One JSON object per line. Custom fields are allowed; keep them flat snake_case scalars.",
+  "type": "object",
+  "required": ["level", "development_environment", "service_name", "node_name", "logger", "time", "caller", "message"],
+  "properties": {
+    "level": { "enum": ["trace", "debug", "info", "warn", "error", "fatal"] },
+    "development_environment": { "type": "string", "minLength": 1, "description": "DEVELOPMENT_ENVIRONMENT or ENV_NAME: local, stg, prod, common" },
+    "service_name": { "type": "string", "minLength": 1, "description": "SERVICE_NAME, the pipeline/service name; equals the OTel service.name" },
+    "node_name": { "type": "string", "minLength": 1, "description": "NODE_NAME: the Docker/Kubernetes host" },
+    "logger": { "type": "string", "minLength": 1, "description": "root, or a module/component name such as api.request" },
+    "time": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{9}Z$", "description": "UTC RFC 3339, exactly 9 fractional digits" },
+    "caller": { "type": "string", "pattern": "^[^\\s:/][^\\s:]*:[1-9]\\d*$", "description": "<root>/<relative path>:<line>" },
+    "message": { "type": "string", "minLength": 1 },
+    "trace_id": { "type": "string", "pattern": "^(?!0{32}$)[0-9a-f]{32}$" },
+    "span_id": { "type": "string", "pattern": "^(?!0{16}$)[0-9a-f]{16}$" },
+    "error": { "type": "string" },
+    "error_type": { "type": "string" },
+    "stack": { "type": "string" }
+  },
+  "dependentRequired": { "trace_id": ["span_id"], "span_id": ["trace_id"] },
+  "additionalProperties": true
+}

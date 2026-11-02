@@ -1,0 +1,17 @@
+[package]
+name = "example-ta-python"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "_native"
+crate-type = ["cdylib"]
+
+[dependencies]
+example-ta-core.workspace = true
+pyo3.workspace = true
+numpy.workspace = true
+
+[lints]
+workspace = true

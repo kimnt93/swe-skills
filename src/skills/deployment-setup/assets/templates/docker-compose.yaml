@@ -1,0 +1,229 @@
+# Swarm contract for one stack: an HTTP API routed by Traefik plus a background worker sharing one image.
+# Replace `example-*` names, ports, secrets, networks and the node label. Delete what the service does not use.
+#   RUN_ENV=stg APP_IMAGE=example.invalid/app@sha256:<64 hex> docker stack config -c docker-compose.yaml   (after loading deploy/stg.env)
+# Plane values live in deploy/<plane>.env (literal KEY=VALUE). Passwords and keys are external, versioned
+# Swarm secrets read through *_FILE: they never have a default and never appear in an env file.
+#
+# Infrastructure: each service attaches only the x-<infra> blocks and secrets it uses, and lists the same
+# infrastructure in HEALTH_DEPS. The image entrypoint (scripts/health.sh --wait) holds the process back until
+# those dependencies answer, so a task does not start, crash and restart before its infrastructure is up;
+# the healthcheck then keeps checking them. Keep healthcheck.start_period >= HEALTH_WAIT_SECONDS.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-env: &env
+  TZ: UTC
+  RUN_ENV: ${RUN_ENV:?RUN_ENV is required}
+  ENV_NAME: ${RUN_ENV:?RUN_ENV is required} # the env label of the host, the healthz body and the logs
+  NODE_NAME: "{{.Node.Hostname}}"
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  HEALTH_WAIT_SECONDS: "120"
+  # Tracing (service-tracing skill, references/env.md). OTEL_SERVICE_NAME is set per service below.
+  SERVICE_VERSION: ${SERVICE_VERSION:-}
+  OTEL_TRACES_EXPORTER: ${OTEL_TRACES_EXPORTER:-otlp}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:?OTEL_EXPORTER_OTLP_ENDPOINT is required}
+  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  OTEL_EXPORTER_OTLP_TIMEOUT: ${OTEL_EXPORTER_OTLP_TIMEOUT:-5000}
+  OTEL_PROPAGATORS: tracecontext,baggage
+  OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
+  OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1.0}
+  TRACING_DETAIL: ${TRACING_DETAIL:-false} # false = dependency mode (boundary spans only)
+  OTEL_AUTH_TOKEN_FILE: /run/secrets/otel_auth_token # secret otel_auth_token: never a default, never in an env file
+
+# ---- infrastructure variable blocks (host/user/db required; port has the standard default; secret via *_FILE) ----
+x-postgres: &postgres
+  POSTGRES_HOST: ${POSTGRES_HOST:?POSTGRES_HOST is required}
+  POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+  POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+  POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+  POSTGRES_SSLMODE: ${POSTGRES_SSLMODE:-require}
+  POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password # secret postgres_password
+
+x-redis: &redis
+  REDIS_HOST: ${REDIS_HOST:?REDIS_HOST is required}
+  REDIS_PORT: ${REDIS_PORT:-6379}
+  REDIS_DB: ${REDIS_DB:-0}
+  REDIS_USERNAME: ${REDIS_USERNAME:-}
+  REDIS_PASSWORD_FILE: /run/secrets/redis_password # secret redis_password
+
+x-clickhouse: &clickhouse
+  CLICKHOUSE_HOST: ${CLICKHOUSE_HOST:?CLICKHOUSE_HOST is required}
+  CLICKHOUSE_PORT: ${CLICKHOUSE_PORT:-9000}
+  CLICKHOUSE_HTTP_PORT: ${CLICKHOUSE_HTTP_PORT:-8123}
+  CLICKHOUSE_DB: ${CLICKHOUSE_DB:?CLICKHOUSE_DB is required}
+  CLICKHOUSE_USER: ${CLICKHOUSE_USER:?CLICKHOUSE_USER is required}
+  CLICKHOUSE_PASSWORD_FILE: /run/secrets/clickhouse_password # secret clickhouse_password
+
+x-kafka: &kafka
+  KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:?KAFKA_BOOTSTRAP_SERVERS is required}
+  KAFKA_SECURITY_PROTOCOL: ${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
+  KAFKA_SASL_MECHANISM: ${KAFKA_SASL_MECHANISM:-SCRAM-SHA-256}
+  KAFKA_SASL_USERNAME: ${KAFKA_SASL_USERNAME:-}
+  KAFKA_SASL_PASSWORD_FILE: /run/secrets/kafka_sasl_password # secret kafka_sasl_password (required for SASL_*)
+  KAFKA_CONSUMER_GROUP: ${KAFKA_CONSUMER_GROUP:?KAFKA_CONSUMER_GROUP is required}
+
+x-s3: &s3 # S3-compatible object store (for example RustFS)
+  S3_ENDPOINT: ${S3_ENDPOINT:?S3_ENDPOINT is required}
+  S3_REGION: ${S3_REGION:-us-east-1}
+  S3_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
+  S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+  S3_ACCESS_KEY_FILE: /run/secrets/s3_access_key # secret s3_access_key
+  S3_SECRET_KEY_FILE: /run/secrets/s3_secret_key # secret s3_secret_key
+
+services:
+  # Routed HTTP service: Traefik labels live under deploy.labels; no published host port.
+  # Uses PostgreSQL, Redis and the object store.
+  api:
+    image: ${APP_IMAGE:?APP_IMAGE is required}
+    command: ["serve"] # appended to the image ENTRYPOINT (health gate -> application)
+    environment:
+      <<: [*env, *postgres, *redis, *s3]
+      SERVICE_NAME: ${API_SERVICE_NAME:-example-api}
+      OTEL_SERVICE_NAME: ${API_SERVICE_NAME:-example-api}
+      PORT: "3000" # every API listens on 3000 (api-contract skill)
+      HEALTH_DEPS: postgres,redis,s3
+    secrets:
+      - otel_auth_token
+      - postgres_password
+      - redis_password
+      - s3_access_key
+      - s3_secret_key
+    networks:
+      ingress-net:
+        aliases: [example-api]
+      monitoring-net:
+    logging: *logging
+    healthcheck:
+      test: ["CMD", "/app/scripts/health.sh", "--app"] # GET /healthz + HEALTH_DEPS
+      interval: 30s
+      timeout: 10s
+      start_period: 150s # >= HEALTH_WAIT_SECONDS plus application start-up
+      retries: 3
+    stop_grace_period: 30s
+    deploy:
+      replicas: ${API_REPLICAS:-2}
+      # List form on purpose: Compose interpolates values, not mapping keys, so `key: value` labels
+      # would keep a literal `${RUN_ENV}` in the router name.
+      labels:
+        - traefik.enable=true
+        - traefik.swarm.network=ingress-${RUN_ENV:?RUN_ENV is required}
+        # Host = {service_name}.{env_name}.{host}, for example example-api.stg.@DOMAIN@; the service
+        # name comes from the same variable as SERVICE_NAME. One router serves /docs, /v1 and /v2.
+        - traefik.http.routers.example_api_${RUN_ENV}.rule=Host(`${API_SERVICE_NAME:-example-api}.${RUN_ENV}.${PUBLIC_DOMAIN:?PUBLIC_DOMAIN is required}`)
+        - traefik.http.routers.example_api_${RUN_ENV}.entrypoints=web
+        - traefik.http.routers.example_api_${RUN_ENV}.service=example_api_${RUN_ENV}
+        - traefik.http.services.example_api_${RUN_ENV}.loadbalancer.server.port=3000
+      placement:
+        constraints:
+          - node.role == worker
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 10
+        window: 300s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first # stateless and overlap-safe; use stop-first for single-writer services
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+        failure_action: pause
+
+  # Not routed: no Traefik labels, joins only the networks it needs. Uses PostgreSQL, Kafka and ClickHouse.
+  worker:
+    image: ${APP_IMAGE:?APP_IMAGE is required}
+    command: ["worker"]
+    environment:
+      <<: [*env, *postgres, *kafka, *clickhouse]
+      SERVICE_NAME: ${WORKER_SERVICE_NAME:-example-worker}
+      OTEL_SERVICE_NAME: ${WORKER_SERVICE_NAME:-example-worker}
+      HEALTH_DEPS: postgres,kafka,clickhouse
+    secrets:
+      - otel_auth_token
+      - postgres_password
+      - kafka_sasl_password
+      - clickhouse_password
+    networks:
+      - ingress-net
+      - monitoring-net
+    logging: *logging
+    healthcheck:
+      test: ["CMD", "/app/scripts/health.sh"] # no port: infrastructure only (HEALTH_DEPS)
+      interval: 30s
+      timeout: 10s
+      start_period: 150s
+      retries: 3
+    stop_grace_period: 45s
+    deploy:
+      replicas: 1 # single consumer: a second replica would duplicate work
+      placement:
+        constraints:
+          - node.role == worker
+          - node.labels.example_worker == true
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+      restart_policy:
+        condition: any
+        delay: 5s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+        failure_action: pause
+
+# Keep this block plain (no YAML anchors, explicit versioned name per secret) so CI preflight can read it.
+# Declare only the secrets some service attaches; each one must exist in the plane's secret store.
+secrets:
+  otel_auth_token:
+    external: true
+    name: otel_auth_token_${RUN_ENV:?RUN_ENV is required}_v1
+  postgres_password:
+    external: true
+    name: postgres_password_${RUN_ENV:?RUN_ENV is required}_v1
+  redis_password:
+    external: true
+    name: redis_password_${RUN_ENV:?RUN_ENV is required}_v1
+  clickhouse_password:
+    external: true
+    name: clickhouse_password_${RUN_ENV:?RUN_ENV is required}_v1
+  kafka_sasl_password:
+    external: true
+    name: kafka_sasl_password_${RUN_ENV:?RUN_ENV is required}_v1
+  s3_access_key:
+    external: true
+    name: s3_access_key_${RUN_ENV:?RUN_ENV is required}_v1
+  s3_secret_key:
+    external: true
+    name: s3_secret_key_${RUN_ENV:?RUN_ENV is required}_v1
+
+networks:
+  ingress-net:
+    external: true
+    name: ingress-${RUN_ENV:?RUN_ENV is required}
+  monitoring-net:
+    external: true
+    name: monitoring-${RUN_ENV:?RUN_ENV is required}

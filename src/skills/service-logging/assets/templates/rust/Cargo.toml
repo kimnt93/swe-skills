@@ -1,0 +1,20 @@
+[package]
+name = "service-logging-smoke"
+version = "0.1.0"
+edition = "2021"
+
+# Versions tested with the template. `otel` adds trace_id/span_id from OpenTelemetry spans.
+[features]
+otel = ["dep:tracing-opentelemetry", "dep:opentelemetry", "dep:opentelemetry_sdk"]
+
+[dependencies]
+gethostname = "1"
+serde_json = { version = "1", features = ["preserve_order"] }
+time = { version = "0.3", features = ["formatting", "macros"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["registry", "fmt", "std", "env-filter"] }
+opentelemetry = { version = "0.33", optional = true }
+tracing-opentelemetry = { version = "0.34", optional = true }
+
+# Only the smoke test builds a tracer provider.
+opentelemetry_sdk = { version = "0.33", optional = true }

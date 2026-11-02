@@ -1,0 +1,4 @@
+# Limits behind [workspace.lints.clippy] (too_many_lines, cognitive_complexity, too_many_arguments).
+too-many-lines-threshold = 60
+cognitive-complexity-threshold = 15
+too-many-arguments-threshold = 5

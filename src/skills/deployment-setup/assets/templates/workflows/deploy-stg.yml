@@ -1,0 +1,24 @@
+name: Staging - Example
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    permissions:
+      contents: read
+      id-token: write # secret preflight; required even when the stack has no external secrets
+      packages: write # only if the reusable workflow publishes to GHCR
+    # Replace with the project's reusable workflow and verify its current inputs.
+    uses: <org>/<workflows-repo>/.github/workflows/swarm-deploy.yml@main
+    with:
+      environment: stg
+      stack: example # deployed as <stack>-<plane>
+      compose_file: docker-compose.yaml
+      # services: root                # or "api,worker" / "root:api,root:worker" with aligned `dockerfiles:`
+      # build_network: host           # only when Dockerfile RUN steps need the host's private network

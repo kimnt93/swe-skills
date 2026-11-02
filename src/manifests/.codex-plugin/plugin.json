@@ -1,0 +1,16 @@
+{
+  "name": "@PLUGIN@",
+  "version": "@VERSION@",
+  "description": "@DESCRIPTION@",
+  "author": { "name": "@OWNER@" },
+  "homepage": "@HOMEPAGE@",
+  "license": "MIT",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "@TITLE@",
+    "shortDescription": "Skill stack: start with $@PLUGIN@:@PLUGIN@",
+    "longDescription": "@DESCRIPTION@",
+    "developerName": "@OWNER@",
+    "category": "Developer Tools"
+  }
+}

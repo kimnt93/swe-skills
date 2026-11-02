@@ -1,0 +1,13 @@
+{
+  "name": "@MARKETPLACE@",
+  "owner": { "name": "@OWNER@" },
+  "metadata": { "description": "@TITLE@ skill stack" },
+  "plugins": [
+    {
+      "name": "@PLUGIN@",
+      "source": "./",
+      "description": "@DESCRIPTION@ Start with /@PLUGIN@; every other skill is /@PLUGIN@:<skill>.",
+      "category": "development"
+    }
+  ]
+}

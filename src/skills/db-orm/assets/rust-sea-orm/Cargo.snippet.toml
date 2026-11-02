@@ -1,0 +1,19 @@
+# Workspace Cargo.toml, [workspace.dependencies]:
+sea-orm = { version = "2", default-features = false, features = [
+    "sqlx-postgres",
+    "runtime-tokio-rustls",
+    "macros",
+    "with-time",
+    "with-uuid",
+] }
+
+# crates/svc-infra/Cargo.toml:
+[dependencies]
+sea-orm = { workspace = true, optional = true }
+
+[features]
+orm = ["dep:sea-orm"]
+
+# crates/svc-infra/src/lib.rs:
+#[cfg(feature = "orm")]
+pub mod orm;
