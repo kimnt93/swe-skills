@@ -43,7 +43,7 @@ tail in the reply. Called with no request, `/swe` prints the skill table.
 Skills you can call directly (no router): `/swe:interrogate review this branch`,
 `/swe:architect design the position snapshot API`, `/swe:blast-radius`, `/swe:benchmark-checklist`,
 `/swe:deslop`, `/swe:ketchup` (catch me up), `/swe:reflect` (capture what this task taught),
-`/swe:correct` (stop a repeated mistake). Everything is listed in [skills.md](skills.md).
+`/swe:correct` (stop a repeated mistake). Everything is listed in [skills.md](skills.md), and each skill is explained step by step in [skills/](skills/README.md).
 
 ## Give a project proof
 

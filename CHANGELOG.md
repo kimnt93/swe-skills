@@ -15,6 +15,10 @@ and fixes are a patch. `make publish` refuses a version without an entry here.
   and skills, reports a profile login that hides the default's, and takes under a second when nothing
   changed. `fleet bootstrap` installs `/sync` and applies the context policy.
 - `docs/context-and-sync.md`.
+- `docs/skills/`: every skill, the router's 18 playbooks and the 22 principles explained in detail (what
+  it is, when to use it, what to say, what happens, what you get, files), a "which skill for which
+  situation" table, and a map of how they fit; `make docs` fails when a skill, playbook or principle
+  has no section or a section names something that is gone.
 
 ## 3.4.0
 

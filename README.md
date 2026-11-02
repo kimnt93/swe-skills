@@ -39,7 +39,8 @@ variable always wins.
 | [docs/recommended-setup.md](docs/recommended-setup.md) | the order of work, tiers, the daily routine, what never to do |
 | [docs/architecture.md](docs/architecture.md) | the design: roles, flows, invariants, decisions, risks |
 | [docs/agents-and-skills.md](docs/agents-and-skills.md) | which agent gets which skills and GitHub rights |
-| [docs/skills.md](docs/skills.md) | reference for every skill (generated) |
+| [docs/skills/](docs/skills/README.md) | **each skill in detail**: when to use it, what to say, what happens, what you get |
+| [docs/skills.md](docs/skills.md) | quick reference for every skill (generated) |
 
 ## Use
 
