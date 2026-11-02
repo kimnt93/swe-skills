@@ -63,7 +63,19 @@ and review with the other, by editing `workers.omp` in `models.yaml` (for exampl
 `google-antigravity/gemini-3.8-flash` high and `top` on `openai-codex/gpt-6-sol`). Run `fleet models
 show` to see the result.
 
-## 5. Plugin skills for omp's own agents
+## 5. Context limit
+
+Nothing per model: log in and use the model. omp compacts at one global threshold,
+`compaction.thresholdTokens`, set to 245000 (the default policy, the same as Codex):
+
+```bash
+fleet context apply      # writes compaction.thresholdTokens into ~/.omp/agent/config.yml (backup kept)
+omp config get compaction.thresholdTokens
+```
+
+Change it under `context.default` in `fleet/models.yaml`. Details: [context-and-sync.md](context-and-sync.md).
+
+## 6. Plugin skills for omp's own agents
 
 omp's subagents (`scout`, `task`, ...) use the model roles above. The plugin's Claude Code
 subagents (`swe:worker`, `swe:adversary`) do not exist in omp: for an adversarial review use

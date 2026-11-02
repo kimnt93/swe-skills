@@ -62,7 +62,19 @@ fleet project add orders --repo ~/code/orders --github acme/orders --description
 author's blind spots, so keep autopilot off (`autopilot.auto_merge: []`) and have a human read money-path
 and `standard` PRs. Add the `omp` lane (setup B) later to get the independent review.
 
-## 5. Protect your quota
+## 5. Context limit
+
+Claude models compact at 350k tokens (the 300 to 400k band), set once for every session:
+
+```bash
+fleet context apply      # adds "autoCompactWindow": 350000 to ~/.claude/settings.json (backup kept)
+```
+
+A fleet lane also exports `CLAUDE_CODE_AUTO_COMPACT_WINDOW=350000` for each card, and one-off
+sessions can use `CLAUDE_CODE_AUTO_COMPACT_WINDOW=300000 claude`. Change the number under
+`context.families.claude` in `fleet/models.yaml`. Details: [context-and-sync.md](context-and-sync.md).
+
+## 6. Protect your quota
 
 - Keep `kanban.max_in_progress_per_profile` at 2 (the default) or lower; each running card is a full
   Claude Code session.

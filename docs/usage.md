@@ -85,6 +85,8 @@ Your commands:
 ```bash
 fleet project add <name> --repo <clone> --github <owner/repo> --description "..."
 fleet models show | check | apply        # who runs on which model
+fleet context show | apply               # context limits per tool
+fleet sync                               # (or /sync in Hermes) log in once on default, share with every profile
 hermes kanban watch --board <project>    # live cards
 hermes kanban diagnostics --board <project>
 fleet merge <pr> --repo <owner/repo> --risk <r> --sha <verified sha> --approved   # or ask the manager

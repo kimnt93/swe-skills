@@ -32,6 +32,7 @@ variable always wins.
 | [docs/getting-started.md](docs/getting-started.md) | install and the first task, troubleshooting |
 | [docs/harnesses.md](docs/harnesses.md) | install into Claude Code, Codex, oh-my-pi and 28 more harnesses (generated) |
 | [docs/runbooks.md](docs/runbooks.md) | the steps that need you: pilot service, fleet live, autopilot, publish |
+| [docs/context-and-sync.md](docs/context-and-sync.md) | context limits per tool and `/sync` (log in once on the default profile) |
 | [docs/setup-claude.md](docs/setup-claude.md) | **Setup A:** Claude Code on your Claude subscription as the coding agent |
 | [docs/setup-omp.md](docs/setup-omp.md) | **Setup B:** oh-my-pi as the coding agent |
 | [docs/usage.md](docs/usage.md) | what to say for each kind of task; skills; GitHub; the fleet |

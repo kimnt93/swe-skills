@@ -5,6 +5,7 @@
 | [getting-started.md](getting-started.md) | first install, first task, troubleshooting |
 | [harnesses.md](harnesses.md) | every supported harness (Claude Code, Codex, oh-my-pi and 28 more): install command, directories, how to invoke (generated) |
 | [runbooks.md](runbooks.md) | the steps that need you: pilot service, fleet live, autopilot, model upgrade, publish, local install |
+| [context-and-sync.md](context-and-sync.md) | context limits per tool (Claude 350k, the rest 245k) and `/sync`: one login on default for every profile |
 | [setup-claude.md](setup-claude.md) | Claude Code on your Claude subscription as the coding agent |
 | [setup-omp.md](setup-omp.md) | oh-my-pi as the coding agent |
 | [usage.md](usage.md) | what to say for each kind of task; skills; GitHub; the fleet |

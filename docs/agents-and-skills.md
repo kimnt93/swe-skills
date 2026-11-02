@@ -12,6 +12,9 @@ the Hermes part from `fleet/models.yaml`; this page is the reference behind it.
 | `claude` | lane: implements and reviews (reviews the omp lane's work) | `fleet-worker`, `github` | default minus web and browser | Gemini 3.8 Flash (drives Claude Code) | run `fleet lane`, push branches, open PRs, post verdicts, run the merge gate |
 | `omp` | lane: implements and reviews (reviews the claude lane's work) | `fleet-worker`, `github` | default minus web and browser | Gemini 3.8 Flash (drives oh-my-pi) | the same as `claude` |
 
+The root profile also has the slash command `/sync` (`quick_commands.sync`): `fleet sync` with no model call, which shares the
+root's API keys with every profile and applies models, context limits and skills ([context-and-sync.md](context-and-sync.md)).
+
 Every profile's `skills.external_dirs` points at the built plugin: `dist/<plugin>/fleet/skills` (the
 fleet skills) and `dist/<plugin>/skills` (the plugin's skills, such as `github` and `project`).
 A card force-loads the skills it needs: `--skill fleet-worker --skill github`.

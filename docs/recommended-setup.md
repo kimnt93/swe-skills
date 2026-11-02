@@ -12,6 +12,8 @@ What to run, in what order, and what to keep switched off until it has earned tr
 | orchestration | Hermes: one root profile, one manager per project (Sonnet), shared lanes ([architecture.md](architecture.md)) |
 | GitHub | `project/scripts/setup_repo.sh` per repo: squash only, protected `main`, required `verify` check, labels, PR and issue templates |
 | proof | `make verify` in every repo (`/swe:verify-create`), required in CI |
+| context | Claude 350k, every other model 245k (about the 272k price step), set once in `fleet/models.yaml` and applied with `fleet context apply` and `fleet sync` ([context-and-sync.md](context-and-sync.md)) |
+| logins | log in on the Hermes `default` profile only; `/sync` shares the API keys and checks the rest |
 | autopilot | off. Turn on `low` after 20 clean merges; never `money-path` |
 
 ## Order of work

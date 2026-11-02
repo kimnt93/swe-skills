@@ -54,11 +54,14 @@ Hermes Kanban runs real cards on the pilot repo: card → lane → `make verify`
 ### Steps
 
 1. `bash fleet/tests/selftest.sh --hermes` passes. `ln -sf "$PWD"/fleet/bin/fleet ~/.local/bin/fleet`.
-2. **Human logins** (interactive): `omp login openai-codex`, `hermes auth add anthropic`,
-   `hermes auth add gemini` (or point the cheap brains at another provider in `fleet/models.yaml`).
+2. **Human logins** (interactive), once each: `omp login openai-codex`, and on the Hermes **default**
+   profile only `hermes auth add anthropic`, `hermes auth add gemini` (or put the keys in
+   `~/.hermes/.env`; or point the brains at another provider in `fleet/models.yaml`). Profiles
+   inherit the default's logins; `/sync` (or `fleet sync`) shares the `.env` API keys with them
+   ([context-and-sync.md](context-and-sync.md)).
 3. Pick exact ids with `hermes model` and `omp models ls`; edit `fleet/models.yaml`; then
    `fleet models check` reports only missing profiles.
-4. `fleet bootstrap` (root, lanes, board settings).
+4. `fleet bootstrap` (root, lanes, board settings, context limits, the `/sync` command).
 5. **Add the pilot project:** `fleet project add <name> --repo <clone> --github <owner>/<repo> --description "..."`
    (the manager `pm-<name>`, the board `<name>`, the Hermes project), then `fleet models check` = 0 problems,
    and the human runs `hermes gateway restart`. Ask `pm-<name>` to adopt the repo (the `project` skill:
