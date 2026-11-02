@@ -1,0 +1,22 @@
+[project]
+name = "bad"
+version = "0"
+
+[tool.importlinter]
+root_package = "service"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "adapters -> application -> domain"
+type = "layers"
+layers = [
+    "service.db",
+    "service.application",
+    "service.domain",
+]
+
+[[tool.importlinter.contracts]]
+name = "the domain does no I/O"
+type = "forbidden"
+source_modules = ["service.domain"]
+forbidden_modules = ["litestar", "psycopg", "psycopg_pool", "redis", "confluent_kafka", "boto3", "httpx", "requests"]
