@@ -93,3 +93,12 @@ kanban:
   orchestrator_profile: ''
 autopilot:
   auto_merge: []
+context:
+  default:
+    window: 272000
+    compact_at: 245000
+  families:
+    claude:
+      window: 400000
+      compact_at: 350000
+  models: {}

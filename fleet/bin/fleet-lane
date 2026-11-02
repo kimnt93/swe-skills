@@ -53,6 +53,8 @@ Write the report to .fleet/review.md. If nothing is proven, write: no verified f
 esac
 
 mapfile -t cmd < <("$fleet" models cmd "$lane" "$tier")
+# the context policy: Claude Code reads its compaction point from the environment
+while IFS= read -r setting; do [ -n "$setting" ] && export "$setting"; done < <("$fleet" context env "$lane" "$tier")
 before="$(git status --porcelain)"
 agent_rc=0
 timeout "${FLEET_AGENT_TIMEOUT:-90m}" "${cmd[@]}" "$brief" >"$out/$mode-agent.log" 2>&1 || agent_rc=$?

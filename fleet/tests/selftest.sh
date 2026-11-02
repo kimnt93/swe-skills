@@ -10,7 +10,7 @@ here="$(cd "$(dirname "$0")/.." && pwd)"
 fleet="$here/bin/fleet"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-export OMP_CONFIG="$tmp/omp/config.yml"
+export OMP_CONFIG="$tmp/omp/config.yml" CLAUDE_SETTINGS="$tmp/claude/settings.json" CODEX_CONFIG="$tmp/codex/config.toml"
 pass() { echo "PASS $1"; }
 fail() { echo "FAIL $1"; exit 1; }
 plugin="$("$fleet" name)"
@@ -78,10 +78,67 @@ for example in claude-only omp-only; do
 done
 pass "examples: claude-only and omp-only each have one lane, a same-lane top reviewer, and bootstrap cleanly"
 
+# 3c. the context policy reaches Claude Code, Codex and oh-my-pi, and changes nothing else
+mkdir -p "$tmp/claude" "$tmp/codex" "$tmp/omp"
+printf '{"model": "opus", "note": "keep — this dash", "hooks": {"SessionStart": []}}\n' >"$CLAUDE_SETTINGS"
+cat >"$CODEX_CONFIG" <<'TOML'
+# Default config
+model = "gpt-6-sol"
+model_reasoning_effort = "low"
+model_context_window = 1000000   # to be replaced
+approval_policy = "never"
+
+[projects."/work/app"]
+trust_level = "trusted"
+
+[features.context_management]
+experimental_mode = false
+TOML
+printf 'setupVersion: 2\nmodelRoles:\n  default: keep/me\n' >"$OMP_CONFIG"
+"$fleet" context apply --dry-run >"$tmp/ctx.txt"
+grep -q "would write: .*autoCompactWindow = 350000" "$tmp/ctx.txt" && grep -q "would write: .*model_context_window = 272000, model_auto_compact_token_limit = 245000" "$tmp/ctx.txt" \
+  && grep -q "would write: .*compaction.thresholdTokens = 245000" "$tmp/ctx.txt" || { cat "$tmp/ctx.txt"; fail "context apply --dry-run"; }
+! grep -q autoCompactWindow "$CLAUDE_SETTINGS" || fail "dry-run wrote claude settings"
+"$fleet" context apply >/dev/null || fail "context apply"
+python3 - <<'PY' || fail "context apply results"
+import json, os, tomllib, yaml
+claude = json.load(open(os.environ["CLAUDE_SETTINGS"]))
+assert claude == {"model": "opus", "note": "keep — this dash", "hooks": {"SessionStart": []}, "autoCompactWindow": 350000}, claude
+assert "\\u2014" not in open(os.environ["CLAUDE_SETTINGS"]).read(), "non-ASCII text was escaped"
+codex = tomllib.load(open(os.environ["CODEX_CONFIG"], "rb"))
+assert codex["model_context_window"] == 272000 and codex["model_auto_compact_token_limit"] == 245000, codex
+assert codex["model"] == "gpt-6-sol" and codex["approval_policy"] == "never", codex
+assert codex["projects"]["/work/app"]["trust_level"] == "trusted" and codex["features"]["context_management"]["experimental_mode"] is False, codex
+omp = yaml.safe_load(open(os.environ["OMP_CONFIG"]))
+assert omp["modelRoles"] == {"default": "keep/me"} and omp["compaction"]["thresholdTokens"] == 245000, omp
+PY
+ls "$tmp"/claude/settings.json.bak-* "$tmp"/codex/config.toml.bak-* >/dev/null 2>&1 || fail "backups"
+"$fleet" context apply >"$tmp/ctx2.txt"
+[ "$(grep -c unchanged "$tmp/ctx2.txt")" = 3 ] || { cat "$tmp/ctx2.txt"; fail "context apply is not idempotent"; }
+"$fleet" context show >"$tmp/ctx3.txt"
+grep -qE "^Claude Code .* 400,000 +350,000" "$tmp/ctx3.txt" && grep -qE "^Codex .* 272,000 +245,000" "$tmp/ctx3.txt" \
+  && grep -qE "^oh-my-pi .* 272,000 +245,000" "$tmp/ctx3.txt" || { cat "$tmp/ctx3.txt"; fail "context show"; }
+[ "$("$fleet" context env claude mid)" = "CLAUDE_CODE_AUTO_COMPACT_WINDOW=350000" ] || fail "context env claude"
+[ -z "$("$fleet" context env omp mid)" ] || fail "context env omp must be empty"
+sed 's/  models: {}/  models:\n    gemini-3.8-flash: {window: 200000, compact_at: 150000}/' "$here/models.yaml" >"$tmp/ctx-models.yaml"
+FLEET_MODELS="$tmp/ctx-models.yaml" "$fleet" context show | grep -qE "^Hermes default .*gemini-3.8-flash .* 200,000 +150,000" || fail "per-model override"
+sed 's/compact_at: 245000/compact_at: 300000/' "$here/models.yaml" >"$tmp/ctx-bad.yaml"
+FLEET_MODELS="$tmp/ctx-bad.yaml" "$fleet" models check >"$tmp/ctx-check.txt" 2>&1 || true
+grep -q "context.default: compact_at 300000 must be above 0 and below window 272000" "$tmp/ctx-check.txt" || fail "check rejects compact_at >= window"
+for example in claude-only omp-only; do
+  python3 - "$here/models.yaml" "$here/examples/models.$example.yaml" <<'PY' || fail "$example: context differs from models.yaml"
+import sys, yaml
+base, example = (yaml.safe_load(open(p))["context"] for p in sys.argv[1:])
+assert base == example, (base, example)
+PY
+done
+pass "context: apply writes Claude Code, Codex and omp (other keys, tables and comments kept, backups made, idempotent); show; env; per-model override; invalid policy rejected"
+
 # 4. fleet lane run + review against fake CLIs
 mkdir -p "$tmp/bin"
 cat >"$tmp/bin/claude" <<'EOF'
 #!/usr/bin/env bash
+printf '%s' "${CLAUDE_CODE_AUTO_COMPACT_WINDOW:-unset}" >"$PWD/.fleet/compact-window.txt"
 echo ok >ok && git add ok && git commit -qm "feat: add ok" && echo "fake claude: $*" | head -c 300
 EOF
 cat >"$tmp/bin/omp" <<'EOF'
@@ -108,7 +165,8 @@ assert e["commits"] and e["changed_files"] == ["ok"] and e["uncommitted"] == [],
 assert "--model sonnet" in e["command"], e
 EOF
 grep -q "Start with the $plugin skill" "$tmp/repo/.fleet/run-agent.log" || fail "brief names the plugin router"
-pass "lane run: agent commits, make verify passes, .fleet/ is not uncommitted, brief names /$plugin"
+[ "$(cat "$tmp/repo/.fleet/compact-window.txt")" = 350000 ] || fail "claude lane exports CLAUDE_CODE_AUTO_COMPACT_WINDOW"
+pass "lane run: agent commits, make verify passes, .fleet/ is not uncommitted, brief names /$plugin, Claude Code gets its compaction point (350000)"
 HERMES_KANBAN_WORKSPACE="$tmp/repo" "$fleet" lane review claude "$tmp/card.md" || fail "review exit"
 python3 - "$tmp/repo/.fleet/review.json" <<'EOF' || fail "review.json"
 import json, sys
@@ -190,5 +248,36 @@ if [ "${1:-}" = "--hermes" ]; then
   hermes -p pm-web project list | grep -qw web || fail "pm-web project"
   grep -q "gemini-3.8-flash" "$OMP_CONFIG" || fail "omp modelRoles"
   pass "bootstrap on a scratch Hermes home with a project, twice; project add creates the second manager"
+
+  # sync: one login on default, one command for every profile
+  printf 'GEMINI_API_KEY=key-one\nTELEGRAM_BOT_TOKEN=bot-secret\nTERMINAL_ENV=local\nOPENROUTER_API_KEY=key-two\n' >"$HERMES_HOME/.env"
+  "$fleet" sync >"$tmp/sync1.txt" 2>&1 || { cat "$tmp/sync1.txt"; fail "sync"; }
+  for profile in pm-demo pm-web claude omp; do
+    env_file="$HERMES_HOME/profiles/$profile/.env"
+    grep -q '^GEMINI_API_KEY=key-one$' "$env_file" && grep -q '^OPENROUTER_API_KEY=key-two$' "$env_file" || fail "$profile: provider keys not copied"
+    ! grep -qE 'TELEGRAM|TERMINAL_ENV' "$env_file" || fail "$profile: a messaging or non-provider variable was copied"
+    [ "$(stat -c %a "$env_file")" = 600 ] || fail "$profile: .env is not mode 600"
+  done
+  ! grep -q 'key-one\|key-two\|bot-secret' "$tmp/sync1.txt" || fail "sync printed a secret value"
+  python3 - "$HERMES_HOME" <<'PY' || fail "sync: profile context settings"
+import sys, yaml
+root = sys.argv[1]
+def cfg(name):
+    path = f"{root}/config.yaml" if name == "default" else f"{root}/profiles/{name}/config.yaml"
+    return yaml.safe_load(open(path))
+manager, lane = cfg("pm-demo"), cfg("omp")
+assert manager["model"]["context_length"] == 400000 and manager["compression"]["threshold_tokens"] == 350000, manager
+assert manager["compression"]["threshold"] == 0.88, manager["compression"]
+assert lane["model"]["context_length"] == 272000 and lane["compression"]["threshold_tokens"] == 245000, lane
+assert lane["compression"]["threshold"] == 0.91, lane["compression"]
+slash = cfg("default")["quick_commands"]["sync"]
+assert slash["type"] == "exec" and slash["command"].endswith("fleet sync"), slash
+PY
+  printf '{"credential_pool": {"gemini": [{"id": "own"}]}}' >"$HERMES_HOME/profiles/omp/auth.json"
+  "$fleet" sync >"$tmp/sync2.txt" 2>&1
+  grep -q "warning: omp has its own gemini login" "$tmp/sync2.txt" || { cat "$tmp/sync2.txt"; fail "sync did not report a shadowing login"; }
+  grep -qE "^(default|pm-demo|claude): already in sync" "$tmp/sync2.txt" || { cat "$tmp/sync2.txt"; fail "second sync not idempotent"; }
+  "$fleet" sync --dry-run >/dev/null || fail "sync --dry-run"
+  pass "sync: provider keys (not messaging) copied at mode 600; context limits per model family; /sync registered; second run changes nothing; a shadowing login is reported; no secret printed"
 fi
 echo "all passed"

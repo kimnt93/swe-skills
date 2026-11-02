@@ -69,6 +69,17 @@ omp_roles:
   smol: google-antigravity/gemini-3.8-flash
   slow: openai-codex/gpt-6-sol
 
+# Context policy: how many tokens a session may hold before its agent compacts it. `window` is the
+# cap (Codex model_context_window, Hermes model.context_length); `compact_at` is where compaction
+# starts. Claude models: 300-400k. Every other model follows the price break at about 272k, which
+# is where Codex and Gemini prices step up. `fleet context show` prints what each tool gets;
+# `fleet context apply` writes Claude Code, Codex and omp; `fleet sync` writes the Hermes profiles.
+context:
+  default: {window: 272000, compact_at: 245000}   # Codex, Gemini, GPT, and anything not listed
+  families:
+    claude: {window: 400000, compact_at: 350000}  # opus, sonnet, haiku, fable and claude-* ids
+  models: {}                                      # exact overrides: "<model id>": {window: N, compact_at: N}
+
 # Hermes board settings (kanban.*). Each project's manager splits its own work (it reads the
 # project's ARCHITECTURE.md), so the global auto-decomposer is off and cards stay with their manager.
 kanban:

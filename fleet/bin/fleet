@@ -12,17 +12,23 @@ projects from fleet/projects.yaml.
     fleet project list
     fleet project sync <name> [--dry-run] manager profile, board and Hermes project for one project
     fleet bootstrap [--dry-run]           every profile (root, managers, lanes), tools, skills, board settings
+    fleet sync [--dry-run]                Hermes: share the root login and API keys with every profile, apply models,
+                                          context limits and skills; also the Hermes slash command /sync
+    fleet context show                    context window and compaction point per tool and per Hermes profile
+    fleet context apply [--dry-run]       write them into Claude Code, Codex and oh-my-pi
+    fleet context env <lane> <tier>       KEY=value lines a lane exports before it runs its CLI
     fleet lane run|review ...             run one card through a lane (see fleet-lane)
     fleet merge <pr> --risk R --sha S [--repo owner/repo] [--approved] [--dry-run]
                                           the merge gate, then gh pr merge --squash --auto
     fleet name                            the plugin name ($PLUGIN_NAME, else plugin.env, default swe)
 
-Environment: FLEET_MODELS, FLEET_PROJECTS (file paths), OMP_CONFIG, HERMES_HOME.
+Environment: FLEET_MODELS, FLEET_PROJECTS, OMP_CONFIG, CLAUDE_SETTINGS, CODEX_CONFIG (file paths), HERMES_HOME.
 """
 
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import shutil
@@ -38,12 +44,20 @@ REPO = FLEET.parent
 MODELS = Path(os.environ.get("FLEET_MODELS", FLEET / "models.yaml"))
 PROJECTS = Path(os.environ.get("FLEET_PROJECTS", FLEET / "projects.yaml"))
 OMP_CONFIG = Path(os.environ.get("OMP_CONFIG", Path.home() / ".omp/agent/config.yml"))
+CLAUDE_SETTINGS = Path(os.environ.get("CLAUDE_SETTINGS", Path.home() / ".claude/settings.json"))
+CODEX_CONFIG = Path(os.environ.get("CODEX_CONFIG", Path.home() / ".codex/config.toml"))
 CLAUDE_ALIASES = {"opus", "sonnet", "haiku", "fable"}
 TIERS = ("top", "mid", "low")
-LEVELS = ("board", "lanes", "workers", "reviewers", "subagents", "omp_roles", "kanban", "autopilot")
+LEVELS = ("board", "lanes", "workers", "reviewers", "subagents", "omp_roles", "context", "kanban", "autopilot")
 NEVER_AUTO_MERGE = {"money-path"}
 NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 GITHUB_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+# Root .env variables a profile receives on sync: provider API keys and base URLs, never messaging
+# credentials (each bot token belongs to one gateway; Hermes strips the same set when it clones).
+SHARED_ENV_SUFFIXES = ("_API_KEY", "_API_KEYS", "_BASE_URL")
+CHANNEL_PREFIXES = ("TELEGRAM_", "DISCORD_", "SLACK_", "WHATSAPP_", "MATRIX_", "MATTERMOST_", "SIGNAL_", "WECOM_",
+                    "FEISHU_", "DINGTALK_", "LINE_", "BLUEBUBBLES_", "SMS_", "TWILIO_", "EMAIL_", "HASS_", "QQ_",
+                    "GATEWAY_", "API_SERVER_", "WEBHOOK_")
 
 
 # ------------------------------------------------------------------------------------------------ config
@@ -259,35 +273,308 @@ def models_check(cfg: dict, projects: dict[str, dict]) -> int:
             problems.append(f"hermes provider {provider} is logged out (hermes auth add {provider})")
     if shutil.which("gh") and run(["gh", "auth", "status"]).returncode != 0:
         problems.append("gh is not logged in (gh auth login): agents cannot push, open PRs or manage issues")
+    problems += context_problems(cfg)
     for message in problems:
         print("PROBLEM", message)
     print(f"{len(problems)} problem(s)")
     return 1 if problems else 0
 
 
+def backup_and_write(path: Path, text: str) -> None:
+    if path.exists():
+        shutil.copy2(path, path.with_name(f"{path.name}.bak-{int(time.time())}"))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
 def models_apply(cfg: dict, projects: dict[str, dict], dry: bool) -> int:
-    existing = set(profiles(cfg, projects)) if dry else hermes_profiles() | {"default"}
-    commands = []
-    for name, spec in profiles(cfg, projects).items():
-        if name not in existing:
-            print(f"skip {name}: profile missing (run: fleet bootstrap)")
-            continue
-        commands.append(hermes(name, "config", "set", "model.default", spec["brain"]["model"]))
-        commands.append(hermes(name, "config", "set", "model.provider", spec["brain"]["provider"]))
-    if execute(commands, dry):
+    """Hermes profiles (through sync) and omp's model roles."""
+    if sync(cfg, projects, dry):
         return 1
     data = (yaml.safe_load(OMP_CONFIG.read_text(encoding="utf-8")) if OMP_CONFIG.exists() else None) or {}
     data.setdefault("setupVersion", 2)
-    data["modelRoles"] = {**(data.get("modelRoles") or {}), **cfg["omp_roles"]}
-    print(("would write: " if dry else "write: ") + f"{OMP_CONFIG} modelRoles = {cfg['omp_roles']}")
-    if not dry:
-        if OMP_CONFIG.exists():
-            shutil.copy2(OMP_CONFIG, OMP_CONFIG.with_name(f"{OMP_CONFIG.name}.bak-{int(time.time())}"))
-        OMP_CONFIG.parent.mkdir(parents=True, exist_ok=True)
-        OMP_CONFIG.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    wanted = {**(data.get("modelRoles") or {}), **cfg["omp_roles"]}
+    if data.get("modelRoles") == wanted:
+        print(f"omp model roles unchanged in {OMP_CONFIG}")
+    else:
+        data["modelRoles"] = wanted
+        print(("would write: " if dry else "write: ") + f"{OMP_CONFIG} modelRoles = {cfg['omp_roles']}")
+        if not dry:
+            backup_and_write(OMP_CONFIG, yaml.safe_dump(data, sort_keys=False))
     print("workers and reviewers need no apply: fleet lane reads models.yaml on every card run")
     print("plugin subagents: rebuild and reinstall the plugin (make claude)")
     return 0
+
+
+# ------------------------------------------------------------------------------------------------ context
+
+
+def is_claude(model: str) -> bool:
+    bare = model.lower().split("/")[-1]
+    return bare in CLAUDE_ALIASES or bare.startswith("claude")
+
+
+def context_for(cfg: dict, model: str) -> tuple[int, int]:
+    """(window, compact_at) in tokens for a model: an exact override, else its family, else the default."""
+    ctx = cfg["context"]
+    overrides = ctx.get("models") or {}
+    spec = overrides.get(model) or overrides.get(model.split("/")[-1])
+    if spec is None and is_claude(model):
+        spec = (ctx.get("families") or {}).get("claude")
+    spec = spec or ctx["default"]
+    return int(spec["window"]), int(spec["compact_at"])
+
+
+def context_problems(cfg: dict) -> list[str]:
+    ctx = cfg["context"]
+    specs = {"default": ctx.get("default")}
+    specs.update({f"families.{k}": v for k, v in (ctx.get("families") or {}).items()})
+    specs.update({f"models.{k}": v for k, v in (ctx.get("models") or {}).items()})
+    problems = []
+    for name, spec in specs.items():
+        try:
+            window, compact = int(spec["window"]), int(spec["compact_at"])
+        except (KeyError, TypeError, ValueError):
+            problems.append(f"context.{name}: needs integer window and compact_at")
+            continue
+        if not 0 < compact < window:
+            problems.append(f"context.{name}: compact_at {compact} must be above 0 and below window {window}")
+    return problems
+
+
+def hermes_threshold(window: int, compact: int) -> float:
+    """compression.threshold that lets compression.threshold_tokens decide: Hermes floors the ratio
+    at 0.75 for windows under 512K, so a higher ratio is needed to compact later than that."""
+    return math.ceil(compact / window * 100) / 100
+
+
+def top_level_toml(path: Path) -> dict:
+    import tomllib
+    return tomllib.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
+def set_toml_top_level(text: str, values: dict[str, int]) -> str:
+    """Set top-level keys (before the first [table]), leaving every table and comment as it is."""
+    lines = text.splitlines()
+    first_table = next((i for i, line in enumerate(lines) if line.lstrip().startswith("[")), len(lines))
+    for key, value in values.items():
+        pattern = re.compile(rf"^\s*{re.escape(key)}\s*=")
+        index = next((i for i in range(first_table) if pattern.match(lines[i])), None)
+        if index is None:
+            lines.insert(first_table, f"{key} = {value}")
+            first_table += 1
+        else:
+            lines[index] = f"{key} = {value}"
+    return "\n".join(lines) + "\n"
+
+
+def context_apply(cfg: dict, dry: bool) -> int:
+    """Write the policy into the user-level config of Claude Code, Codex and oh-my-pi."""
+    prefix = "would write" if dry else "write"
+    # Claude Code: autoCompactWindow is the size at which it compacts (300-400k for Claude models)
+    _, claude_compact = context_for(cfg, "claude")
+    settings = json.loads(CLAUDE_SETTINGS.read_text(encoding="utf-8")) if CLAUDE_SETTINGS.exists() else {}
+    if settings.get("autoCompactWindow") == claude_compact:
+        print(f"claude code: autoCompactWindow {claude_compact} unchanged in {CLAUDE_SETTINGS}")
+    else:
+        print(f"{prefix}: {CLAUDE_SETTINGS} autoCompactWindow = {claude_compact}")
+        settings["autoCompactWindow"] = claude_compact
+        if not dry:
+            backup_and_write(CLAUDE_SETTINGS, json.dumps(settings, indent=2, ensure_ascii=False) + "\n")
+    # Codex and every other model: the default policy
+    window, compact = int(cfg["context"]["default"]["window"]), int(cfg["context"]["default"]["compact_at"])
+    current = top_level_toml(CODEX_CONFIG)
+    wanted = {"model_context_window": window, "model_auto_compact_token_limit": compact}
+    if all(current.get(k) == v for k, v in wanted.items()):
+        print(f"codex: {window} / {compact} unchanged in {CODEX_CONFIG}")
+    else:
+        print(f"{prefix}: {CODEX_CONFIG} model_context_window = {window}, model_auto_compact_token_limit = {compact}")
+        if not dry:
+            text = CODEX_CONFIG.read_text(encoding="utf-8") if CODEX_CONFIG.exists() else ""
+            backup_and_write(CODEX_CONFIG, set_toml_top_level(text, wanted))
+    # oh-my-pi: one global threshold, the default policy (omp has no per-model override)
+    data = (yaml.safe_load(OMP_CONFIG.read_text(encoding="utf-8")) if OMP_CONFIG.exists() else None) or {}
+    if (data.get("compaction") or {}).get("thresholdTokens") == compact:
+        print(f"omp: compaction.thresholdTokens {compact} unchanged in {OMP_CONFIG}")
+    else:
+        print(f"{prefix}: {OMP_CONFIG} compaction.thresholdTokens = {compact}")
+        data.setdefault("setupVersion", 2)
+        data.setdefault("compaction", {})["thresholdTokens"] = compact
+        if not dry:
+            backup_and_write(OMP_CONFIG, yaml.safe_dump(data, sort_keys=False))
+    print("Hermes profiles: fleet sync")
+    return 0
+
+
+def context_show(cfg: dict, projects: dict[str, dict]) -> int:
+    window, compact = int(cfg["context"]["default"]["window"]), int(cfg["context"]["default"]["compact_at"])
+    _, claude_compact = context_for(cfg, "claude")
+    claude_window = context_for(cfg, "claude")[0]
+    rows = [("Claude Code", "autoCompactWindow", "claude", claude_window, claude_compact),
+            ("Codex", "model_context_window", "default", window, compact),
+            ("oh-my-pi", "compaction.thresholdTokens", "default", window, compact)]
+    for name, spec in profiles(cfg, projects).items():
+        w, c = context_for(cfg, spec["brain"]["model"])
+        rows.append((f"Hermes {name}", f"{spec['brain']['model']}", "claude" if is_claude(spec["brain"]["model"]) else "default", w, c))
+    print(f"{'agent':<24}{'model / key':<34}{'policy':<9}{'window':>9}{'compacts at':>13}")
+    for agent, key, policy, w, c in rows:
+        print(f"{agent:<24}{key:<34}{policy:<9}{w:>9,}{c:>13,}")
+    return 0
+
+
+def context_env(cfg: dict, lane: str, tier: str) -> int:
+    """Environment a lane exports before its CLI starts (Claude Code reads its compaction point from it)."""
+    if cfg["lanes"][lane]["cli"] == "claude":
+        print(f"CLAUDE_CODE_AUTO_COMPACT_WINDOW={context_for(cfg, worker(cfg, lane, tier)['model'])[1]}")
+    return 0
+
+
+# ------------------------------------------------------------------------------------------------ sync
+
+
+def hermes_root() -> Path:
+    home = Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes"))
+    return home.parent.parent if home.parent.name == "profiles" else home
+
+
+def profile_dir(name: str) -> Path:
+    return hermes_root() if name == "default" else hermes_root() / "profiles" / name
+
+
+def nested(data: dict, dotted: str):
+    for part in dotted.split("."):
+        if not isinstance(data, dict) or part not in data:
+            return None
+        data = data[part]
+    return data
+
+
+def same_value(current, wanted) -> bool:
+    if isinstance(wanted, list):
+        return isinstance(current, list) and [str(x) for x in current] == [str(x) for x in wanted]
+    try:
+        return float(current) == float(wanted)
+    except (TypeError, ValueError):
+        return str(current) == str(wanted)
+
+
+def env_values(path: Path) -> dict[str, str]:
+    values = {}
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            match = re.match(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$", line)
+            if match:
+                values[match.group(1)] = match.group(2)
+    return values
+
+
+def shared_env_keys(names) -> list[str]:
+    return sorted(n for n in names if n.endswith(SHARED_ENV_SUFFIXES) and not n.startswith(CHANNEL_PREFIXES))
+
+
+def sync_env(profile: str, dry: bool) -> list[str]:
+    """Copy provider keys from the root .env into a profile's .env; returns the names added or updated."""
+    source = env_values(hermes_root() / ".env")
+    target_path = profile_dir(profile) / ".env"
+    target = env_values(target_path)
+    changed = [k for k in shared_env_keys(source) if target.get(k) != source[k]]
+    if changed and not dry:
+        lines = target_path.read_text(encoding="utf-8").splitlines() if target_path.exists() else []
+        for key in changed:
+            pattern = re.compile(rf"^\s*(?:export\s+)?{re.escape(key)}\s*=")
+            index = next((i for i, line in enumerate(lines) if pattern.match(line)), None)
+            if index is None:
+                lines.append(f"{key}={source[key]}")
+            else:
+                lines[index] = f"{key}={source[key]}"
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        target_path.chmod(0o600)
+    return changed
+
+
+def desired_settings(cfg: dict, name: str, spec: dict) -> dict[str, object]:
+    model = spec["brain"]["model"]
+    window, compact = context_for(cfg, model)
+    wanted: dict[str, object] = {
+        "model.default": model,
+        "model.provider": spec["brain"]["provider"],
+        "model.context_length": window,
+        "compression.threshold": hermes_threshold(window, compact),
+        "compression.threshold_tokens": compact,
+        "skills.external_dirs": skill_dirs(),
+    }
+    if name == "default":
+        wanted["quick_commands.sync.type"] = "exec"
+        wanted["quick_commands.sync.command"] = f"{sys.executable} {FLEET / 'bin' / 'fleet'} sync"
+    return wanted
+
+
+def sync(cfg: dict, projects: dict[str, dict], dry: bool) -> int:
+    """Make every Hermes profile follow the root: login, API keys, models, context limits, skills.
+
+    Logins need no copy: Hermes reads the root auth.json as a per-provider fallback in every
+    profile (and copying an OAuth token would break it, since refresh tokens are single use).
+    Fast on purpose (it is the /sync slash command, which Hermes cuts off after 30 s): it reads
+    each profile's config.yaml and runs `hermes config set` only for what differs."""
+    started = time.time()
+    specs = profiles(cfg, projects)
+    present = {"default"} | ({d.name for d in (hermes_root() / "profiles").iterdir() if d.is_dir()}
+                             if (hermes_root() / "profiles").is_dir() else set())
+    failures, lines = 0, []
+    missing = [n for n in specs if n not in present and not dry]
+    # logins: report what the root has and which profiles shadow it with their own entries
+    providers = sorted({spec["brain"]["provider"] for spec in specs.values()})
+    out, shadows = [], []
+    for provider in providers:
+        status = run(["hermes", "auth", "status", provider]) if not dry else None
+        text = (status.stdout + status.stderr) if status else ""
+        out.append(f"{provider} {'logged in' if status and 'logged in' in text and 'logged out' not in text else 'not logged in on default' if status else '(dry run)'}")
+    for name in specs:
+        auth_file = profile_dir(name) / "auth.json"
+        if name != "default" and auth_file.exists():
+            try:
+                store = json.loads(auth_file.read_text(encoding="utf-8"))
+            except ValueError:
+                continue
+            own = sorted((set((store.get("providers") or {})) | set((store.get("credential_pool") or {}))) & set(providers))
+            if own:
+                shadows.append(f"{name} has its own {', '.join(own)} login (it hides the one on default)")
+    lines.append("login: " + "; ".join(out) + ("  [log in with: hermes auth add <provider>, on the default profile]" if any("not logged" in o for o in out) else ""))
+    lines += [f"warning: {s}" for s in shadows]
+    for name, spec in specs.items():
+        if name in missing:
+            lines.append(f"{name}: missing, run: fleet bootstrap")
+            continue
+        notes = []
+        if name != "default":
+            keys = sync_env(name, dry)
+            if keys:
+                notes.append("env " + ", ".join(f"+{k}" for k in keys))
+        config_file = profile_dir(name) / "config.yaml"
+        current = (yaml.safe_load(config_file.read_text(encoding="utf-8")) or {}) if config_file.exists() else {}
+        changed = []
+        for key, value in desired_settings(cfg, name, spec).items():
+            if same_value(nested(current, key), value):
+                continue
+            rendered = json.dumps(value) if isinstance(value, list) else str(value)
+            command = hermes(name, "config", "set", key, rendered)
+            if dry:
+                print("would run: " + " ".join(command))
+                changed.append(key)
+                continue
+            result = run(command)
+            if result.returncode != 0:
+                failures += 1
+                lines.append(f"{name}: FAILED {key}: {(result.stdout + result.stderr).strip().splitlines()[-1:]}")
+            else:
+                changed.append(key)
+        if changed:
+            notes.append(f"{len(changed)} setting(s): " + ", ".join(changed))
+        lines.append(f"{name}: " + ("; ".join(notes) if notes else "already in sync"))
+    lines.append(f"{'dry run' if dry else 'done'} in {time.time() - started:.1f}s")
+    print("\n".join(lines))
+    return 1 if failures else 0
 
 
 # ------------------------------------------------------------------------------------------------ bootstrap
@@ -394,7 +681,7 @@ def bootstrap(cfg: dict, projects: dict[str, dict], dry: bool) -> int:
     for name in sorted(projects):
         if project_sync(cfg, projects, name, dry):
             return 1
-    return models_apply(cfg, projects, dry)
+    return models_apply(cfg, projects, dry) or context_apply(cfg, dry)
 
 
 # ------------------------------------------------------------------------------------------------ merge
@@ -484,6 +771,15 @@ def main() -> int:
             return project_sync(cfg, projects, rest[1], dry)
     if command == "bootstrap":
         return bootstrap(cfg, projects, dry)
+    if command == "sync":
+        return sync(cfg, projects, dry)
+    if command == "context" and rest:
+        if rest[0] == "show":
+            return context_show(cfg, projects)
+        if rest[0] == "apply":
+            return context_apply(cfg, dry)
+        if rest[0] == "env" and len(rest) == 3:
+            return context_env(cfg, rest[1], rest[2])
     if command == "merge" and rest:
         flags = dict(zip(rest[1::2], rest[2::2]))
         if "--risk" not in flags or "--sha" not in flags:

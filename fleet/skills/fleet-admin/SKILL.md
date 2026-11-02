@@ -31,6 +31,15 @@ to it. Then ask the new manager to adopt the repo (the `project` skill: labels, 
    --body-file request.md`. Use an `--idempotency-key` from the message id.
 3. A request about the fleet itself (a new project, a model change, a profile) is yours.
 
+## Log in once, sync everywhere
+
+Log in on the default profile only (`hermes auth add <provider>`, or a key in `~/.hermes/.env`), then
+run `/sync` (the Hermes slash command; `fleet sync` in a shell). It copies provider API keys to every
+profile's `.env` (never messaging tokens), applies models, context limits and skills, and reports
+logins that are missing or hidden by a profile's own login. Run it after a login, a key rotation,
+`fleet project add` or a `fleet/models.yaml` change. OAuth logins need no copy: profiles read the
+default's.
+
 ## Keep the fleet healthy
 
 - `fleet models check`: 0 problems; `hermes kanban diagnostics --board <each project>`.

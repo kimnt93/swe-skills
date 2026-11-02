@@ -22,7 +22,9 @@ fleet models show                 # every agent, its level and its model
 fleet models check                # each model exists where it runs, each provider is logged in
 fleet models apply [--dry-run]    # push models.yaml to the Hermes profiles and to omp
 fleet project add|list|sync         # one manager profile, board and Hermes project per project
-fleet bootstrap                   # root, managers, lanes: tools, skills, board settings; then apply
+fleet bootstrap                   # root, managers, lanes: tools, skills, board settings, context; then apply
+fleet sync                        # Hermes: share the root's login and keys, apply models and context to every profile (/sync)
+fleet context show|apply          # context window and compaction point per tool; write Claude Code, Codex, omp
 fleet lane run <lane> <tier> <card> | fleet lane review <author-lane> <card>
 fleet merge <pr> --risk <r> --sha <verified sha> [--approved]   # the merge gate
 fleet name                        # the plugin name
