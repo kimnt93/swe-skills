@@ -1,6 +1,6 @@
 {
   "status": "ok",
-  "service_name": "account-api",
+  "service_name": "orders-api",
   "env_name": "stg",
   "node_name": "swarm-worker-1",
   "api_versions": [

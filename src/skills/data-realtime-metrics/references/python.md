@@ -18,7 +18,7 @@ from pipeline_metrics import PipelineMetrics
 
 token = open(os.environ["OTEL_AUTH_TOKEN_FILE"]).read().strip() if os.getenv("OTEL_AUTH_TOKEN_FILE") else os.getenv("OTEL_AUTH_TOKEN", "")
 metrics = PipelineMetrics(
-    os.environ["SERVICE_NAME"],                      # e.g. ssi-ws-v3-transform
+    os.environ["SERVICE_NAME"],                      # e.g. feed-ws-transform
     environment=os.getenv("DEPLOYMENT_ENVIRONMENT", "local"),
     endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
     token=token,

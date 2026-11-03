@@ -1,9 +1,9 @@
 # Rust (`tracing`, axum)
 
-`account-engine` had no error tracking, so this is a **new template** that follows the layout the Rust projects share
+This template follows the layout Rust services share
 (`tracing` for logs, config in one crate, the binary crate owns the wiring). Template:
 `assets/templates/rust/errtracking.rs` (tests included, in the module), copied to the binary crate
-(`svc-api/src/` in the rust-code template, `account-api/src/` in `account-engine`).
+(`svc-api/src/` in the rust-code template).
 
 ```text
 <binary crate>/src/errtracking.rs     Options, init, client_options, layer, scrub, Throttle
@@ -36,7 +36,7 @@ Cargo.toml.snippet                    sentry 0.49 (no default features) + sentry
    ```
 
    Dropping the guard flushes for up to 2 s, so `let _errors = ...` (not `let _ = ...`, which drops at once).
-4. **Trace id**: with OpenTelemetry (`account-engine`'s `telemetry` crate has a private `trace_ids()`), expose
+4. **Trace id**: with OpenTelemetry (a `telemetry` module usually has a private `trace_ids()`), expose
    `pub fn current_trace_id() -> Option<String>` that reads the active span context and pass it as `trace_id:
    Some(telemetry::current_trace_id)`. It runs on the thread that logged, so it sees the right span. Without
    OpenTelemetry pass `None`.

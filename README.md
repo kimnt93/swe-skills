@@ -11,8 +11,9 @@ until the project's `make verify` passes.
 | hot paths, Rust cores for Python, low-latency services | **Rust** | `rust-code` |
 | server-rendered web apps | **Next.js** (App Router) | `ts-code` |
 | dashboards and internal SPAs | **Vite + React + TypeScript** | `ts-code` | It installs as a plugin in Claude Code, Codex and
-oh-my-pi, or as plain skills in Hermes, OpenCode, Gemini CLI and 25 other harnesses. The process
-half is forked from Lauren Tan's pstack (MIT; every forked file is listed in `UPSTREAM`).
+oh-my-pi, or as plain skills in Hermes, OpenCode, Gemini CLI and 25 other harnesses. The first version
+started from some of the process ideas in [pstack](https://github.com/cursor/plugins/tree/main/pstack)
+(MIT); from there it grows with this stack and its requirements.
 
 The plugin's name comes from the build. The default is **`swe`**:
 
@@ -58,20 +59,72 @@ variable always wins.
 | oh-my-pi | `/skill:swe` | `/skill:<skill>` | omp's own roles |
 | Hermes and others | skill `swe` | skill `swe-<skill>` | — |
 
-## Skills (31)
+## Skills
 
-| Group | Skills |
+<!-- skills:start -->
+31 skills in 6 groups. Click a skill for its detail.
+
+### Start here
+
+| Skill | Description |
 |---|---|
-| Start here | `swe`: the router (language choice, playbooks, tiers, harness map, reply rules) |
-| Process and proof | `principles` (21 + `money-path`), `github`, `project`, `how`, `why`, `tdd`, `architect`, `interrogate`, `blast-radius`, `benchmark-checklist`, `deslop`, `correct`, `verify-create`, `verify-maintain`, `replay-test`, `formal-verify`, `ketchup`, `reflect` |
-| Languages | `go-code` (APIs), `py-code` (ML and data), `rust-code` (performance), `ts-code` (Next.js, Vite + React) |
-| Data | `db-migrations`, `db-orm` |
-| API and deployment | `api-contract`, `deployment-setup` |
-| Observability | `service-logging`, `service-tracing`, `service-errors`, `data-realtime-metrics` |
+| [swe](docs/skills/router.md#router) | Entry point: picks language and playbook, delegates by tier, finishes only when make verify passes |
 
-Router playbooks: investigation, bug-fix, feature, refactoring, migration, multi-phase, perf-issue,
-profiling, hillclimb, incident, prototype, babysit, opening-a-pr, autonomous-run, session-pickup,
-pause-safely, figure-it-out, eval.
+### Process and proof
+
+| Skill | Description |
+|---|---|
+| [architect](docs/skills/process.md#architect) | Sketch types and module shape twice, pick one, then implement against it |
+| [benchmark-checklist](docs/skills/process.md#benchmark-checklist) | Vet a measured number before you report it or act on it |
+| [blast-radius](docs/skills/process.md#blast-radius) | Find what a change could break elsewhere, and prove why it is safe |
+| [correct](docs/skills/process.md#correct) | Make a repeated agent mistake impossible with a check, not a sentence |
+| [deslop](docs/skills/process.md#deslop) | Clean a diff before review: debug output, dead code, noisy comments |
+| [formal-verify](docs/skills/process.md#formal-verify) | Check state machines, races and retries across every case in a bounded scope |
+| [github](docs/skills/process.md#github) | Branch, commit, PR, issue, review and merge the one way, with a check after each step |
+| [how](docs/skills/process.md#how) | Explain how a part of the codebase works, with file:line evidence |
+| [interrogate](docs/skills/process.md#interrogate) | Adversarial review where only findings proven by a run survive |
+| [ketchup](docs/skills/process.md#ketchup) | Plain-words catch-up on what changed and what waits on you |
+| [principles](docs/skills/process.md#principles) | 22 engineering principles; the router opens the ones that apply (money-path, idempotency, ...) |
+| [project](docs/skills/process.md#project) | Run a project's docs, GitHub repo setup, backlog and status |
+| [reflect](docs/skills/process.md#reflect) | Turn a long task's lessons into approved skill edits or new checks |
+| [replay-test](docs/skills/process.md#replay-test) | Prove money-path code on a recorded day, with duplicate and redelivery runs |
+| [tdd](docs/skills/process.md#tdd) | Failing test first, then the smallest change that makes it pass |
+| [verify-create](docs/skills/process.md#verify-create) | Give a project make verify and a verify skill that drives it like a user |
+| [verify-maintain](docs/skills/process.md#verify-maintain) | Keep the verify skill and its feature map true as the app changes |
+| [why](docs/skills/process.md#why) | Find the history and reasons behind code before changing or removing it |
+
+### Languages
+
+| Skill | Description |
+|---|---|
+| [go-code](docs/skills/languages.md#go-code) | Default for APIs, services and Kafka consumers: Go with Fiber v3, Postgres, Redis, S3 |
+| [py-code](docs/skills/languages.md#py-code) | ML and data in Python: polars, msgspec, and Litestar to serve a model |
+| [rust-code](docs/skills/languages.md#rust-code) | Performance: hot paths, Rust cores for Python via PyO3, low-latency services |
+| [ts-code](docs/skills/languages.md#ts-code) | Frontends: Next.js (App Router) or Vite + React + TypeScript, with tested templates |
+
+### Data
+
+| Skill | Description |
+|---|---|
+| [db-migrations](docs/skills/data-platform.md#db-migrations) | PostgreSQL schema changes as goose SQL files, safe by default |
+| [db-orm](docs/skills/data-platform.md#db-orm) | Opt-in ORM adapters (bun, SQLAlchemy, SeaORM) behind the same port as raw SQL |
+
+### API and deployment
+
+| Skill | Description |
+|---|---|
+| [api-contract](docs/skills/data-platform.md#api-contract) | One shape for every HTTP API: /v1, /docs, one /healthz, port 3000, internal token |
+| [deployment-setup](docs/skills/data-platform.md#deployment-setup) | Dockerfile, Swarm and local compose, Traefik labels, secrets and CI callers |
+
+### Observability
+
+| Skill | Description |
+|---|---|
+| [data-realtime-metrics](docs/skills/observability.md#data-realtime-metrics) | The same OTel metric set for every realtime pipeline, one Grafana dashboard |
+| [service-errors](docs/skills/observability.md#service-errors) | Unexpected errors to Sentry or GlitchTip, with nothing private leaving |
+| [service-logging](docs/skills/observability.md#service-logging) | One JSON log format in Go, Python, TypeScript and Rust, checked by logcheck |
+| [service-tracing](docs/skills/observability.md#service-tracing) | OpenTelemetry tracing: service dependencies by default, span detail on request |
+<!-- skills:end -->
 
 ## Enforced, not just written
 
@@ -101,7 +154,6 @@ pause-safely, figure-it-out, eval.
 | `make docs` | regenerate `docs/skills.md` from the skills |
 | `make package` | `dist/<name>-<version>.zip` |
 | `make publish` | release `dist/<name>/` into a publish repo, commit and tag (`PUSH=1` pushes) |
-| `make upstream` | what changed in pstack for the files we forked |
 
 ## The fleet
 
@@ -127,11 +179,11 @@ plugin.env           build settings (name, owner, version, domain, description)
 src/skills/          the skills; src/skills/router/ becomes /<name>
 src/agents/          Claude Code subagents (worker, adversary); models from fleet/models.yaml
 src/manifests/       plugin manifests with placeholders
-scripts/             build.py, install.py, validate_skills.py, publish.sh, upstream.sh
+scripts/             build.py, install.py, validate_skills.py, gen_docs.py, publish.sh
 fleet/               models.yaml, projects.yaml, the fleet command, fleet skills, self-test
 docs/                architecture.md (the design), agents-and-skills.md (the recommended setup)
 tests/               build_test.sh, enforcement_test.sh, fixtures
-UPSTREAM, LICENSES/  where each forked file came from, and pstack's MIT licence
+LICENSES/           the MIT notice for the pstack ideas the first version started from
 CHANGELOG.md         one entry per version (make publish requires it)
 dist/                build output (git-ignored); never edit it
 ```

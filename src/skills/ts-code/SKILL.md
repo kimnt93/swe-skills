@@ -3,6 +3,7 @@ name: ts-code
 description: "Write, change or review frontend TypeScript in this stack: Next.js (App Router) for server-rendered web apps, Vite + React + TypeScript for dashboards and internal SPAs; a typed API client from the Go service's OpenAPI with the response envelope, React Query for server state, strict tsconfig, ESLint, Vitest + Testing Library, Playwright end to end, and Docker images for both. Use for any frontend task: scaffold an app, add a page or component, call an API, fix a UI bug, write UI tests, or set up the frontend build and deploy."
 metadata:
   group: language
+  summary: "Frontends: Next.js (App Router) or Vite + React + TypeScript, with tested templates"
 ---
 
 # TypeScript frontends

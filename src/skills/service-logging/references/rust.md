@@ -18,8 +18,8 @@ gethostname = "1"
 ```rust
 mod service_logging;
 
-service_logging::init_from_env("ssi-data")?;          // SERVICE_NAME, DEVELOPMENT_ENVIRONMENT|ENV_NAME, NODE_NAME, LOG_LEVEL;
-                                                      // "ssi-data" = project directory name in `caller`
+service_logging::init_from_env("feed-data")?;          // SERVICE_NAME, DEVELOPMENT_ENVIRONMENT|ENV_NAME, NODE_NAME, LOG_LEVEL;
+                                                      // "feed-data" = project directory name in `caller`
 tracing::info!(messages_received = 361234u64, channel_depth = 0u64, "message statistics");
 tracing::warn!(target: "api.request", request_id = %rid, duration_ms = 1250.5, "slow request");
 tracing::error!(error = %err, error_type = "SinkError", table = "trades", "sink write failed");
@@ -30,7 +30,7 @@ Trace ids: compose the layer with your tracer instead of `init`:
 
 ```rust
 let otel = tracing_opentelemetry::layer().with_tracer(provider.tracer("my-service"));
-tracing_subscriber::registry().with(otel).with(service_logging::layer(service_logging::options_from_env("ssi-data")?)).init();
+tracing_subscriber::registry().with(otel).with(service_logging::layer(service_logging::options_from_env("feed-data")?)).init();
 ```
 
 Events inside an entered `tracing` span (or an attached OpenTelemetry context) then carry
@@ -62,6 +62,6 @@ Docker: set `NODE_NAME` (Swarm `{{.Node.Hostname}}`); the template falls back to
 
 ```bash
 cp -r assets/templates/rust /tmp/log-smoke && cd /tmp/log-smoke && mkdir src && mv main.rs service_logging.rs src/
-SERVICE_NAME=ssi-ws-v3 ENV_NAME=local NODE_NAME=docker-host-1 LOG_LEVEL=debug cargo run -q --features otel \
-  | python3 <skill>/scripts/logcheck.py --service ssi-ws-v3 --env local --node docker-host-1 --require-trace
+SERVICE_NAME=feed-ws ENV_NAME=local NODE_NAME=docker-host-1 LOG_LEVEL=debug cargo run -q --features otel \
+  | python3 <skill>/scripts/logcheck.py --service feed-ws --env local --node docker-host-1 --require-trace
 ```

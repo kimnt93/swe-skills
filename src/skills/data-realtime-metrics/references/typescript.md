@@ -18,7 +18,7 @@ import { PipelineMetrics } from './pipelineMetrics.js';
 
 const file = process.env.OTEL_AUTH_TOKEN_FILE;
 const metrics = new PipelineMetrics({
-  service: process.env.SERVICE_NAME!,               // e.g. ssi-ws-v3-transform
+  service: process.env.SERVICE_NAME!,               // e.g. feed-ws-transform
   environment: process.env.DEPLOYMENT_ENVIRONMENT ?? 'local',
   endpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
   token: file ? readFileSync(file, 'utf8').trim() : process.env.OTEL_AUTH_TOKEN,

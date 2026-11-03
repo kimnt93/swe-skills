@@ -56,8 +56,8 @@ the metrics, not thousands of events. The local logs keep every occurrence.
 
 - Swarm: the DSN is an external secret `{service}_sentry_dsn_{env}_v1` mounted at `/run/secrets/{service}_sentry_dsn`,
   with `SENTRY_DSN_FILE` pointing at it: [assets/compose.sentry.yaml](../assets/compose.sentry.yaml).
-  (`alpha-server` keeps the DSN as plain plane configuration in `deploy/<plane>.env` because an ingest key can only
-  write events; a service that follows the secret convention, like `trading-simulator`, is the default here.)
+  (A service may keep the DSN as plain plane configuration in `deploy/<plane>.env`, because an ingest key can only
+  write events; the external secret is the default here.)
 - Local: leave `SENTRY_DSN` empty. To see events, run `scripts/sentry_receiver.py` and point the DSN at it.
 - Every container of the service gets it (api, workers, matchers). Give each process role `component` so events can be
   split (`api`, `worker`, `matcher`). A one-shot child that handles untrusted code (a sandbox) gets **no** DSN.

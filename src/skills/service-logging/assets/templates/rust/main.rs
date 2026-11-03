@@ -1,14 +1,14 @@
 //! Smoke test: emit the line types a service produces, then validate them:
 //!
-//!   SERVICE_NAME=ssi-ws-v3 ENV_NAME=local NODE_NAME=docker-host-1 LOG_LEVEL=debug \
+//!   SERVICE_NAME=feed-ws ENV_NAME=local NODE_NAME=docker-host-1 LOG_LEVEL=debug \
 //!     cargo run --features otel \
-//!     | python3 scripts/logcheck.py --service ssi-ws-v3 --env local --node docker-host-1 \
+//!     | python3 scripts/logcheck.py --service feed-ws --env local --node docker-host-1 \
 //!         --require-trace
 
 mod service_logging;
 
 fn main() -> Result<(), String> {
-    let options = service_logging::options_from_env("ssi-data")?;
+    let options = service_logging::options_from_env("feed-data")?;
 
     #[cfg(feature = "otel")]
     let provider = {

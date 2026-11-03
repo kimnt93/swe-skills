@@ -3,7 +3,7 @@ name: deslop
 description: "Clean a diff before review: delete comments that restate code, dead code, debug output, unreasoned lint suppressions and defensive checks for impossible states, and make the PR text plain. Use before every review and commit, and when asked to tighten or unslop changes."
 metadata:
   group: process
-  upstream: "cursor/plugins pstack@ae5650f skills/no-comments + unslop + technical-writing (merged, rewritten)"
+  summary: "Clean a diff before review: debug output, dead code, noisy comments"
 ---
 
 # Deslop

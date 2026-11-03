@@ -3,7 +3,7 @@ name: interrogate
 description: "Adversarial review of a diff or a design: adversaries try to break it, and only findings proven by a run survive. Use before shipping a contested or risky change, for 'challenge this', 'find blind spots', 'review this branch', and as the brief of the cross-family reviewer lane."
 metadata:
   group: process
-  upstream: "cursor/plugins pstack@ae5650f skills/interrogate (rewritten)"
+  summary: "Adversarial review where only findings proven by a run survive"
 ---
 
 # Interrogate

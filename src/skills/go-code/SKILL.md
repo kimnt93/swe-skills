@@ -3,6 +3,7 @@ name: go-code
 description: The default language for every HTTP API and backend service in this stack (the router's language table). Write, change or review Go code - new services and projects, HTTP APIs (Fiber v3), PostgreSQL (go-pg v10 with raw SQL), Redis (go-redis v9), Kafka (confluent-kafka-go), S3/RustFS object storage (AWS SDK v2), env config and secrets, features, tests and refactors. Use for any Go task such as add Postgres or Redis, consume or produce Kafka, store files in S3, add an endpoint, scaffold a service, write tests or refactor; it routes to the matching reference and carries the Go code standard (gofmt, goimports, golangci-lint, no pointers and no omitempty in structs) and the readable-code rules (one statement per line, 100 columns, multi-line SQL).
 metadata:
   group: language
+  summary: "Default for APIs, services and Kafka consumers: Go with Fiber v3, Postgres, Redis, S3"
   version: "1.0"
 ---
 

@@ -8,7 +8,7 @@ labels; register new names there first when a registry exists.
 ## Host: `{service_name}.{env_name}.{host}`
 
 Every routed API uses one host built from its service name, its env name and the public domain
-(`account-api.stg.@DOMAIN@`) and listens on port **3000**. One router serves `/docs`, `/v1` and
+(`orders-api.stg.@DOMAIN@`) and listens on port **3000**. One router serves `/docs`, `/v1` and
 `/v2`, so there is a single `Host()` rule and no `PathPrefix`. The service-name variable is the same one
 that fills `SERVICE_NAME`. The full contract is the [api-contract](../../api-contract/SKILL.md) skill
 and `scripts/check_deploy.py` enforces the host shape, the port and `ENV_NAME`.
@@ -38,7 +38,7 @@ services:
 | `traefik.enable` | `"true"` opts in; discovery is normally `exposedByDefault=false`. |
 | `traefik.swarm.network` | The overlay the proxy reaches the backend on; must be in the service's `networks` and the proxy must be on it too. Required when the service joins several networks, otherwise the proxy may pick an unreachable IP. |
 | Router name | `<service>_<purpose>_<plane>` (`example_api_stg`): lowercase, underscores, **plane interpolated** so one file yields distinct routers per plane. Unique cluster-wide; two services both naming a router `api` collide silently. |
-| `rule` | `Host(...)` built from `<service_name>.<env_name>.<host>` (`account-api.stg.@DOMAIN@`). Put the domain in a plane env variable with `${VAR:?}`; never hard-code it. No `PathPrefix`: one host per service. |
+| `rule` | `Host(...)` built from `<service_name>.<env_name>.<host>` (`orders-api.stg.@DOMAIN@`). Put the domain in a plane env variable with `${VAR:?}`; never hard-code it. No `PathPrefix`: one host per service. |
 | `entrypoints` | The project's existing HTTP entrypoint name (private/public). Do not invent one. |
 | `loadbalancer.server.port` | The **container** port the process listens on: always `3000`. Verify from a task on the same overlay. |
 | `.service` | Name the backend explicitly when a router and service stem differ or when reusing a service. |

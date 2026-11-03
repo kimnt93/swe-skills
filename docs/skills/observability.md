@@ -19,7 +19,7 @@ outside one omit both. Custom fields are flat snake_case scalars.
 copy its template; configure it from the environment with the same names everywhere
 (`assets/logging.env.example`); keep the existing call sites; prove the output with `scripts/logcheck.py`.
 **Files.** `scripts/logcheck.py`, `assets/templates/{go,python,typescript,rust}`, `assets/log-line.schema.json`,
-references `log-format`, one per language, and `audit` (what differs in existing projects).
+references `log-format`, one per language, and `migration` (moving an existing project onto the format).
 
 ### service-tracing
 

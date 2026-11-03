@@ -3,7 +3,7 @@ name: verify-maintain
 description: "Keep a project's verify skill and feature map true to the app: check every feature against the source, drive every feature live once, and ship at most one PR of proven corrections. Use periodically, after features change, or when a verify run fails for reasons that look like drift."
 metadata:
   group: process
-  upstream: "cursor/plugins pstack@ae5650f skills/maintain-verification-skill (rewritten)"
+  summary: "Keep the verify skill and its feature map true as the app changes"
 ---
 
 # Verify maintain

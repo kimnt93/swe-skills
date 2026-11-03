@@ -2,7 +2,6 @@
 name: fleet-worker
 description: "How a lane profile (claude or omp) works a kanban card with the @PLUGIN@ plugin: implement it through `fleet lane run` and hand it to the other lane for review, or, in the review lane, review it through `fleet lane review`, give a verdict for one head SHA and, when autopilot allows the card's risk class, merge through `fleet merge`. Use whenever you are a lane profile working a kanban card."
 metadata:
-  upstream: "ideas from cursor/plugins pstack@ae5650f playbooks/autopilot-full.md and skills/interrogate (rewritten for Hermes Kanban)"
 ---
 
 # Fleet worker

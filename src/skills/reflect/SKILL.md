@@ -3,7 +3,7 @@ name: reflect
 description: "Mine the current conversation for durable lessons with three parallel reviewers and a synthesizer, then turn each accepted lesson into a skill edit in this plugin's source, a new check, or a backlog item, after the human approves. Use when the human says reflect, or after a long task whose recipe should not be lost."
 metadata:
   group: process
-  upstream: "cursor/plugins pstack@ae5650f skills/reflect (rewritten)"
+  summary: "Turn a long task's lessons into approved skill edits or new checks"
 ---
 
 # Reflect

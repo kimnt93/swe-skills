@@ -3,7 +3,7 @@ name: architect
 description: "Settle types, signatures and module shape before code, by sketching at least two designs and picking one, then implement against the sketch. Use for code that crosses a function boundary, a new service, endpoint, consumer, model pipeline or frontend feature, or whenever jumping to code would lock in the wrong shape."
 metadata:
   group: process
-  upstream: "cursor/plugins pstack@ae5650f skills/architect (rewritten)"
+  summary: "Sketch types and module shape twice, pick one, then implement against it"
 ---
 
 # Architect

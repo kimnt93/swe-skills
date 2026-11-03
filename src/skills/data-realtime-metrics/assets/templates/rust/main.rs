@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (endpoint, role) = (args[1].clone(), args[2].clone());
     let m = PipelineMetrics::new(Options {
         service: format!(
-            "ssi-ws-v3-{}",
+            "feed-ws-{}",
             if role == "ingestion" { "feed" } else { &role }
         ),
         environment: "local".into(),

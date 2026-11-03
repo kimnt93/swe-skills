@@ -4,6 +4,7 @@ description: Add OpenTelemetry (OTLP) metrics to realtime stream pipelines and c
 compatibility: Needs an OTLP/HTTP metrics endpoint (collector or gateway). The checker script needs python3 only. Templates tested with Python 3.12 / opentelemetry-sdk 1.38, Go 1.26 / otel-go 1.47, Node 22 / sdk-metrics 2.12, Rust 1.99 / opentelemetry 0.33.
 metadata:
   group: observability
+  summary: "The same OTel metric set for every realtime pipeline, one Grafana dashboard"
   version: "1.0"
 ---
 
@@ -15,8 +16,8 @@ wire it into the service, not to design metrics.
 
 ## The idea in five lines
 
-- One service = one pipeline. `service.name` (the `SERVICE_NAME` variable, also the `service_name` of the `service-logging` skill's log lines) is the pipeline name (`ssi-ws-v3`, `dnse-mqtt`,
-  `ssi-ws-v3-transform`): `{datasource}-{role}`. Dashboards filter by it.
+- One service = one pipeline. `service.name` (the `SERVICE_NAME` variable, also the `service_name` of the `service-logging` skill's log lines) is the pipeline name (`feed-ws`, `broker-mqtt`,
+  `feed-ws-transform`): `{datasource}-{role}`. Dashboards filter by it.
 - Message totals only, three statuses: `received` (every arrival, including dropped),
   `dropped` (arrived but deliberately not forwarded), `published` (forwarded: Kafka ack, sink
   write, handled). The only label in the whole set is `status`.

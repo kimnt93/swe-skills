@@ -3,7 +3,7 @@ name: why
 description: "Find out why code is shaped the way it is: the commits, PRs, issues, incidents and errors behind it, separating what the evidence shows from what is inferred. Use for 'why is it like this', before removing a guard, retry, flag or odd special case, or before redesigning existing code."
 metadata:
   group: process
-  upstream: "cursor/plugins pstack@ae5650f skills/why (rewritten)"
+  summary: "Find the history and reasons behind code before changing or removing it"
 ---
 
 # Why

@@ -4,6 +4,7 @@ description: Set up unified structured JSON logging for services in Go (zerolog)
 compatibility: The checker script needs python3 only. Templates tested with Go 1.26 / zerolog 1.35, Python 3.12 / jlogger 0.1, Node 22 / pino 10, Rust 1.99 / tracing 0.1.
 metadata:
   group: observability
+  summary: "One JSON log format in Go, Python, TypeScript and Rust, checked by logcheck"
   version: "1.0"
 ---
 
@@ -14,7 +15,7 @@ set of queries read all of them. The format is fixed; your job is to wire the te
 the service and prove the output with the checker.
 
 ```json
-{"level":"info","development_environment":"local","service_name":"ssi-ws-v3","node_name":"docker-host-1","logger":"root","messages_received":361234,"channel_depth":0,"time":"2026-10-07T02:49:55.245633769Z","caller":"ssi-data/cmd/ssi-data/main.go:171","message":"message statistics"}
+{"level":"info","development_environment":"local","service_name":"feed-ws","node_name":"docker-host-1","logger":"root","messages_received":361234,"channel_depth":0,"time":"2026-10-07T02:49:55.245633769Z","caller":"feed-data/cmd/feed-data/main.go:171","message":"message statistics"}
 ```
 
 Required on every line: `level` (`trace|debug|info|warn|error|fatal`), `development_environment`,
@@ -36,8 +37,8 @@ flat snake_case scalars. Full spec: [references/log-format.md](references/log-fo
 
    Use the library named in the table: the existing services already use zerolog and
    jlogger. Do not add a second logging library next to it. If the service already has a logger,
-   replace its setup with the template and keep its call sites; [references/audit.md](references/audit.md)
-   lists what differs in the existing projects.
+   replace its setup with the template and keep its call sites; [references/migration.md](references/migration.md)
+   lists what usually differs and how to migrate.
 
 2. **Configure from the environment**, same names everywhere (template:
    [assets/logging.env.example](assets/logging.env.example)):
@@ -106,7 +107,7 @@ flat snake_case scalars. Full spec: [references/log-format.md](references/log-fo
 ## Files
 
 - [references/log-format.md](references/log-format.md) - the spec: fields, env, levels, rules, Loki.
-- [references/audit.md](references/audit.md) - how the existing projects differ and how to migrate.
+- [references/migration.md](references/migration.md) - what usually differs in an existing logger and how to migrate.
 - `references/go.md`, `python.md`, `typescript.md`, `rust.md` - language guides.
 - `assets/` - one tested template per language, JSON Schema, env template.
 - `scripts/logcheck.py` - the conformance checker.

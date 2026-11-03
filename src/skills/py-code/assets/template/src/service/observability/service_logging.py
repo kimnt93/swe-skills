@@ -129,7 +129,7 @@ def configure_from_env(**overrides: Any) -> None:
     service = os.environ.get("SERVICE_NAME")
     if not service:
         raise RuntimeError(
-            "SERVICE_NAME is required (the service name, e.g. ssi-ws-v3)"
+            "SERVICE_NAME is required (the service name, e.g. feed-ws)"
         )
     configure(
         service,

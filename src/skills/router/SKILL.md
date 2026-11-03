@@ -3,7 +3,7 @@ name: router
 description: "Entry point of the @PLUGIN@ plugin for any non-trivial engineering task: picks the language for the job (Go/Fiber for APIs, Python for ML and data, Rust for performance, Next.js or Vite + React + TypeScript for frontends), restates the goal and the done-predicate, picks a playbook, loads the matching skills and principles, delegates by model tier, and does not finish until the project's verify command passes on the committed head. Use at the start of a feature, bug, perf, migration, incident, refactor or investigation, or with no request to list the plugin."
 metadata:
   group: start
-  upstream: "cursor/plugins pstack@ae5650f skills/poteto-mode (rewritten)"
+  summary: "Entry point: picks language and playbook, delegates by tier, finishes only when make verify passes"
 ---
 
 # @PLUGIN@

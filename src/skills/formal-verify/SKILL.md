@@ -3,7 +3,7 @@ name: formal-verify
 description: "Formally check the code where a bug costs the most and tests reach the least: an order or position state machine, retries around a commit, concurrent balance updates, a parser, Rust unsafe code. Picks the tool (TLA+, property-based tests, Kani), proves the property can fail, and keeps the check true to the code as it changes. Use for money-path state machines and races, or after merges that touched verified code."
 metadata:
   group: process
-  upstream: "cursor/plugins pstack@ae5650f skills/create-formal-verification-skill + maintain-formal-verification-skill (merged, rewritten)"
+  summary: "Check state machines, races and retries across every case in a bounded scope"
 ---
 
 # Formal verify

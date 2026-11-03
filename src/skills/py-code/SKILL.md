@@ -3,6 +3,7 @@ name: py-code
 description: The language for ML and data in this stack (training, evaluation, inference, feature pipelines, dataframes), plus Python services that serve a model or data in process. Write, change or review Python code - ML pipelines, Litestar APIs (msgspec, never pydantic), PostgreSQL (psycopg 3 plain SQL), Redis, Kafka (confluent-kafka), S3/RustFS (boto3), env settings and secrets, Celery and Kafka workers, fast JSON and timestamps (msgspec, orjson, ciso8601), polars instead of pandas, features, tests and refactors, all at PEP 8 (79 columns) and the readable-code rules (one statement per line, multi-line SQL). Use for any Python task such as add Postgres or Redis, consume Kafka, store files in S3, add an endpoint, speed up JSON or dataframe code, scaffold a service, write tests or refactor; it routes to the matching reference.
 metadata:
   group: language
+  summary: "ML and data in Python: polars, msgspec, and Litestar to serve a model"
   version: "1.0"
 ---
 

@@ -3,6 +3,7 @@ name: rust-code
 description: The language for performance-critical code in this stack (hot paths, Rust cores for Python via PyO3, low-latency services). Write, change or review Rust code in this stack, including Python packages with a Rust core - new workspaces and axum services, env config and secrets, PostgreSQL (tokio-postgres raw SQL), Redis, Kafka (rdkafka), S3/RustFS (aws-sdk-s3), features, tests, and pyo3/maturin bindings with numpy and polars, wheels and releases. Use for any Rust task such as add Postgres, Redis, Kafka or S3, add an endpoint, scaffold a workspace, write tests, expose Rust to Python, move a hot path from Python to Rust or build wheels; it routes to the matching reference and carries the Rust standard (rustfmt, clippy -D warnings) and the readable-code rules (one statement per line, 100 columns, multi-line SQL).
 metadata:
   group: language
+  summary: "Performance: hot paths, Rust cores for Python via PyO3, low-latency services"
   version: "1.0"
 ---
 

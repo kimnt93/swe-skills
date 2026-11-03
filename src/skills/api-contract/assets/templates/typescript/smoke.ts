@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { bareToken, buildHealthz, buildInternal, callerFromHeaders, identityFromEnv, isInternalToken } from "./healthz.ts";
 
-const id = identityFromEnv({ SERVICE_NAME: "account-api", ENV_NAME: "stg", NODE_NAME: "node-1", PORT: "3000" });
+const id = identityFromEnv({ SERVICE_NAME: "orders-api", ENV_NAME: "stg", NODE_NAME: "node-1", PORT: "3000" });
 const down = {
   name: "postgres",
   ping: async () => {
@@ -14,7 +14,7 @@ const up = { name: "redis", ping: async () => {} };
 const healthy = await buildHealthz(id, [up]);
 assert.equal(healthy.statusCode, 200);
 assert.equal(healthy.body.status, "ok");
-assert.equal(healthy.body.service_name, "account-api");
+assert.equal(healthy.body.service_name, "orders-api");
 assert.equal(healthy.body.env_name, "stg");
 assert.equal(healthy.body.node_name, "node-1");
 assert.deepEqual(healthy.body.api_versions, ["v1"]);
@@ -45,5 +45,5 @@ assert.deepEqual(callerFromHeaders({}), { user_id: "", username: "" });
 const internal = await buildInternal(id, [], caller);
 assert.equal(internal.statusCode, 200);
 assert.deepEqual(internal.body.caller, caller);
-assert.equal(internal.body.service_name, "account-api");
+assert.equal(internal.body.service_name, "orders-api");
 console.log("healthz smoke ok");

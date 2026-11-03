@@ -44,7 +44,7 @@ let withCaller = true;
  * Docker set it to the host name); LOG_LEVEL (default info). */
 export function configureFromEnv(overrides: Partial<LoggingOptions> = {}): void {
   const service = process.env.SERVICE_NAME;
-  if (!service) throw new Error('SERVICE_NAME is required (the pipeline/service name, e.g. ssi-ws-v3)');
+  if (!service) throw new Error('SERVICE_NAME is required (the pipeline/service name, e.g. feed-ws)');
   configure({
     service,
     environment: process.env.DEVELOPMENT_ENVIRONMENT || process.env.ENV_NAME || 'local',

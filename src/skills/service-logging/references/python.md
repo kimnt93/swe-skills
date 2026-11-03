@@ -57,6 +57,6 @@ which the adapter uses to write the unified values. Disabled levels return befor
 
 ```bash
 cd assets/templates/python
-SERVICE_NAME=ssi-ws-v3 ENV_NAME=local NODE_NAME=docker-host-1 LOG_LEVEL=debug python smoke.py \
-  | python3 ../../../scripts/logcheck.py --service ssi-ws-v3 --env local --node docker-host-1 --require-trace
+SERVICE_NAME=feed-ws ENV_NAME=local NODE_NAME=docker-host-1 LOG_LEVEL=debug python smoke.py \
+  | python3 ../../../scripts/logcheck.py --service feed-ws --env local --node docker-host-1 --require-trace
 ```

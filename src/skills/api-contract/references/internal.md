@@ -30,7 +30,7 @@ identity the service received.
 ```json
 {
   "status": "ok",
-  "service_name": "account-api",
+  "service_name": "orders-api",
   "env_name": "stg",
   "node_name": "swarm-worker-1",
   "api_versions": ["v1"],
@@ -61,10 +61,10 @@ configuration at start-up). It is documented in `/docs` with the `InternalServic
 Calling it:
 
 ```bash
-curl -s https://account-api.stg.@DOMAIN@/internal \
+curl -s https://orders-api.stg.@DOMAIN@/internal \
   -H "x-internal-service-token: $INTERNAL_SERVICE_TOKEN" \
   -H "x-user-id: u-7" -H "x-username: linh"
-python3 scripts/probe_api.py https://account-api.stg.@DOMAIN@ --token "$INTERNAL_SERVICE_TOKEN"
+python3 scripts/probe_api.py https://orders-api.stg.@DOMAIN@ --token "$INTERNAL_SERVICE_TOKEN"
 ```
 
 ## Implementations

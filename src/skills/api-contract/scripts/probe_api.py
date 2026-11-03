@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Probe a running service against the platform's API contract.
 
-    probe_api.py https://account-api.stg.@DOMAIN@
-    probe_api.py http://127.0.0.1:3000 --service account-api --env local --versions v1,v2
-    probe_api.py https://127.0.0.1 --host-header account-api.stg.@DOMAIN@   # through Traefik by IP
+    probe_api.py https://orders-api.stg.@DOMAIN@
+    probe_api.py http://127.0.0.1:3000 --service orders-api --env local --versions v1,v2
+    probe_api.py https://127.0.0.1 --host-header orders-api.stg.@DOMAIN@   # through Traefik by IP
 
 Checks: the host is {service}.{env}.{domain}; /docs is Swagger UI and /docs/openapi.json lists
 /healthz and only /healthz or versioned (/v1/...) routes; /healthz (one endpoint, not per version)
@@ -200,7 +200,7 @@ def check_docs(rep: Report, args) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("base", help="base URL, for example https://account-api.stg.@DOMAIN@")
+    parser.add_argument("base", help="base URL, for example https://orders-api.stg.@DOMAIN@")
     parser.add_argument("--versions", default="v1", help="comma-separated API versions /healthz must list (default v1)")
     parser.add_argument("--service", default="", help="expected service name (default: first host label)")
     parser.add_argument("--env", default="", help="expected env name (default: second host label)")

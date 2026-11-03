@@ -3,7 +3,7 @@
 
     sentry_receiver.py serve [--port 9100] [--out events.jsonl]
         accepts /api/<project>/envelope/ and /api/<project>/store/, writes one JSON event per line
-    sentry_receiver.py check events.jsonl --environment stg --service account-api [--release R]
+    sentry_receiver.py check events.jsonl --environment stg --service orders-api [--release R]
         checks the captured events against the service-errors contract; exit 1 on a violation
 
 Run the service with SENTRY_DSN=http://test-key@127.0.0.1:9100/1, trigger one failure, stop the

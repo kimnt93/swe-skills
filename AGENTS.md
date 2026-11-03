@@ -26,10 +26,10 @@ coding lanes (`claude`, `omp`); every agent and model is set in `fleet/models.ya
 5. **Harness-neutral text.** Say "start a subagent at tier T", never a tool name or a model slug.
    The how-to lives in `src/skills/router/references/harness.md`. Model ids live only in
    `fleet/models.yaml`.
-6. **Forking from pstack:** copy into this repo's format, add `metadata.upstream`, add a row to
-   `UPSTREAM`, keep the MIT notice. Adapt until `make validate` is green: it flags Cursor-only terms,
-   `**x** skill` references to skills we don't have, `**x** principle` references with no file,
-   broken links, missing groups and leftover placeholders.
+6. **Skills describe this stack only:** no repository, project or tool-specific names (the validator
+   flags them), a `metadata.summary` of one line (it becomes the skill's row in the docs tables), and
+   no `**x** skill` or `**x** principle` reference without a file, broken link, missing group or
+   leftover placeholder. `make validate` checks all of it.
 7. **Anything a skill ships that runs is tested:** a `--self-test` (run by
    `tests/enforcement_test.sh`), a Go test, or a case in `tests/`.
 8. **A repeated mistake becomes a check** in the validator or a test, not a sentence in this file.

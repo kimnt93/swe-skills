@@ -1,9 +1,10 @@
 ---
 name: service-errors
-description: Report unexpected errors and panics from Go, Python and Rust services (and Next.js / Vite frontends) to Sentry or GlitchTip through the Sentry DSN (SENTRY_DSN, or SENTRY_DSN_FILE as a Swarm secret). Every error-level log line becomes one grouped event with the service name, environment, release and trace id, and nothing private - no request, user, breadcrumbs, local variables, exception text or log fields. Tested templates follow the trading-simulator (Go), alpha-server (Python) and account-engine (Rust) layouts, with a local receiver that checks what a service really sends and a static audit. Use when adding or reviewing error tracking, Sentry, GlitchTip, panic capture or SENTRY_DSN in a service.
+description: Report unexpected errors and panics from Go, Python and Rust services (and Next.js / Vite frontends) to Sentry or GlitchTip through the Sentry DSN (SENTRY_DSN, or SENTRY_DSN_FILE as a Swarm secret). Every error-level log line becomes one grouped event with the service name, environment, release and trace id, and nothing private - no request, user, breadcrumbs, local variables, exception text or log fields. Tested templates for Go, Python and Rust, with a local receiver that checks what a service really sends and a static audit. Use when adding or reviewing error tracking, Sentry, GlitchTip, panic capture or SENTRY_DSN in a service.
 compatibility: Templates tested with Go 1.26 / sentry-go 0.50, Python 3.12 / sentry-sdk 2.72, Rust 1.99 / sentry 0.49. The scripts need python3 only.
 metadata:
   group: observability
+  summary: "Unexpected errors to Sentry or GlitchTip, with nothing private leaving"
   version: "1.0"
 ---
 
@@ -33,11 +34,11 @@ Details, environment and deployment: [contract](references/contract.md).
    Run the audit first: `python3 scripts/audit_errors.py path/to/service`.
 2. **Install the template for the language** and follow its guide (wiring, config field, tests):
 
-   | Language | Template | Guide | Reference project |
-   |---|---|---|---|
-   | Go (zerolog, Fiber) | `assets/templates/go/errtracking.go` + `_test.go` | [go](references/go.md) | `trading-simulator` |
-   | Python (stdlib `logging` + unified logger) | `assets/templates/python/errors.py` + `test_errors.py` | [python](references/python.md) | `vibe-alpha/alpha-server` |
-   | Rust (`tracing`) | `assets/templates/rust/errtracking.rs` (+ `Cargo.toml.snippet`) | [rust](references/rust.md) | structure of `account-engine`; it had none, so this is a new template |
+   | Language | Template | Guide |
+   |---|---|---|
+   | Go (zerolog, Fiber) | `assets/templates/go/errtracking.go` + `_test.go` | [go](references/go.md) |
+   | Python (stdlib `logging` + unified logger) | `assets/templates/python/errors.py` + `test_errors.py` | [python](references/python.md) |
+   | Rust (`tracing`) | `assets/templates/rust/errtracking.rs` (+ `Cargo.toml.snippet`) | [rust](references/rust.md) |
 
 3. **Add the variable** to the env example and the deployment: `assets/sentry.env.example`, and
    `assets/compose.sentry.yaml` for the Swarm secret ([contract](references/contract.md#deployment)).

@@ -1,6 +1,6 @@
 # Python (Litestar, stdlib `logging`, the unified logger)
 
-Reference: `vibe-alpha/alpha-server` (`observability/errors.py`, `setup_errors` called from `observability.setup`).
+Wiring: `observability/errors.py`, with `setup_errors` called from `observability.setup`.
 Template: `assets/templates/python/errors.py` with `test_errors.py`, copied to `src/service/observability/` and `tests/`.
 
 ```text

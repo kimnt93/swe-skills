@@ -11,7 +11,7 @@ What the build does:
     fleet/skills, and @SKILL_INDEX@ (grouped by metadata.group) in the router
   * sets each Claude Code subagent's `model:` from fleet/models.yaml (`fleet models subagent <name>`)
   * renders the plugin manifests from src/manifests, dropping fields left empty
-  * copies the installer, the validator, LICENSES, UPSTREAM and CHANGELOG.md, and writes build.json,
+  * copies the installer, the validator, LICENSES and CHANGELOG.md, and writes build.json,
     LICENSE and README.md
   * fails when a placeholder is left, or the name is not a valid skill name or collides with a skill
 """
@@ -80,10 +80,11 @@ def subagent_model(name: str) -> str:
 
 
 def description(skill_md: Path) -> str:
-    text = skill_md.read_text(encoding="utf-8")
-    match = re.search(r'^description:\s*"?(.*?)"?\s*$', text, re.M)
-    first = re.split(r"(?<=\.)\s", match.group(1).replace('\\"', '"'))[0] if match else ""
-    return first.replace("|", "/")
+    """The skill's one-line summary (metadata.summary), for the index tables."""
+    match = re.search(r'^  summary:\s*"(.*)"\s*$', skill_md.read_text(encoding="utf-8"), re.M)
+    if not match:
+        sys.exit(f"build: {skill_md.parent.name} has no metadata.summary")
+    return match.group(1).replace("|", "/")
 
 
 def group(skill_md: Path) -> str:
@@ -153,7 +154,7 @@ WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEM
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
 OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-Parts of skills/ are forked from pstack (MIT, (c) 2026 Lauren Tan): see UPSTREAM and LICENSES/pstack-MIT.txt.
+Some of the process ideas follow pstack (MIT, (c) 2026 Lauren Tan): see LICENSES/pstack-MIT.txt.
 """
 
 README = """# {title} plugin (`{name}`)
@@ -266,7 +267,7 @@ def main() -> int:
     (dist / "scripts").mkdir()
     for script in ("install.py", "validate_skills.py"):
         shutil.copy2(ROOT / "scripts" / script, dist / "scripts" / script)
-    for extra in ("LICENSES", "UPSTREAM", "CHANGELOG.md"):
+    for extra in ("LICENSES", "CHANGELOG.md"):
         source = ROOT / extra
         if source.is_dir():
             shutil.copytree(source, dist / extra)

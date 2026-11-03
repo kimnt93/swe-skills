@@ -1,8 +1,9 @@
 ---
 name: api-contract
-description: The HTTP API contract of the platform and how to refactor a service to it. Every API is versioned (/v1, /v2) with Swagger at /docs and one /healthz at the root that shows node, status, service name, env name, the served versions and non-secret config; internal callers send `x-internal-service-token` (plain or `Bearer`) plus `x-user-id` / `x-username`, and `GET /internal` is the token-protected health that shows the caller; it always listens on port 3000; the public host is {service_name}.{env_name}.{host} (account-api.stg.@DOMAIN@) and the Traefik Host rule is labelled with the service name. Use when creating an API, adding a version, adding or fixing healthz or Swagger docs, changing the port or host, or auditing and refactoring an existing API project (Go, Python, Rust, TypeScript) to this contract, with an audit script and a live probe.
+description: The HTTP API contract of the platform and how to refactor a service to it. Every API is versioned (/v1, /v2) with Swagger at /docs and one /healthz at the root that shows node, status, service name, env name, the served versions and non-secret config; internal callers send `x-internal-service-token` (plain or `Bearer`) plus `x-user-id` / `x-username`, and `GET /internal` is the token-protected health that shows the caller; it always listens on port 3000; the public host is {service_name}.{env_name}.{host} (orders-api.stg.@DOMAIN@) and the Traefik Host rule is labelled with the service name. Use when creating an API, adding a version, adding or fixing healthz or Swagger docs, changing the port or host, or auditing and refactoring an existing API project (Go, Python, Rust, TypeScript) to this contract, with an audit script and a live probe.
 metadata:
   group: platform
+  summary: "One shape for every HTTP API: /v1, /docs, one /healthz, port 3000, internal token"
   version: "1.1"
 ---
 
@@ -26,11 +27,11 @@ a static audit and a live probe. The language skills hold the tested implementat
 | 7 | **`/internal` checks the internal path** | Token required; the `/healthz` body plus `caller`. `200` = up, token works, identity received. |
 
 ```text
-account-api.stg.@DOMAIN@/docs               Swagger UI          (spec: /docs/openapi.json)
-account-api.stg.@DOMAIN@/healthz            the one public health endpoint (lists v1, v2, ...)
-account-api.stg.@DOMAIN@/internal           health + caller, needs x-internal-service-token
-account-api.stg.@DOMAIN@/v1                 the v1 API
-account-api.stg.@DOMAIN@/v2                 only when v2 exists
+orders-api.stg.@DOMAIN@/docs               Swagger UI          (spec: /docs/openapi.json)
+orders-api.stg.@DOMAIN@/healthz            the one public health endpoint (lists v1, v2, ...)
+orders-api.stg.@DOMAIN@/internal           health + caller, needs x-internal-service-token
+orders-api.stg.@DOMAIN@/v1                 the v1 API
+orders-api.stg.@DOMAIN@/v2                 only when v2 exists
 ```
 
 Details: [URL, port, env and versions](references/contract.md) · [healthz spec and template](references/healthz.md) · [internal calls and `/internal`](references/internal.md) ·
@@ -44,8 +45,8 @@ Details: [URL, port, env and versions](references/contract.md) · [healthz spec 
 
    ```bash
    python3 scripts/audit_api.py path/to/service            # static: source, Dockerfile, compose, env files
-   python3 scripts/probe_api.py http://127.0.0.1:3000 --service account-api --env local --token "$INTERNAL_SERVICE_TOKEN"
-   python3 scripts/probe_api.py https://account-api.stg.@DOMAIN@ --versions v1
+   python3 scripts/probe_api.py http://127.0.0.1:3000 --service orders-api --env local --token "$INTERNAL_SERVICE_TOKEN"
+   python3 scripts/probe_api.py https://orders-api.stg.@DOMAIN@ --versions v1
    ```
 
 3. **Add a version**: copy the `/v1` group to `/v2`, add it to the version list (shown in
@@ -80,7 +81,7 @@ The body is fixed by [assets/healthz.schema.json](assets/healthz.schema.json); a
 
 - “Use $api-contract to audit and refactor this Fiber service to the API contract.”
 - “Use $api-contract to add /v2 to this Litestar service.”
-- “Use $api-contract to check that account-api.stg.@DOMAIN@ follows the contract.”
+- “Use $api-contract to check that orders-api.stg.@DOMAIN@ follows the contract.”
 
 ## Frontends
 

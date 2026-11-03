@@ -79,9 +79,12 @@ printf '\nUse the **arena** skill and `AskQuestion`. See the **nope** principle 
   >>"$tmp/broken/skills/tdd/SKILL.md"
 sed -i 's/^metadata:$/disable-model-invocation: true\nmetadata:/' "$tmp/broken/skills/how/SKILL.md"
 out="$(python3 "$tmp/broken/scripts/validate_skills.py" || true)"
-for expected in "disable-model-invocation stops the router" "**arena** skill is not in this stack" "Cursor/pstack-specific term" "**nope** principle has no file" "broken link missing.md"; do
+for expected in "disable-model-invocation stops the router" "**arena** skill is not in this stack" "tool- or repository-specific term" "**nope** principle has no file" "broken link missing.md"; do
   grep -qF "$expected" <<<"$out" || fail "validator missed: $expected"
 done
+sed -i '/^  summary:/d' "$tmp/broken/skills/why/SKILL.md"
+out="$(python3 "$tmp/broken/scripts/validate_skills.py" || true)"
+grep -qF "metadata.summary is required" <<<"$out" || fail "validator missed a missing summary"
 pass "validator: dangling skill, non-portable term, dangling principle, broken link"
 
 # 5. optional: Claude Code loads the built plugin and /<name> answers with the stack index

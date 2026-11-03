@@ -3,7 +3,7 @@ name: ketchup
 description: "Catch the human up on what changed since their last message, in plain words, and list every decision waiting on them with what they need to decide it from the reply alone. Use for 'catch me up', after a long unattended run, or at the start of a session that resumes work."
 metadata:
   group: process
-  upstream: "cursor/plugins pstack@ae5650f skills/ketchup (rewritten)"
+  summary: "Plain-words catch-up on what changed and what waits on you"
 ---
 
 # Ketchup

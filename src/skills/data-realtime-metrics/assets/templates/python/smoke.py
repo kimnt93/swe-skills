@@ -12,7 +12,7 @@ from pipeline_metrics import PipelineMetrics
 
 endpoint, role = sys.argv[1], sys.argv[2]
 m = PipelineMetrics(
-    "ssi-ws-v3-"
+    "feed-ws-"
     + {"ingestion": "feed", "transform": "transform"}.get(role, role),
     environment="local",
     endpoint=endpoint,

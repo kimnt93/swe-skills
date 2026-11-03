@@ -5,7 +5,7 @@ shape, so one Loki pipeline and one set of queries read all of them. `scripts/lo
 and `assets/log-line.schema.json` encode exactly this file.
 
 ```json
-{"level":"info","development_environment":"local","service_name":"ssi-ws-v3","node_name":"docker-host-1","logger":"root","messages_received":361234,"messages_enqueued":361234,"messages_published":361233,"kafka_errors":0,"channel_depth":0,"time":"2026-10-07T02:49:55.245633769Z","caller":"ssi-data/cmd/ssi-data/main.go:171","message":"message statistics"}
+{"level":"info","development_environment":"local","service_name":"feed-ws","node_name":"docker-host-1","logger":"root","messages_received":361234,"messages_enqueued":361234,"messages_published":361233,"kafka_errors":0,"channel_depth":0,"time":"2026-10-07T02:49:55.245633769Z","caller":"feed-data/cmd/feed-data/main.go:171","message":"message statistics"}
 ```
 
 Inside an OpenTelemetry span the same line also carries `"trace_id":"4bf92f3577b34da6a3ce929d0e0e4736","span_id":"00f067aa0ba902b7"`.
@@ -18,11 +18,11 @@ Required on every line:
 |---|---|
 | `level` | `trace`, `debug`, `info`, `warn`, `error`, `fatal` (lowercase, exactly these) |
 | `development_environment` | from `DEVELOPMENT_ENVIRONMENT`, else `ENV_NAME`, else `local` |
-| `service_name` | from `SERVICE_NAME`; the pipeline/service name, identical to the OTel `service.name` of the metrics skill (`ssi-ws-v3`, `ssi-ws-v3-transform`) |
+| `service_name` | from `SERVICE_NAME`; the pipeline/service name, identical to the OTel `service.name` of the metrics skill (`feed-ws`, `feed-ws-transform`) |
 | `node_name` | from `NODE_NAME`: the Docker/Kubernetes **host** (see below); fallback: the hostname |
 | `logger` | `root` for the process's default logger, or a module/component name (`api.request`, `kafka.producer`). In Rust it defaults to the module path (the `tracing` target) |
 | `time` | UTC RFC 3339 with **exactly 9** fractional digits and `Z`: `2026-10-07T02:49:55.245633769Z`. Pad with zeros when the clock is coarser. Go's `RFC3339Nano` trims zeros and is not allowed |
-| `caller` | `<root>/<path relative to the project root>:<line>`: `ssi-data/cmd/ssi-data/main.go:171`. Always relative, always with a line number, never an absolute or `..` path. `<root>` is the project directory name |
+| `caller` | `<root>/<path relative to the project root>:<line>`: `feed-data/cmd/feed-data/main.go:171`. Always relative, always with a line number, never an absolute or `..` path. `<root>` is the project directory name |
 | `message` | short, lowercase, no trailing period: `message statistics`, `sink write failed` |
 
 Optional, standard names (use them when they apply):
@@ -111,9 +111,9 @@ Promote only `development_environment`, `service_name` and `node_name` to labels
 cardinality). `caller`, `logger`, `trace_id`, `level` and custom fields stay parsed fields.
 
 ```logql
-{service_name="ssi-ws-v3"} | json | level="error"
-{service_name=~"ssi-ws-v3.*", development_environment="prod"} | json | logger="kafka.producer"
-{service_name="ssi-ws-v3"} | json | trace_id="4bf92f3577b34da6a3ce929d0e0e4736"
+{service_name="feed-ws"} | json | level="error"
+{service_name=~"feed-ws.*", development_environment="prod"} | json | logger="kafka.producer"
+{service_name="feed-ws"} | json | trace_id="4bf92f3577b34da6a3ce929d0e0e4736"
 ```
 
 Starting point for a Grafana Alloy pipeline (not tested here): `loki.process` with
@@ -124,7 +124,7 @@ Starting point for a Grafana Alloy pipeline (not tested here): `loki.process` wi
 ## Verify
 
 ```bash
-<service> 2>&1 | python3 scripts/logcheck.py --service ssi-ws-v3 --env local --node docker-host-1
+<service> 2>&1 | python3 scripts/logcheck.py --service feed-ws --env local --node docker-host-1
 ```
 
 `--require-trace` additionally demands at least one line with trace ids. The same rules as a

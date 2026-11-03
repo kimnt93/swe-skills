@@ -11,9 +11,9 @@ import (
 
 // TestSmoke emits the line types a service produces; validate the output with logcheck:
 //
-//	SERVICE_NAME=ssi-ws-v3 ENV_NAME=local NODE_NAME=docker-host-1 LOG_LEVEL=debug \
+//	SERVICE_NAME=feed-ws ENV_NAME=local NODE_NAME=docker-host-1 LOG_LEVEL=debug \
 //	  go test -count=1 -run TestSmoke -v . \
-//	  | python3 scripts/logcheck.py --service ssi-ws-v3 --env local --node docker-host-1 \
+//	  | python3 scripts/logcheck.py --service feed-ws --env local --node docker-host-1 \
 //	      --require-trace
 func TestSmoke(t *testing.T) {
 	if _, err := ConfigureFromEnv(); err != nil {

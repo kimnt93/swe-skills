@@ -1,8 +1,8 @@
 /**
  * Smoke test: emit the line types a service produces, then validate them:
  *
- *   SERVICE_NAME=ssi-ws-v3 ENV_NAME=local NODE_NAME=docker-host-1 LOG_LEVEL=debug npx tsx smoke.ts \
- *     | python3 ../../../scripts/logcheck.py --service ssi-ws-v3 --env local --node docker-host-1 --require-trace
+ *   SERVICE_NAME=feed-ws ENV_NAME=local NODE_NAME=docker-host-1 LOG_LEVEL=debug npx tsx smoke.ts \
+ *     | python3 ../../../scripts/logcheck.py --service feed-ws --env local --node docker-host-1 --require-trace
  */
 import { trace } from '@opentelemetry/api';
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';

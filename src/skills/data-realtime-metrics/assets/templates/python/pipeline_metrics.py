@@ -68,7 +68,7 @@ class PipelineMetrics:
         export_interval_ms: int = 10_000,
         ingestion: bool = False,
     ) -> None:
-        """`service_name` is the pipeline name, e.g. ssi-ws-v3-transform. An
+        """`service_name` is the pipeline name, e.g. feed-ws-transform. An
         empty `endpoint` keeps every call a no-op. `ingestion=True` adds the
         feed metrics. Construction counts a restart and marks the pipeline
         running.
@@ -85,7 +85,7 @@ class PipelineMetrics:
                 resource=Resource.create(
                     {
                         "service.name": service_name,
-                        "service.namespace": "xnoquant",
+                        "service.namespace": "platform",
                         "deployment.environment": environment,
                         "host.name": node_name or socket.gethostname(),
                     }

@@ -3,7 +3,7 @@ name: benchmark-checklist
 description: "Vet a measured number (latency, throughput, memory, a speedup, a model score) before reporting or acting on it: what limits it, whether the work really happened, whether it repeats. Use after any benchmark, load test, profile comparison or ML evaluation."
 metadata:
   group: process
-  upstream: "cursor/plugins pstack@ae5650f skills/benchmark-checklist (rewritten)"
+  summary: "Vet a measured number before you report it or act on it"
 ---
 
 # Benchmark checklist

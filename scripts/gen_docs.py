@@ -86,6 +86,45 @@ def title(path: Path) -> str:
     return path.stem
 
 
+def summary(skill: str) -> str:
+    text = (SKILLS / skill / "SKILL.md").read_text(encoding="utf-8")
+    match = re.search(r'^  summary:\s*"(.*)"\s*$', text, re.M)
+    if not match:
+        sys.exit(f"gen_docs: {skill} has no metadata.summary")
+    return match.group(1)
+
+
+def group_tables(link, level: int = 3) -> str:
+    """The skills by group, each group a heading and a `Skill | Description` table; the name links to `link(skill)`."""
+    name = plugin_name()
+    skills = {p.parent.name: frontmatter(p) for p in sorted(SKILLS.glob("*/SKILL.md"))}
+    hashes = "#" * level
+    out = [f"{len(skills)} skills in {len(GROUPS)} groups. Click a skill for its detail.", ""]
+    for key, label in GROUPS:
+        names = [s for s in skills if skills[s]["group"] == key]
+        out += [f"{hashes} {label}", "", "| Skill | Description |", "|---|---|"]
+        for skill in names:
+            shown = name if skill == "router" else skill
+            out.append(f"| [{shown}]({link(skill)}) | {summary(skill)} |")
+        out.append("")
+    return "\n".join(out).rstrip() + "\n"
+
+
+def inject(path: Path, block: str) -> str:
+    text = path.read_text(encoding="utf-8")
+    pattern = re.compile(r"(<!-- skills:start -->\n).*?(<!-- skills:end -->)", re.S)
+    if not pattern.search(text):
+        sys.exit(f"gen_docs: {path.relative_to(ROOT)} has no <!-- skills:start --> ... <!-- skills:end --> markers")
+    return pattern.sub(lambda m: m.group(1) + block + m.group(2), text)
+
+
+def detail_link(base: str):
+    def link(skill: str) -> str:
+        page = detail_index()[0].get(skill)
+        return f"{base}{page.name}#{skill}" if page else f"{base}README.md"
+    return link
+
+
 def render() -> str:
     name = plugin_name()
     skills = {p.parent.name: p.parent for p in sorted(SKILLS.glob("*/SKILL.md"))}
@@ -109,13 +148,8 @@ def render() -> str:
         "",
         "## Index",
         "",
-        "| Group | Skills |",
-        "|---|---|",
+        "@@INDEX@@",
     ]
-    for key, label in GROUPS:
-        names = [s for s in skills if info[s]["group"] == key]
-        out.append(f"| {label} | " + ", ".join(f"[`{'router' if s == 'router' else s}`](#{'router' if s == 'router' else s})" for s in names) + " |")
-    out.append("")
     for key, label in GROUPS:
         names = [s for s in skills if info[s]["group"] == key]
         out += [f"## {label}", ""]
@@ -127,7 +161,7 @@ def render() -> str:
             out.append(f"- **Invoke:** `/{name}`" if skill == "router" else f"- **Invoke:** `/{name}:{shown}`")
             page = detail_index()[0].get(skill)
             if page:
-                out.append(f"- **Detail:** [{page.name}](skills/{page.name}#{skill})")
+                out.append(f"- **Detail:** [{page.name}](skills/{page.name}#{skill}) · **Source:** [SKILL.md](../src/skills/{skill}/SKILL.md)")
             refs = sorted((skills[skill] / "references").glob("*.md")) if (skills[skill] / "references").is_dir() else []
             if refs:
                 out.append("- **References:**")
@@ -140,7 +174,8 @@ def render() -> str:
                     entries = sorted(e.name for e in folder.iterdir() if not e.name.startswith((".", "__")))
                     out.append(f"- **{sub.capitalize()}:** " + ", ".join(f"`{e}`" for e in entries))
             out.append("")
-    return "\n".join(out).rstrip() + "\n"
+    text = "\n".join(out).rstrip() + "\n"
+    return text.replace("@@INDEX@@", group_tables(lambda skill: "#" + skill, level=3).rstrip())
 
 
 def harnesses() -> list[dict]:
@@ -229,7 +264,12 @@ def main() -> int:
         print("PROBLEM", problem)
     if problems:
         return 1
-    outputs = {OUT: render(), OUT_HARNESS: render_harnesses()}
+    outputs = {
+        OUT: render(),
+        OUT_HARNESS: render_harnesses(),
+        ROOT / "README.md": inject(ROOT / "README.md", group_tables(detail_link("docs/skills/"), level=3)),
+        DETAIL / "README.md": inject(DETAIL / "README.md", group_tables(detail_link(""), level=3)),
+    }
     if "--check" in sys.argv[1:]:
         stale = [path for path, text in outputs.items() if not path.exists() or path.read_text(encoding="utf-8") != text]
         for path in stale:

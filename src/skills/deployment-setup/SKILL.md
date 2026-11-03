@@ -3,6 +3,7 @@ name: deployment-setup
 description: Write or review the deployment files for a service - Dockerfile, Swarm docker-compose.yaml, local compose file, plane env files and CI caller workflows - including service names, Traefik routing labels, networks, secrets, health checks, resources and rollback. Use for adding a service to staging/production, wiring CI deployment for one or many Compose files and images, or auditing an existing setup. Discover project-specific names, hosts and workflow inputs from the target repository and its deployment documentation.
 metadata:
   group: platform
+  summary: "Dockerfile, Swarm and local compose, Traefik labels, secrets and CI callers"
   version: "1.1"
 ---
 
@@ -48,7 +49,7 @@ Rules that apply to every file:
 
 - **API contract** for every HTTP service ([api-contract](../api-contract/SKILL.md)): the process listens on port `3000`
   (`PORT: "3000"`, `EXPOSE 3000`, Traefik server port `3000`); the host is `{service_name}.{env_name}.{host}`
-  (`account-api.stg.@DOMAIN@`) built from `SERVICE_NAME` and `RUN_ENV`; `ENV_NAME: ${RUN_ENV}` is always set; the
+  (`orders-api.stg.@DOMAIN@`) built from `SERVICE_NAME` and `RUN_ENV`; `ENV_NAME: ${RUN_ENV}` is always set; the
   container health check probes `/healthz`; `/docs` and `/v1` share the one router.
 - One logical **service name** per deployable. Use it for the Compose service, `SERVICE_NAME`,
   `OTEL_SERVICE_NAME`, the network alias, the Traefik router/service stem and the log/metric/trace

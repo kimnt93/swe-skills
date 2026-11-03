@@ -8,7 +8,7 @@ import { PipelineMetrics } from './pipelineMetrics.js';
 
 const [endpoint, role] = process.argv.slice(2);
 const m = new PipelineMetrics({
-  service: `ssi-ws-v3-${role === 'ingestion' ? 'feed' : role}`,
+  service: `feed-ws-${role === 'ingestion' ? 'feed' : role}`,
   environment: 'local',
   endpoint,
   exportIntervalMs: 1000,

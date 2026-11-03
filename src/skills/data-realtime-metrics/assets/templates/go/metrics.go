@@ -33,7 +33,7 @@ import (
 
 // Options configures New. An empty Endpoint returns a no-op Metrics.
 type Options struct {
-	Service     string // the pipeline name, e.g. ssi-ws-v3
+	Service     string // the pipeline name, e.g. feed-ws
 	Environment string
 	Node        string // defaults to the hostname
 	Endpoint    string // OTEL_EXPORTER_OTLP_ENDPOINT; /v1/metrics is appended
@@ -87,7 +87,7 @@ func newProvider(ctx context.Context, o Options) (*sdkmetric.MeterProvider, erro
 
 	res, err := resource.New(ctx, resource.WithAttributes(
 		attribute.String("service.name", o.Service),
-		attribute.String("service.namespace", "xnoquant"),
+		attribute.String("service.namespace", "platform"),
 		attribute.String("deployment.environment", o.Environment),
 		attribute.String("host.name", o.Node),
 	))

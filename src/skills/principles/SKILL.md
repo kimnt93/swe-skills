@@ -3,7 +3,7 @@ name: principles
 description: "The engineering principles of the @PLUGIN@ plugin, one short file each with what it means in Go, Python, Rust and TypeScript: when it applies and what it requires. Read the index at the start of a task and open every principle whose applies line matches: idempotency for Kafka consumers, explain-the-number for a benchmark or a model score, money-path for orders and P&L."
 metadata:
   group: process
-  upstream: "cursor/plugins pstack@ae5650f skills/principle-* (rewritten for our stack; money-path is our own)"
+  summary: "22 engineering principles; the router opens the ones that apply (money-path, idempotency, ...)"
 ---
 
 # Principles

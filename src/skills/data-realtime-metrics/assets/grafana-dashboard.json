@@ -1,7 +1,7 @@
 {
   "uid": "stream-pipelines",
   "title": "Stream Pipelines",
-  "description": "Every pipeline from feed ingestion to sink (ssi-ws-v3, dnse-mqtt, *-transform, *-clickhouse, *-postgres, ...). One service name per pipeline; totals only, no per-message-type labels.",
+  "description": "Every pipeline from feed ingestion to sink (feed-ws, broker-mqtt, *-transform, *-clickhouse, *-postgres, ...). One service name per pipeline; totals only, no per-message-type labels.",
   "tags": [
     "pipelines",
     "pipelines",

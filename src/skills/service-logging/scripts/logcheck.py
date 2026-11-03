@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Validate JSON log lines against the unified service log format.
 
-    ./my-service 2>&1 | python3 scripts/logcheck.py --service ssi-ws-v3 --env local
+    ./my-service 2>&1 | python3 scripts/logcheck.py --service feed-ws --env local
     python3 scripts/logcheck.py --require-trace < captured.log
 
 Reads lines from stdin (or files), ignores blank lines, and exits 0 when every line

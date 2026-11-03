@@ -22,7 +22,7 @@ Rules:
    use `latest`. A service that must not reach a CDN vendors the files and serves them under `/docs/`.
 5. **Regenerate with every route or model change**; the language test is the guard, review is the backstop.
 6. `/docs` is behind the same Traefik router as the API: no strip-prefix middleware, so the UI's
-   `url: "/docs/openapi.json"` is correct on `account-api.stg.@DOMAIN@`.
+   `url: "/docs/openapi.json"` is correct on `orders-api.stg.@DOMAIN@`.
 
 Check a running service: `python3 scripts/probe_api.py <url>` fetches `/docs` and `/docs/openapi.json`,
 requires `/healthz` and `/internal` in the document, and flags any path in it that is neither of those nor versioned.

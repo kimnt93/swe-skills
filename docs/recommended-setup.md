@@ -43,7 +43,7 @@ The step-by-step runbooks, with commands and exit checks, are in [runbooks.md](r
 | review | read the diff and the `Verification` section; the agents already ran `make verify` and the cross-review |
 | merge | `merge <n>` to the manager (`--approved`), or autopilot for allowed risks |
 | weekly | read 5–10 merged PRs; for each smell run `/swe:correct`; `/swe:reflect` after a long task |
-| monthly | `make upstream` for pstack changes; `claude update`; `fleet models check && fleet models apply` |
+| monthly | `claude update`; `fleet models check && fleet models apply` |
 
 ## Choosing models and lanes
 

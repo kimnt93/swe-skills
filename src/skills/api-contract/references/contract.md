@@ -4,13 +4,13 @@
 
 | Part | Source | Example |
 |---|---|---|
-| `service_name` | `SERVICE_NAME` (lower case, hyphens; the stack's service name, usually ending `-api`) | `account-api` |
+| `service_name` | `SERVICE_NAME` (lower case, hyphens; the stack's service name, usually ending `-api`) | `orders-api` |
 | `env_name` | `ENV_NAME`; set in Compose from the plane variable `RUN_ENV` (`stg`, `prod`, `dev`, `local`) | `stg` |
 | `host` | `PUBLIC_DOMAIN` in `deploy/<plane>.env` (`@DOMAIN@`; `localhost` for local) | `@DOMAIN@` |
 
-Good: `account-api.stg.@DOMAIN@`, `account-api.prod.@DOMAIN@`,
-`account-api.local.localhost`. Bad: `account-api.@DOMAIN@` (no env), `api.stg.@DOMAIN@`
-(not the service name), `stg-account-api.@DOMAIN@` (wrong order).
+Good: `orders-api.stg.@DOMAIN@`, `orders-api.prod.@DOMAIN@`,
+`orders-api.local.localhost`. Bad: `orders-api.@DOMAIN@` (no env), `api.stg.@DOMAIN@`
+(not the service name), `stg-orders-api.@DOMAIN@` (wrong order).
 
 One router per service serves every path (`/docs`, `/v1`, `/v2`), so the Traefik rule is one `Host()`:
 
@@ -19,7 +19,7 @@ deploy:
   labels:
     - traefik.enable=true
     - traefik.swarm.network=ingress-${RUN_ENV:?RUN_ENV is required}
-    - traefik.http.routers.account_api_${RUN_ENV}.rule=Host(`${API_SERVICE_NAME:-account-api}.${RUN_ENV}.${PUBLIC_DOMAIN:?PUBLIC_DOMAIN is required}`)
+    - traefik.http.routers.account_api_${RUN_ENV}.rule=Host(`${API_SERVICE_NAME:-orders-api}.${RUN_ENV}.${PUBLIC_DOMAIN:?PUBLIC_DOMAIN is required}`)
     - traefik.http.routers.account_api_${RUN_ENV}.entrypoints=web
     - traefik.http.routers.account_api_${RUN_ENV}.service=account_api_${RUN_ENV}
     - traefik.http.services.account_api_${RUN_ENV}.loadbalancer.server.port=3000

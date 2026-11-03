@@ -3,6 +3,7 @@ name: github
 description: "How every agent works with git and GitHub: branch from main, small Conventional Commits, push, open a PR, link and manage issues, comment and review, merge through the gate, and check the result after every submit, with the exact gh and git commands and the PR lint that enforces the submit rules. Use whenever you create or change a branch, commit, push, PR, issue, comment or review, or merge."
 metadata:
   group: process
+  summary: "Branch, commit, PR, issue, review and merge the one way, with a check after each step"
 ---
 
 # GitHub

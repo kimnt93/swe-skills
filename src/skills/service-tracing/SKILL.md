@@ -4,6 +4,7 @@ description: Add or review OpenTelemetry tracing in Go, Python, TypeScript/JavaS
 compatibility: Templates tested with Go 1.26 / otel-go 1.47, Python 3.13 / opentelemetry-sdk 1.45, Node 22 / sdk-trace-node 2.12, Rust / opentelemetry 0.33. The scripts need python3 only (the scanner reads Compose files with PyYAML when installed).
 metadata:
   group: observability
+  summary: "OpenTelemetry tracing: service dependencies by default, span detail on request"
   version: "2.0"
 ---
 

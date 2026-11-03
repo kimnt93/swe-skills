@@ -4,7 +4,7 @@
 
 1. Declare the mode: `drive` (loop until merge-ready), `check` (one status pass), or `threads`
    (answer review comments only).
-2. Work the lowest unmerged PR of a stack only. Upstack fixes wait.
+2. Work the lowest unmerged PR of a stack only. Fixes for PRs higher in the stack wait.
 3. In order:
    1. **conflicts**: report which branch needs a rebase; the PR's owner rebases;
    2. **review threads**: verify each claim against the code, fix real ones with a failing test

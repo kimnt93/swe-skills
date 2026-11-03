@@ -21,7 +21,7 @@ import { MeterProvider, PeriodicExportingMetricReader } from '@opentelemetry/sdk
 const LATENCY_BUCKETS_MS = [1, 2, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000, 60000];
 
 export interface PipelineMetricsOptions {
-  /** The pipeline name, e.g. ssi-ws-v3-transform. */
+  /** The pipeline name, e.g. feed-ws-transform. */
   service: string;
   environment: string;
   /** OTEL_EXPORTER_OTLP_ENDPOINT; empty keeps every call a no-op. /v1/metrics is appended. */
@@ -58,7 +58,7 @@ export class PipelineMetrics {
       this.provider = new MeterProvider({
         resource: resourceFromAttributes({
           'service.name': o.service,
-          'service.namespace': 'xnoquant',
+          'service.namespace': 'platform',
           'deployment.environment': o.environment,
           'host.name': o.node ?? hostname(),
         }),

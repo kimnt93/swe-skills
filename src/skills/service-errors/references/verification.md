@@ -14,10 +14,10 @@ Keep them in CI: SDK upgrades change defaults.
 
 ```bash
 python3 scripts/sentry_receiver.py serve --port 9100 --out events.jsonl &
-SENTRY_DSN=http://test-key@127.0.0.1:9100/1 ENV_NAME=stg SERVICE_NAME=account-api SERVICE_VERSION=1.4.2 \
+SENTRY_DSN=http://test-key@127.0.0.1:9100/1 ENV_NAME=stg SERVICE_NAME=orders-api SERVICE_VERSION=1.4.2 \
   <start the service, cause one failure that logs an error, stop it>     # stopping flushes
-python3 scripts/sentry_receiver.py check events.jsonl --environment stg --service account-api \
-  --release account-api@1.4.2 --forbid "<a secret you put in a log field>"
+python3 scripts/sentry_receiver.py check events.jsonl --environment stg --service orders-api \
+  --release orders-api@1.4.2 --forbid "<a secret you put in a log field>"
 ```
 
 `check` fails on: a wrong environment or release, a `service_name` tag that is not the service, tags outside the
@@ -34,5 +34,5 @@ trace in Tempo and the lines in Loki. Say which of these you actually saw; do no
 
 `python3 scripts/audit_errors.py path/to/service` reports `ERR-1..6` (SDK init, hard-coded DSN, privacy switches,
 environment and release, scrubber, DSN in env example and Compose). `0 FAIL` is the bar; every WARN is reviewed.
-On the reference projects: `trading-simulator` 0 FAIL, `alpha-server` 0 FAIL with a WARN for the DSN committed in
-`deploy/stg.env`, `account-engine` 1 FAIL (`ERR-1`: nothing is initialised yet).
+A service with the template wired in gives 0 FAIL; a DSN committed in `deploy/<plane>.env` is a WARN; a service
+where nothing is initialised yet fails `ERR-1`.

@@ -23,7 +23,7 @@ hand-written routers or non-Compose deploys.
 | routes at `/items`, `/api/items`, `/api/v1/items` | `/v1/items` |
 | `/swagger`, `/swagger/index.html`, `/api-docs`, `/redoc`, `/v1/openapi.json` | `/docs` and `/docs/openapi.json` |
 | listen `:8080`, `:8000`, `HTTP_ADDR`, `HTTP_PORT` | `PORT` (default 3000) |
-| host `account-api.@DOMAIN@`, `api.stg...` | `account-api.stg.@DOMAIN@` |
+| host `orders-api.@DOMAIN@`, `api.stg...` | `orders-api.stg.@DOMAIN@` |
 | `RUN_ENV` only | `ENV_NAME` set from it, healthz and host show it |
 
 ## 3. Code, in this order

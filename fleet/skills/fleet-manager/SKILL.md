@@ -2,7 +2,6 @@
 name: fleet-manager
 description: "How a project's manager profile (pm-<project>) orchestrates its project on the kanban board: turn a goal into issues and PR-sized cards for the claude and omp lanes that respect the project's ARCHITECTURE.md, supervise them, keep docs and the backlog current through cards, report status, and merge only when the human approves. Use whenever you are a project manager profile."
 metadata:
-  upstream: "ideas from cursor/plugins pstack@ae5650f playbooks/orchestrate.md (rewritten for Hermes Kanban)"
 ---
 
 # Fleet manager

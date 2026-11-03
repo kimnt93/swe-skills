@@ -24,7 +24,7 @@ let token = std::env::var("OTEL_AUTH_TOKEN_FILE").ok()
     .and_then(|p| std::fs::read_to_string(p).ok()).map(|s| s.trim().to_string())
     .or_else(|| std::env::var("OTEL_AUTH_TOKEN").ok()).unwrap_or_default();
 let metrics = Arc::new(PipelineMetrics::new(Options {
-    service: std::env::var("SERVICE_NAME")?,        // e.g. ssi-ws-v3-transform
+    service: std::env::var("SERVICE_NAME")?,        // e.g. feed-ws-transform
     environment: std::env::var("DEPLOYMENT_ENVIRONMENT").unwrap_or("local".into()),
     endpoint: std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").unwrap_or_default(),
     token,

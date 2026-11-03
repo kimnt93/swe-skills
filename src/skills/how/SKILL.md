@@ -3,7 +3,7 @@ name: how
 description: "Explain how a part of the codebase works, like a senior engineer onboarding onto it: the overview, key concepts, the request or data flow, where things live, and the gotchas, with file:line evidence. Use for 'how does X work', before changing an unfamiliar subsystem, and as the grounding step of architect and feature."
 metadata:
   group: process
-  upstream: "cursor/plugins pstack@ae5650f skills/how (rewritten)"
+  summary: "Explain how a part of the codebase works, with file:line evidence"
 ---
 
 # How

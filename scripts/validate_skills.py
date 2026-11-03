@@ -10,8 +10,8 @@ Checks per skills/<name>/SKILL.md:
   * relative markdown links in every .md file of the skill (and `../other-skill/...`) resolve
   * every `references/*.md` file is linked from the skill's SKILL.md (the router), and every `assets/...`, `scripts/...`, `references/...` path
     mentioned in backticks in SKILL.md or a reference exists
-  * harness-neutral text: no Cursor- or pstack-specific terms (tool names, .cursor/ paths, model slugs) outside `upstream:` lines
-  * a skill listed in UPSTREAM declares `metadata.upstream`
+  * harness-neutral text: no Cursor-specific terms (tool names, .cursor/ paths, model slugs) and no pstack or other repository names in a skill
+  * every skill has `metadata.summary`: one line of at most 100 characters (the tables in the README and the docs use it)
   * every `**name** skill` names a skill of this stack and every `**name** principle` a file in principles/references/
   * no skill sets disable-model-invocation (the router must be able to run every skill)
   * metadata.group is one of start, process, language, data, platform, observability (the router index groups by it)
@@ -36,13 +36,12 @@ NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 PATH_RE = re.compile(r"`((?:assets|references|scripts)/[^`\s]+)`")
 LINK_RE = re.compile(r"\[[^\]]*\]\(([^)#\s]+)(?:#[^)]*)?\)")
 NON_PORTABLE = re.compile(
-    r"\.cursor/|AskQuestion|subagent_type: ?\"(?:generalPurpose|poteto-agent)|pstack-models|poteto-mode|/setup-pstack"
+    r"\.cursor/|AskQuestion|subagent_type: ?\"(?:generalPurpose|poteto-agent)|pstack|poteto-mode|cursor/plugins"
     r"|\bgrok-[0-9]|claude-opus-5-5-|run_in_background|environment: \"cloud\"|cursor-team-kit|\bBugbot\b"
 )
 SKILL_REF = re.compile(r"\*\*([a-z0-9-]+)\*\* skill")
 PRINCIPLE_REF = re.compile(r"\*\*([a-z0-9-]+)\*\* principle")
 PLACEHOLDER = re.compile(r"@(?:STACK|SKILL_INDEX|MARKETPLACE|VERSION|OWNER|TITLE|HOMEPAGE|DESCRIPTION)@")
-UPSTREAM = (ROOT / "UPSTREAM").read_text(encoding="utf-8") if (ROOT / "UPSTREAM").exists() else ""
 BUILT = (ROOT / "build.json").exists()
 GROUPS = ("start", "process", "language", "data", "platform", "observability")
 
@@ -120,13 +119,16 @@ def main() -> int:
             errors.append(f"{where}: disable-model-invocation stops the router (and agents) from running this skill")
         if not group or group.group(1) not in GROUPS:
             errors.append(f"{where}: metadata.group must be one of {', '.join(GROUPS)}")
-        if re.search(rf"^skills/{re.escape(directory.name)}\s", UPSTREAM, re.M) and not (meta_text and "upstream:" in meta_text.group(1)):
-            errors.append(f"{where}: forked skill (listed in UPSTREAM) needs metadata.upstream")
+        summary = re.search(r'^  summary:\s*"(.*)"\s*$', meta_text.group(1), re.M) if meta_text else None
+        if not summary or not summary.group(1).strip():
+            errors.append(f"{where}: metadata.summary is required (one line, at most 100 characters)")
+        elif len(summary.group(1)) > 100:
+            errors.append(f"{where}: metadata.summary is {len(summary.group(1))} characters (max 100)")
         for doc in sorted(directory.rglob("*.md")):
             for number, line in enumerate(doc.read_text(encoding="utf-8").splitlines(), 1):
                 at = f"{where}/{doc.relative_to(directory)}:{number}"
-                if NON_PORTABLE.search(line) and "upstream:" not in line:
-                    errors.append(f"{at}: Cursor/pstack-specific term; use tiers and the router's harness reference")
+                if NON_PORTABLE.search(line):
+                    errors.append(f"{at}: tool- or repository-specific term; skills describe this stack only (tiers and the harness reference)")
                 for ref in SKILL_REF.findall(line):
                     if ref not in known:
                         errors.append(f"{at}: **{ref}** skill is not in this stack")

@@ -18,7 +18,7 @@ func TestSmoke(t *testing.T) {
 	}
 	ingestion := os.Getenv("OTLP_SMOKE_ROLE") == "ingestion"
 	m, err := New(context.Background(), Options{
-		Service:     "ssi-ws-v3-smoke",
+		Service:     "feed-ws-smoke",
 		Environment: "local",
 		Endpoint:    endpoint,
 		Interval:    time.Second,

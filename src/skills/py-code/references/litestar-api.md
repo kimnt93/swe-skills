@@ -1,6 +1,6 @@
 # Litestar API
 
-*Verified with: Litestar 2.25, msgspec 0.22 (see assets/template and the alpha-server API). **No pydantic, no FastAPI**: FastAPI cannot run without pydantic.*
+*Verified with: Litestar 2.25, msgspec 0.22 (see assets/template). **No pydantic, no FastAPI**: FastAPI cannot run without pydantic.*
 
 Code follows PEP 8 (79 columns, `ruff` + `pycodestyle`; see [stack](stack.md)).
 
@@ -25,7 +25,7 @@ Business rules live in `domain/` and `application/`.
    always present (`data` is `null`, `error` is `{"code": "", "retryable": false}` when unused). Business errors are
    `ApiError(status, code, message)`; **register each domain exception type** in `exception_handlers`, plus
    `HTTPException` (the framework's 400/404/405) and `Exception` (log the cause, generic 500, never its message). Codes are a
-   contract: add, never rename. A service that answers RFC 9457 problems (alpha-server) does the same with `application/problem+json`.
+   contract: add, never rename. A service that answers RFC 9457 problems does the same with `application/problem+json`.
 5. **Edge validation by msgspec**, rules in the domain. Malformed body or wrong type -> 400 `invalid_request` (or the
    service's 422 problem); rule violation -> 422 `validation_error`; missing/foreign resource -> 404; conflict -> 409;
    auth -> 401. Cap sizes (`Meta(max_length=...)`, a body-size middleware). When a route must answer 415, 400 and 422 in a
@@ -50,7 +50,7 @@ Business rules live in `domain/` and `application/`.
 11. **Lists** are bounded (`Annotated[int, Parameter(ge=1, le=500)] = 100`, `offset`/cursor); sort order is explicit.
 12. **OpenAPI** (served at `/docs`) is the contract: return annotations and `responses={404: ResponseSpec(Model, ...)}`
     on every route, tags, `Meta(description=..., examples=[...])` on fields. A body the route reads itself is added to the
-    document after the app is built (alpha-server `_document_submission_body`).
+    document after the app is built.
 13. **Shutdown:** uvicorn `timeout_graceful_shutdown=15`; the lifespan closes pools and drains the producer.
 
 ## Testing

@@ -115,7 +115,7 @@ How the plugin and the repository are built (the table above covers the fleet).
 
 | # | Decision | Why |
 |---|---|---|
-| D1 | We fork pstack's ideas into our own plugin; we don't install pstack. | Our format (router + references + tested assets), our domain, our harnesses. `UPSTREAM` + `make upstream` keep us able to take improvements. |
+| D1 | The first version started from some of [pstack](https://github.com/cursor/plugins/tree/main/pstack)'s ideas; we own the plugin and don't install pstack. | Our format (router + references + tested assets), our domain, our harnesses. It grows from our stack and requirements, not from upstream changes. |
 | D2 | The plugin's name comes from the build (`PLUGIN_NAME`, default `swe`). The router skill carries the same name, so the entry command is `/<name>`. | One source, any name. Claude Code accepts a plugin skill named like its plugin as `/<name>` (tested). |
 | D3 | Org values are build settings (`PLUGIN_DOMAIN`, `PLUGIN_OWNER`, `PLUGIN_HOMEPAGE`); private ones live in `plugin.local.env`. No org name in tracked files (a test enforces it). | The plugin can be published or shared without leaking internal names. |
 | D4 | Skills are flat and grouped by `metadata.group`. | The installers and the Agent Skills spec need `skills/<name>/SKILL.md`. |

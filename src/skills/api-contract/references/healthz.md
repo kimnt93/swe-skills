@@ -9,7 +9,7 @@ which process answered, whether it is healthy, and how it is configured.
 ```json
 {
   "status": "ok",
-  "service_name": "account-api",
+  "service_name": "orders-api",
   "env_name": "stg",
   "node_name": "swarm-worker-1",
   "api_versions": ["v1"],

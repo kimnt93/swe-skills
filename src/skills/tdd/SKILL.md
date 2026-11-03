@@ -3,7 +3,7 @@ name: tdd
 description: "Write the failing test first, then the smallest fix or feature that makes it pass, in Go, Python, Rust or TypeScript. Use for a bug with a cheap local test path, when the user asks for TDD or a regression test, and in every bug-fix."
 metadata:
   group: process
-  upstream: "cursor/plugins pstack@ae5650f skills/tdd (rewritten for our stack)"
+  summary: "Failing test first, then the smallest change that makes it pass"
 ---
 
 # TDD

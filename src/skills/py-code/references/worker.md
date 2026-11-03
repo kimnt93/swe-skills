@@ -1,6 +1,6 @@
 # Python workers
 
-*Verified with: Kafka consumer pattern verified in the scaffold template (live broker). Celery guidance follows the alpha-server worker design; run a smoke test in the target project before relying on specifics.*
+*Verified with: Kafka consumer pattern verified in the scaffold template (live broker). Run a smoke test in the target project before relying on specifics.*
 
 A worker is a separate **process** with its own command (`service worker --queues ...`, `service consume`), health check and
 replica policy; the API never imports worker-only dependencies and never runs long work in a request.

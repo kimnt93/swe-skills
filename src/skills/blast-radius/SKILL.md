@@ -3,7 +3,7 @@ name: blast-radius
 description: "Find what a change could break elsewhere before it ships, beyond the diff, and prove the one fact it is safe because of by running code. Use for a small-looking change to shared code, a config, a schema, a message format, an API response, or a dependency bump."
 metadata:
   group: process
-  upstream: "cursor/plugins pstack@ae5650f skills/blast-radius (rewritten)"
+  summary: "Find what a change could break elsewhere, and prove why it is safe"
 ---
 
 # Blast radius

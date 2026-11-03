@@ -3,6 +3,7 @@ name: db-migrations
 description: Write, review and run PostgreSQL schema migrations for Go, Python and Rust services. The default is versioned raw SQL files run by goose (schemas/NNNN_name.sql with Up and Down), applied by a one-shot job before the service rolls out. Covers safe changes (add a column, backfill in batches, create an index concurrently, rename or drop with expand and contract), readable SQL layout, testing a migration against a disposable database, a migration linter script, and how this fits an ORM project (Alembic, sea-orm-migration, bun migrations only when the project already uses them).
 metadata:
   group: data
+  summary: "PostgreSQL schema changes as goose SQL files, safe by default"
 ---
 
 # Database migrations

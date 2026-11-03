@@ -3,7 +3,7 @@ name: correct
 description: "Find the mistakes agents keep repeating in a repo and make each one impossible: architecture first, then types, then a lint or check whose error names the fix, then a test, docs last. Use when you or the human correct the same mistake twice."
 metadata:
   group: process
-  upstream: "cursor/plugins pstack@ae5650f skills/correct (rewritten)"
+  summary: "Make a repeated agent mistake impossible with a check, not a sentence"
 ---
 
 # Correct

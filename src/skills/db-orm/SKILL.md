@@ -3,6 +3,7 @@ name: db-orm
 description: Use an ORM for PostgreSQL access in Go (uptrace/bun), Python (SQLAlchemy 2 async) or Rust (SeaORM), only when the user asks for an ORM or the project already uses one. The default for every service is raw SQL (go-code, py-code, rust-code), so do not reach for this skill otherwise. Covers model rules, adapters behind the same ports as the raw SQL ones, transactions, no N+1, the raw SQL escape hatch, tested adapters, and keeping the schema in goose migration files.
 metadata:
   group: data
+  summary: "Opt-in ORM adapters (bun, SQLAlchemy, SeaORM) behind the same port as raw SQL"
 ---
 
 # Database ORM (opt-in)

@@ -3,6 +3,7 @@ name: replay-test
 description: "Prove a money-path change on a recorded day, not only on unit tests: replay an event stream (orders, fills, market data) through the real domain code, compare positions, balances and P&L to a golden file with exact decimals, and replay again with duplicated and redelivered events to prove idempotency. Use for any change to order, fill, position, balance, risk-limit or P&L code, and for every money-path card."
 metadata:
   group: process
+  summary: "Prove money-path code on a recorded day, with duplicate and redelivery runs"
 ---
 
 # Replay test

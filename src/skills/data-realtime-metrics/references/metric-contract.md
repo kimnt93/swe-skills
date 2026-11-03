@@ -7,8 +7,8 @@ this file; keep the two in step.
 
 | Attribute | Value |
 |---|---|
-| `service.name` | the pipeline name, `{datasource}-{role}`: `ssi-ws-v3`, `dnse-mqtt` (ingestion, named after the feed), `ssi-ws-v3-transform`, `-clickhouse`, `-postgres`, `-vin-index` |
-| `service.namespace` | `xnoquant` (one value for the whole platform) |
+| `service.name` | the pipeline name, `{datasource}-{role}`: `feed-ws`, `broker-mqtt` (ingestion, named after the feed), `feed-ws-transform`, `-clickhouse`, `-postgres`, `-vin-index` |
+| `service.namespace` | `platform` (one value for the whole platform) |
 | `deployment.environment` | `local`, `stg`, `prod` ... |
 | `host.name` | the node: the host name, or the Swarm/Kubernetes node name |
 

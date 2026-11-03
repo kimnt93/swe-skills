@@ -3,7 +3,7 @@
 //!
 //! ```ignore
 //! // The root is the project directory name used in `caller`.
-//! service_logging::init_from_env("ssi-data")?;
+//! service_logging::init_from_env("feed-data")?;
 //! tracing::info!(messages_received = 361234u64, channel_depth = 0u64, "message statistics");
 //! tracing::warn!(target: "api.request", request_id = "r-1", duration_ms = 1250.5, "slow request");
 //! tracing::error!(error = %err, error_type = "SinkError", "sink write failed");
@@ -19,7 +19,7 @@
 //!
 //! ```ignore
 //! let otel = tracing_opentelemetry::layer().with_tracer(provider.tracer("my-service"));
-//! let options = service_logging::options_from_env("ssi-data")?;
+//! let options = service_logging::options_from_env("feed-data")?;
 //! tracing_subscriber::registry()
 //!     .with(otel)
 //!     .with(service_logging::layer(options))
@@ -75,7 +75,7 @@ pub struct Options {
 pub fn options_from_env(root: &str) -> Result<Options, String> {
     let get = |key: &str| std::env::var(key).ok().filter(|v| !v.is_empty());
     let service = get("SERVICE_NAME")
-        .ok_or("SERVICE_NAME is required (the pipeline/service name, e.g. ssi-ws-v3)")?;
+        .ok_or("SERVICE_NAME is required (the pipeline/service name, e.g. feed-ws)")?;
     Ok(Options {
         service,
         environment: get("DEVELOPMENT_ENVIRONMENT")

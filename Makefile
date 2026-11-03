@@ -6,7 +6,7 @@
 #   make claude omp hermes          several at once
 #   make install                    every harness found on this machine (ALL=1: every harness the tool knows)
 #   make claude REMOVE=1            remove it again (only what this tool installed)
-#   make validate | docs | test | package | publish | upstream | status | list | agents | clean
+#   make validate | docs | test | package | publish | status | list | agents | clean
 #
 # Options: SCOPE=user|project  PROJECT_DIR=.  PREFIX=<name>  SKILLS="go-code py-code"  PLUGIN=auto|yes|no  DRY_RUN=1
 -include plugin.local.env
@@ -31,7 +31,7 @@ HARNESSES   := claude codex omp devin opencode hermes universal amp gemini-cli c
                cline roo kilo droid qwen-code trae continue augment crush junie kiro-cli openhands mistral-vibe \
                antigravity qoder codebuddy iflow-cli openclaw
 
-.PHONY: help build validate docs test package publish install custom list agents status upstream clean $(HARNESSES)
+.PHONY: help build validate docs test package publish install custom list agents status clean $(HARNESSES)
 
 help:
 	@sed -n '1,11p' Makefile | sed 's/^# \{0,1\}//'
@@ -77,9 +77,6 @@ status: build
 
 publish: validate
 	bash scripts/publish.sh $(if $(PUSH),--push)
-
-upstream:
-	bash scripts/upstream.sh
 
 clean:
 	@echo "note: installed harnesses read dist/$(PLUGIN_NAME); run make claude codex omp after a clean"

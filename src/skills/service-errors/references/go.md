@@ -1,6 +1,6 @@
 # Go (zerolog, Fiber v3)
 
-Reference: `trading-simulator` (`internal/errtracking`, wired from `internal/logger` and `bootstrap`). Template:
+Wiring: `internal/errtracking`, wired from `internal/logger` and `bootstrap`. Template:
 `assets/templates/go/errtracking.go` with `errtracking_test.go`, copied to `internal/errtracking/`.
 
 ```text

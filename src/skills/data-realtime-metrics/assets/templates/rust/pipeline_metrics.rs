@@ -41,7 +41,7 @@ type Source = Box<dyn Fn() -> i64 + Send + Sync>;
 
 #[derive(Default)]
 pub struct Options {
-    /// The pipeline name, e.g. `ssi-ws-v3-transform`.
+    /// The pipeline name, e.g. `feed-ws-transform`.
     pub service: String,
     pub environment: String,
     /// OTEL_EXPORTER_OTLP_ENDPOINT; empty keeps every call a no-op. `/v1/metrics` is appended.
@@ -108,7 +108,7 @@ impl PipelineMetrics {
             let resource = Resource::builder()
                 .with_attributes([
                     KeyValue::new("service.name", o.service.clone()),
-                    KeyValue::new("service.namespace", "xnoquant"),
+                    KeyValue::new("service.namespace", "platform"),
                     KeyValue::new("deployment.environment", o.environment.clone()),
                     KeyValue::new("host.name", node),
                 ])

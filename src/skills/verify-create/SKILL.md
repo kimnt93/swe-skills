@@ -3,7 +3,7 @@ name: verify-create
 description: "Give a project a scripted way to prove behaviour like a user would: a `make verify` lever and a project-local verify skill with a feature map, for Go/Fiber APIs, Python ML or data services, Rust services, and Next.js or Vite + React frontends. Use when a repo has no scripted proof, or before running agents on it unattended."
 metadata:
   group: process
-  upstream: "cursor/plugins pstack@ae5650f skills/create-verification-skill (rewritten)"
+  summary: "Give a project make verify and a verify skill that drives it like a user"
 ---
 
 # Verify create
