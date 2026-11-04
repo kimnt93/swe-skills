@@ -86,15 +86,6 @@ keep only those that reproduce and break the intent. **You get** Intent, Finding
 
 ## Proving it
 
-### benchmark-checklist
-
-**What it is.** A gate on any measured number. **Use it when** after any benchmark, load test, profile
-comparison or ML evaluation. It asks: what limits it, did the work happen (count it and the errors), was it
-optimised away or cached, is it repeatable (5+ runs, median and spread; `benchstat`, `pytest-benchmark`,
-criterion), same conditions before and after, does it matter end to end, and for ML a fixed split, several
-seeds and no leakage. **You get** `metric: before to after (median of N, spread), limited by X, work done Y,
-errors Z`.
-
 ### verify-create
 
 **What it is.** Gives a project a scripted proof. **Use it when** a repo has no `make verify`, or before
@@ -184,6 +175,17 @@ protected `main` with the required `verify` check, linear history, no force push
 defaults to 0 because agents share your GitHub account); PR and issue templates; the backlog (one issue per
 card, labels mirroring the card, milestones, triage, blocked); status reports from live state.
 **Files.** `assets/ARCHITECTURE.md`, `assets/adr.md`, `assets/github/`, `assets/labels.json`.
+
+### changelog
+
+**What it is.** Change logs that stay true across a project of several repos. **Use it when** you open or review a PR that changes
+behaviour, the merge gate says the entry is missing, you cut a release, or you ask what changed. **Two layers.** Every repo has a
+`CHANGELOG.md` with an `## [Unreleased]` section, and the PR adds its entry **before merge** (not needed for `docs`, `chore`, `ci`,
+`test`, `style`, `build` PRs or a `no-changelog` label). The project directory has `changelog/project.md` and one file per repo,
+written by the manager after each merge. **What happens.** `swe-cli merge` refuses a PR without the entry; `flow merge` then prints
+the `changelog` workflow to run (a `scribe` agent adds it on the PR branch, checks, a reviewer re-reviews); after the merge it
+records the PR in both project files. **Say.** `/swe:changelog add the entry for this PR`, or `swe-cli changelog show --repo api
+--since 2026-11-01`. **Files.** `references/format.md`, `assets/CHANGELOG.template.md`.
 
 ## Roles of the workflow agents
 

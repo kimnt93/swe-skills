@@ -6,7 +6,7 @@ when to use it, what to say, what happens, what you get, and its files.
 | Page | Covers |
 |---|---|
 | [router.md](router.md) | `/swe` and its 18 playbooks (bug-fix, feature, refactoring, migration, perf-issue, hillclimb, incident, ...) |
-| [process.md](process.md) | how, why, architect, principles, tdd, deslop, blast-radius, interrogate, benchmark-checklist, verify-create, verify-maintain, replay-test, formal-verify, correct, ketchup, reflect, github, project |
+| [process.md](process.md) | how, why, architect, principles, tdd, deslop, blast-radius, interrogate, verify-create, verify-maintain, replay-test, formal-verify, correct, ketchup, reflect, github, project |
 | [languages.md](languages.md) | go-code, py-code, rust-code, ts-code |
 | [data-platform.md](data-platform.md) | db-migrations, db-orm, api-contract, deployment-setup |
 | [observability.md](observability.md) | service-logging, service-tracing, service-errors, data-realtime-metrics |
@@ -15,7 +15,7 @@ when to use it, what to say, what happens, what you get, and its files.
 ## Skills
 
 <!-- skills:start -->
-40 skills in 6 groups. Click a skill for its detail.
+42 skills in 6 groups. Click a skill for its detail.
 
 ### Start here
 
@@ -28,8 +28,8 @@ when to use it, what to say, what happens, what you get, and its files.
 | Skill | Description |
 |---|---|
 | [architect](process.md#architect) | Sketch types and module shape twice, pick one, then implement against it |
-| [benchmark-checklist](process.md#benchmark-checklist) | Vet a measured number before you report it or act on it |
 | [blast-radius](process.md#blast-radius) | Find what a change could break elsewhere, and prove why it is safe |
+| [changelog](process.md#changelog) | Change logs: a CHANGELOG.md entry in every PR, plus the project's changelog/ directory |
 | [ci-fixer](process.md#ci-fixer) | CI fixer: reproduce a red check locally, fix the cause in the card's files, never weaken the check |
 | [correct](process.md#correct) | Make a repeated agent mistake impossible with a check, not a sentence |
 | [deslop](process.md#deslop) | Clean a diff before review: debug output, dead code, noisy comments |
@@ -68,8 +68,10 @@ when to use it, what to say, what happens, what you get, and its files.
 
 | Skill | Description |
 |---|---|
+| [data-dagster](data-platform.md#data-dagster) | Dagster DAGs: assets, checks, schedules, template, dagster_* OTel metrics, dashboard |
+| [data-pathway](data-platform.md#data-pathway) | Realtime Pathway pipelines: Kafka in/out, windows, template, OTel metrics, dashboard |
 | [db-migrations](data-platform.md#db-migrations) | PostgreSQL schema changes as goose SQL files, safe by default |
-| [db-orm](data-platform.md#db-orm) | Opt-in ORM adapters (bun, SQLAlchemy, SeaORM) behind the same port as raw SQL |
+| [db-orm](data-platform.md#db-orm) | Opt-in go-pg v10 ORM adapter behind the same port as raw SQL |
 
 ### API and deployment
 
@@ -96,8 +98,8 @@ when to use it, what to say, what happens, what you get, and its files.
 | a bug | `/swe fix: ...` (bug-fix) | `tdd`, `interrogate` before shipping |
 | a new endpoint or consumer | `/swe add ...` (feature) | `architect`, `go-code`, `api-contract`, `db-migrations` |
 | a new page | `/swe add a page ...` | `ts-code`, `api-contract` |
-| a model | `/swe train ...` | `py-code` (`ml`), `benchmark-checklist` |
-| something is slow | `/swe ... is slow` (perf-issue) | profiling, `benchmark-checklist`, maybe `rust-code` |
+| a model | `/swe train ...` | `py-code` (`ml`), explain-the-number |
+| something is slow | `/swe ... is slow` (perf-issue) | profiling, explain-the-number, maybe `rust-code` |
 | orders, fills, positions, P&L | any task, `money-path` applies | `replay-test`, `formal-verify`, `interrogate`, never auto-merged |
 | a schema change | `/swe:db-migrations` | `check_migrations.py`, expand then contract |
 | production is wrong | `/swe ... errors spiking` (incident) | `service-errors`, `service-logging`, `service-tracing` |
@@ -116,7 +118,7 @@ when to use it, what to say, what happens, what you get, and its files.
            │            ├─ bug-fix ──► tdd ──► (root cause) ──► interrogate ──► github (PR)
            │            ├─ feature ──► how ─► architect ─► domain skill ─► verify-create's lever
            │            ├─ migration ► db-migrations ─► check_migrations.py ─► expand, migrate, contract
-           │            └─ perf ─────► profiling ─► benchmark-checklist ─► hillclimb ─► (rust-code)
+           │            └─ perf ─────► profiling ─► explain-the-number ─► hillclimb ─► (rust-code)
            │
    go-code | py-code | rust-code | ts-code ──► api-contract, db-*, deployment-setup, service-* (templates)
                                                       │

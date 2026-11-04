@@ -3,13 +3,14 @@
 | Read | When |
 |---|---|
 | [getting-started.md](getting-started.md) | first install, first task, troubleshooting |
-| [harnesses.md](harnesses.md) | every supported harness (Claude Code, Codex, oh-my-pi and 28 more): install command, directories, how to invoke (generated) |
-| [runbooks.md](runbooks.md) | the steps that need you: pilot service, fleet live, autopilot, model upgrade, publish, local install |
+| [../STACK.md](../STACK.md) | the dev stack: languages, data, platform, observability, quality |
+| [harnesses.md](harnesses.md) | every supported harness (Claude Code, Codex, oh-my-pi and 55+ more): install command, directories, how to invoke (generated) |
+| [runbooks.md](runbooks.md) | the steps that need you: pilot service, agents live, autopilot, model upgrade, publish, local install |
 | [context-and-sync.md](context-and-sync.md) | context limits per tool (Claude 350k, the rest 245k) and `/sync`: one login on default for every profile |
 | [setup-claude.md](setup-claude.md) | Claude Code on your Claude subscription as the coding agent |
 | [setup-omp.md](setup-omp.md) | oh-my-pi as the coding agent |
 | [setup-codex.md](setup-codex.md) | Codex CLI as the coding agent or orchestrator |
-| [usage.md](usage.md) | what to say for each kind of task; skills; GitHub; the fleet |
+| [usage.md](usage.md) | what to say for each kind of task; skills; GitHub; a project of agents |
 | [recommended-setup.md](recommended-setup.md) | the order of work, tiers, the daily routine, what never to do |
 | [architecture.md](architecture.md) | the design: roles, flows, invariants, decisions, risks |
 | [delegation.md](delegation.md) | sessions in git worktrees (tmux or Orca): the commands, project directories, keeping conflicts small |

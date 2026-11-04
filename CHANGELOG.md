@@ -7,7 +7,7 @@ and fixes are a patch. `make publish` refuses a version without an entry here.
 
 First release.
 
-- 40 skills in six groups (start, process, language, data, platform, observability; nine of them are the roles of workflow agents) for the stack:
+- 42 skills in six groups (start, process, language, data, platform, observability; nine of them are the roles of workflow agents) for the stack:
   Go/Fiber APIs, Python ML, Rust performance, Next.js and Vite + React + TypeScript frontends.
 - Builds as the plugin `swe` (name, owner and version from `plugin.env`) for Claude Code, Codex and
   oh-my-pi, and as plain skills for 28 more harnesses.
@@ -18,11 +18,25 @@ First release.
   skill) are created by `init`; every node reads them, reports `## Learned` facts, and the manager folds them in. A node's brief
   enables only its role's `swe` skills and disables the other `swe` skills; system skills stay available. Briefs and
   `AGENTS.md` are structured markdown.
+- `make install` installs into every detected harness, `make <harness>` into one, `make harness` (`make list`) lists the 55+
+  supported harnesses with the detected ones marked, `make skills` lists the skills. `swe-cli update [harness ...]` pulls
+  `main`, rebuilds and reinstalls; `swe-cli project update` refreshes a project's AGENTS.md, workflows, roles and learn
+  skill without overwriting your edits.
 - Workflows: YAML DAGs run by a small Python runner (`swe-cli flow`). Each node is one agent with only the skills of its
   role, on the harness, model and effort that fit it; nodes run in parallel and write reports to a tmp directory; the
   manager merges the ready PRs through the gate and `flow clean` removes sessions, worktrees, branches and tmp files. A
   reviewer agent brings a behind branch up to date and resolves conflicts. Shipped: feature, bugfix, docs, card, docs-card,
-  ci-fix, conflict, verify.
+  ci-fix, conflict, verify, changelog.
+- Change logs (`changelog` skill): every PR that changes behaviour adds its entry to the target repo's `CHANGELOG.md` before
+  merge; the merge gate (`swe-cli merge`) refuses one without it (docs, chore, ci, test, style, build PRs and the
+  `no-changelog` label are exempt); a `scribe` role and the `changelog` workflow add a missing entry; after each merge
+  `flow merge` records the PR in the project's `changelog/<repo>.md` and `changelog/project.md`. `swe-cli changelog
+  check|record|show`; `init` creates `changelog/`.
+- Data engineering skills: `data-pathway` (realtime pipelines on Kafka) and `data-dagster` (batch and scheduled assets), each
+  with a tested project template, shared OTel metrics and a Grafana dashboard whose queries are checked against the code.
+  `benchmark-checklist` is gone; its checks live in `principles/explain-the-number`.
+- `db-orm` is Go only: go-pg v10 behind the same port as raw SQL, with a live-tested adapter.
+- `STACK.md` describes the dev stack.
 - Agents start coding CLIs (Claude Code, Codex, oh-my-pi) in a tmux session or an Orca terminal and a git worktree per
   card, refuse cards whose files overlap (also across projects that clone the same repo), keep branch names unique, and
   merge only through the gate (`swe-cli merge`, which also refuses a branch behind `main`). `swe-cli doctor` checks

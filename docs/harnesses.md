@@ -1,6 +1,6 @@
 # Harnesses
 
-The plugin installs into 31 agent harnesses with one command each: `make <harness>` (several at once:
+The plugin installs into 55 agent harnesses with one command each: `make <harness>` (several at once:
 `make claude codex omp hermes`; everything found on the machine: `make install`; remove: add `REMOVE=1`).
 Generated from the installer's table by `scripts/gen_docs.py`: do not edit by hand.
 
@@ -52,6 +52,30 @@ its description, so a plain request finds the right one; name `swe` to start the
 | CodeBuddy | `make codebuddy` | `~/.codebuddy/skills` | `.codebuddy/skills` |
 | iFlow CLI | `make iflow-cli` | `~/.iflow/skills` | `.iflow/skills` |
 | OpenClaw | `make openclaw` | `~/.openclaw/skills` | `skills` |
+| Pi | `make pi` | `~/.agents/skills` | `.agents/skills` |
+| Warp | `make warp` | `~/.agents/skills` | `.agents/skills` |
+| Zed | `make zed` | `~/.agents/skills` | `.agents/skills` |
+| Kimi Code CLI | `make kimi-code-cli` | `~/.agents/skills` | `.agents/skills` |
+| Antigravity CLI | `make antigravity-cli` | `~/.gemini/antigravity-cli/skills` | `.agents/skills` |
+| IBM Bob | `make bob` | `~/.bob/skills` | `.bob/skills` |
+| Cortex Code (Snowflake) | `make cortex` | `~/.snowflake/cortex/skills` | `.cortex/skills` |
+| ForgeCode | `make forgecode` | `~/.forge/skills` | `.forge/skills` |
+| Grok Build | `make grok` | `~/.grok/skills` | `.grok/skills` |
+| Tabnine CLI | `make tabnine-cli` | `~/.tabnine/agent/skills` | `.tabnine/agent/skills` |
+| Rovo Dev (Atlassian) | `make rovodev` | `~/.rovodev/skills` | `.rovodev/skills` |
+| Zencoder | `make zencoder` | `~/.zencoder/skills` | `.zencoder/skills` |
+| Command Code | `make command-code` | `~/.commandcode/skills` | `.commandcode/skills` |
+| Lingma (Alibaba) | `make lingma` | `~/.lingma/skills` | `.lingma/skills` |
+| Deep Agents | `make deepagents` | `~/.deepagents/agent/skills` | `.agents/skills` |
+| Neovate | `make neovate` | `~/.neovate/skills` | `.neovate/skills` |
+| Pochi | `make pochi` | `~/.pochi/skills` | `.pochi/skills` |
+| Mux | `make mux` | `~/.mux/skills` | `.mux/skills` |
+| AiderDesk | `make aider-desk` | `~/.aider-desk/skills` | `.aider-desk/skills` |
+| Trae CN | `make trae-cn` | `~/.trae-cn/skills` | `.trae/skills` |
+| Qoder CN | `make qoder-cn` | `~/.qoder-cn/skills` | `.qoder/skills` |
+| Firebender | `make firebender` | `~/.firebender/skills` | `.agents/skills` |
+| Kimchi | `make kimchi` | `~/.config/kimchi/harness/skills` | `.kimchi/skills` |
+| AdaL | `make adal` | `~/.adal/skills` | `.adal/skills` |
 
 Options for any target: `SCOPE=project PROJECT_DIR=~/code/app` (commit the skills with the repo),
 `PREFIX=acme` (another prefix), `SKILLS="go-code py-code"` (a subset), `PLUGIN=no` (copy skills even for
@@ -75,5 +99,5 @@ A new coding CLI needs a branch in `cli/bin/main` (`argv`) and an entry under `c
 ```bash
 make status                    # what is installed, per detected harness
 make claude DRY_RUN=1          # what a target would do
-bash tests/harness_test.sh     # installs into all 31 harnesses in a scratch home
+bash tests/harness_test.sh     # installs into all 55 harnesses in a scratch home
 ```

@@ -88,8 +88,7 @@ testing the implementation.
 
 ### explain-the-number
 Before reporting a measurement, find what limits it (CPU, database, lock, partition count), whether the work
-really happened, and that it repeats (`benchstat`, `pytest-benchmark` stats, criterion). Use the
-`benchmark-checklist` skill.
+really happened, and that it repeats (`benchstat`, `pytest-benchmark` stats, criterion), that the same conditions held before and after, and that it matters end to end.
 
 ## Delegation and meta
 

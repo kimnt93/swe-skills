@@ -7,7 +7,7 @@ commands whose output proves it worked.
 | # | Runbook | You must |
 |---|---|---|
 | 1 | [Give one real service proof](#1-give-one-real-service-proof) | pick the service; make the CI check required |
-| 2 | [Bring the fleet live](#2-bring-the-fleet-live-on-that-service) | log in to the providers; restart the gateway; merge the first PRs |
+| 2 | [Bring the agents live](#2-bring-the-agents-live-on-that-service) | log in to the providers; restart the gateway; merge the first PRs |
 | 3 | [Turn on autopilot](#3-turn-on-autopilot) | flip the switch after 20 clean merges; sample weekly |
 | 4 | [A new model ships](#4-a-new-model-ships) | approve a change of the managers' model |
 | 5 | [Publish to teammates](#5-publish-the-plugin-to-teammates) | create the publish remote |
@@ -44,7 +44,7 @@ make verify; echo "exit=$?"                         # 0 on the clean branch, non
 gh api repos/<owner>/<repo>/branches/main/protection --jq '.required_status_checks.contexts'
 ```
 
-## 2. Bring the fleet live on that service
+## 2. Bring the agents live on that service
 
 ### Goal
 
@@ -61,23 +61,26 @@ PR → optional cross-family review → human merge. One card, then 3, then abou
 3. Pick exact ids with `omp models ls`; edit `cli/models.yaml` (`orchestrator`, `launcher`, `workers`); then
    `swe-cli models check` reports only logins.
 4. `swe-cli bootstrap` (projects, model roles, context limits; with Hermes also root, managers, board settings).
-5. **Add the pilot project:** `swe-cli project add <name> --dir ~/work/<name> --repo <repo>=<owner>/<repo> --description "..."`
-   (it creates the directory and clones the repo; with Hermes also the manager `pm-<name>` and the board), then
-   `swe-cli models check` = 0 problems. Start the orchestrator with `swe-cli orchestrate <name>` and ask it to adopt the
-   repo (the `project` skill: `setup_repo.sh`, templates, `ARCHITECTURE.md`).
-6. **One card:** `swe-cli doctor <name>` is clean, then a small `risk: low`, `tier: mid` card started by the orchestrator
-   (issue first, then `swe-cli delegate start`; see [delegation.md](delegation.md)). Watch with
-   `tmux attach -t <name>-<card>` (or the Orca terminal) and `swe-cli delegate status <name>`. Check the PR, `make verify`, and the
-   cross-family review (`swe-cli delegate review`) and its verdict SHA. **Human** merges.
+5. **Add the pilot project:** `mkdir ~/work/<name> && cd ~/work/<name> && swe-cli init` and give it the pilot repo's git URL
+   (it writes `AGENTS.md`, `PROJECT.md`, `skills/`, `workflows/`, `roles.yaml`, `models.yaml`, `project.yaml` and clones the repo;
+   with Hermes also the manager `pm-<name>` and the board), then `swe-cli models check` = 0 problems. Start the orchestrator
+   with `swe-cli orchestrate <name>` and ask it to adopt the repo (the `project` skill: `setup_repo.sh`, templates,
+   `ARCHITECTURE.md`) and to fill `PROJECT.md`.
+6. **One run:** `swe-cli doctor <name>` is clean, then ask the orchestrator for one small `risk: low` change. It runs
+   `swe-cli flow run <name> feature --goal "..."` ([workflows.md](workflows.md)). Watch with `swe-cli flow status <name>`,
+   `tmux attach -t <name>-<card>` (or the Orca terminal). Check the PR, `make verify`, the cross-family review verdict and
+   its SHA, and the `## Learned` facts in the run report. **Human** says merge; the orchestrator runs `flow merge`, folds the
+   facts into `PROJECT.md`, then `flow clean`.
 7. Fix whatever broke, with a test in `cli/tests/selftest.sh`, before the next step.
-8. Three independent cards with disjoint files, across two CLIs, then about five; then one rough goal given to the orchestrator and split by it.
+8. Two runs at once with disjoint files, across two CLIs; then a `feature` with several cards; then a docs-only run (it should use the smallest model).
 
 ### Verify
 
 ```bash
 swe-cli models check                                   # 0 problem(s)
 hermes kanban diagnostics --board <name>            # no errors, nothing stranded
-swe-cli delegate status <name>                         # every card: state, outcome, behind main
+swe-cli flow status <name>                             # every run, node by node
+swe-cli project notes                                  # PROJECT.md under 2000 words
 gh pr list --state merged --repo <owner>/<repo>       # merged PRs
 ```
 
@@ -137,7 +140,7 @@ A new model ships (say Opus 6), a model is retired, or a CLI's cost or quality c
    through the old and the new model, card graphs scored blind. Switch only if the new one is not
    worse. **Human** approves.
 7. Clear per-card overrides that pin the old model: `hermes kanban set-model <id> none`.
-8. Commit `chore(fleet): <model> for <agents>` with the `show` output in the body.
+8. Commit `chore(agents): <model> for <agents>` with the `show` output in the body.
 
 Skills never change in an upgrade: they name tiers, not models.
 

@@ -28,6 +28,15 @@ The command finds the project from the current directory upward (`project.yaml`)
 `swe-cli init <new dir>` creates the directory with these files; `swe-cli init` inside an existing directory adds
 them and keeps what is there. `swe-cli project notes` checks `PROJECT.md` against the 2000-word limit.
 
+## Updating
+
+`swe-cli update` pulls the plugin's `main` branch (fast-forward only; it refuses a dirty checkout or another branch),
+rebuilds, reinstalls into every detected harness (`swe-cli update claude codex` for chosen ones) and relinks the command.
+`swe-cli project update` then brings this project's `AGENTS.md`, `workflows/`, `roles.yaml`, `models.yaml` and
+`skills/learn` up to the new versions. A file you did not edit is replaced; one you edited is kept and the new version is
+written as `<file>.new` for you to merge (`--force` replaces it after saving `<file>.bak`). `PROJECT.md`,
+`project.yaml` and the clones are never touched. The versions it last wrote are remembered in `.swe/shipped.json`.
+
 ## Skills per node, and self-improvement
 
 A node's brief tells the agent which `swe` skills to enable (only those of its role, from `roles.yaml`) and to
@@ -64,7 +73,7 @@ nodes:
 | `tier`, `effort`, `harness` | override the role per node |
 
 Values can use `${inputs.x}`, `${item.y|default}` and `${nodes.n.field}`. Shipped: `feature`, `bugfix`, `docs`,
-`card` (build, checks, review with fix rounds), `docs-card`, `ci-fix`, `conflict`, `verify`.
+`card` (build, checks, review with fix rounds), `docs-card`, `ci-fix`, `conflict`, `verify`, `changelog`.
 `swe-cli flow validate` checks roles, skills, tiers, cycles and `when` expressions; `swe-cli flow graph <wf>` prints
 the DAG with each node's harness, tier and effort.
 
@@ -85,6 +94,15 @@ manager. Then:
 swe-cli flow merge <project> <run> [--approved]   # the merge gate for each ready PR
 swe-cli flow clean <project> <run>                # sessions, worktrees, branches, records, tmp directory
 ```
+
+## Change logs
+
+The merge gate refuses a PR that needs a `CHANGELOG.md` entry and has none (`docs`, `chore`, `ci`, `test`, `style`, `build`
+titles and the `no-changelog` label are exempt). `flow merge` then tells you to run
+`swe-cli flow run <project> changelog --input pr=<n> --input repo=<owner/repo>`: a `scribe` agent adds the entry on the PR's
+branch, checks run again and a reviewer re-reviews the new head. After each merge `flow merge` appends the PR to
+`changelog/<repo>.md` and `changelog/project.md` in the project directory. `swe-cli changelog show --repo <r> --since <date>`
+reads them. See the `changelog` skill.
 
 A branch that is behind `main` or conflicts is not merged by force: a reviewer agent updates it, resolves the
 conflicts, re-runs the checks and re-reviews, then the merge is retried. After `flow clean` nothing of the run

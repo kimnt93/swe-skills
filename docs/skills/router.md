@@ -106,7 +106,7 @@ each phase is one PR and never depends on a later one. On the board each phase i
 **Steps.** Reproduce with a number (`hey`, `k6`, `go test -bench`, `pytest-benchmark`, criterion, Lighthouse);
 profile (see `profiling`); fix in order: do less work, batch, cache (with a stated invalidation rule), better
 algorithm, then a faster language for the hot path (Rust, measured); re-measure with the same harness and
-vet it with `benchmark-checklist`. **You get** baseline to after, the limiter, the fix, and proof the number
+vet it with the explain-the-number principle. **You get** baseline to after, the limiter, the fix, and proof the number
 is real.
 
 ### profiling

@@ -25,7 +25,7 @@ cd ~/code/orders && codex
 $swe:swe add an endpoint to cancel an open order
 ```
 
-## 4. Run it in the fleet
+## 4. Run it in a project of agents
 
 ```bash
 export SWE_MODELS=cli/examples/models.codex-only.yaml    # one CLI: codex

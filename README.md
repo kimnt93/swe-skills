@@ -10,10 +10,15 @@ until the project's `make verify` passes.
 | ML: training, evaluation, inference, data pipelines | **Python** | `py-code` |
 | hot paths, Rust cores for Python, low-latency services | **Rust** | `rust-code` |
 | server-rendered web apps | **Next.js** (App Router) | `ts-code` |
-| dashboards and internal SPAs | **Vite + React + TypeScript** | `ts-code` | It installs as a plugin in Claude Code, Codex and
-oh-my-pi, or as plain skills in Hermes, OpenCode, Gemini CLI and 25 other harnesses. The first version
-started from some of the process ideas in [pstack](https://github.com/cursor/plugins/tree/main/pstack)
-(MIT); from there it grows with this stack and its requirements.
+| dashboards and internal SPAs | **Vite + React + TypeScript** | `ts-code` |
+
+It installs as a plugin in Claude Code, Codex and oh-my-pi, or as plain skills in Hermes, OpenCode, Gemini CLI
+and 55+ other harnesses (`make harness` lists them).
+
+On top of the skills, `swe-cli` runs a project of agents: a directory with `AGENTS.md`, `PROJECT.md`, YAML
+workflows and one or more repo clones. A manager agent turns a request into a workflow run (plan, build, check,
+review, merge, clean), one agent per node, each with only the skills and model its role needs
+([how it works](#the-command-swe-cli)).
 
 The plugin's name comes from the build. The default is **`swe`**:
 
@@ -31,14 +36,16 @@ variable always wins.
 | Read | When |
 |---|---|
 | [docs/getting-started.md](docs/getting-started.md) | install and the first task, troubleshooting |
-| [docs/harnesses.md](docs/harnesses.md) | install into Claude Code, Codex, oh-my-pi and 28 more harnesses (generated) |
-| [docs/runbooks.md](docs/runbooks.md) | the steps that need you: pilot service, fleet live, autopilot, publish |
+| [docs/harnesses.md](docs/harnesses.md) | install into Claude Code, Codex, oh-my-pi and 55+ more harnesses (generated) |
+| [docs/runbooks.md](docs/runbooks.md) | the steps that need you: pilot service, agents live, autopilot, publish |
 | [docs/context-and-sync.md](docs/context-and-sync.md) | context limits per tool and `/sync` (log in once on the default profile) |
 | [docs/setup-claude.md](docs/setup-claude.md) | **Setup A:** Claude Code on your Claude subscription as the coding agent |
 | [docs/setup-omp.md](docs/setup-omp.md) | **Setup B:** oh-my-pi as the coding agent |
-| [docs/usage.md](docs/usage.md) | what to say for each kind of task; skills; GitHub; the fleet |
+| [docs/usage.md](docs/usage.md) | what to say for each kind of task; skills; GitHub; a project of agents |
 | [docs/recommended-setup.md](docs/recommended-setup.md) | the order of work, tiers, the daily routine, what never to do |
 | [docs/architecture.md](docs/architecture.md) | the design: roles, flows, invariants, decisions, risks |
+| [docs/workflows.md](docs/workflows.md) | the project directory, YAML workflows, roles, reports, merge and clean, self-improvement |
+| [STACK.md](STACK.md) | the dev stack: languages, data, platform, observability, quality, agents |
 | [docs/delegation.md](docs/delegation.md) | tmux sessions in git worktrees: the commands, keeping conflicts small, viewing sessions |
 | [docs/agents-and-skills.md](docs/agents-and-skills.md) | which agent gets which skills and GitHub rights |
 | [docs/skills/](docs/skills/README.md) | **each skill in detail**: when to use it, what to say, what happens, what you get |
@@ -56,14 +63,14 @@ variable always wins.
 | Harness | Entry | Other skills | Subagents |
 |---|---|---|---|
 | Claude Code | `/swe` | `/swe:<skill>` | `swe:worker`, `swe:adversary` |
-| Codex | `$swe:swe` | `$kim:<skill>` | — |
+| Codex | `$swe:swe` | `$swe:<skill>` | — |
 | oh-my-pi | `/skill:swe` | `/skill:<skill>` | omp's own roles |
 | Hermes and others | skill `swe` | skill `swe-<skill>` | — |
 
 ## Skills
 
 <!-- skills:start -->
-40 skills in 6 groups. Click a skill for its detail.
+42 skills in 6 groups. Click a skill for its detail.
 
 ### Start here
 
@@ -76,8 +83,8 @@ variable always wins.
 | Skill | Description |
 |---|---|
 | [architect](docs/skills/process.md#architect) | Sketch types and module shape twice, pick one, then implement against it |
-| [benchmark-checklist](docs/skills/process.md#benchmark-checklist) | Vet a measured number before you report it or act on it |
 | [blast-radius](docs/skills/process.md#blast-radius) | Find what a change could break elsewhere, and prove why it is safe |
+| [changelog](docs/skills/process.md#changelog) | Change logs: a CHANGELOG.md entry in every PR, plus the project's changelog/ directory |
 | [ci-fixer](docs/skills/process.md#ci-fixer) | CI fixer: reproduce a red check locally, fix the cause in the card's files, never weaken the check |
 | [correct](docs/skills/process.md#correct) | Make a repeated agent mistake impossible with a check, not a sentence |
 | [deslop](docs/skills/process.md#deslop) | Clean a diff before review: debug output, dead code, noisy comments |
@@ -116,8 +123,10 @@ variable always wins.
 
 | Skill | Description |
 |---|---|
+| [data-dagster](docs/skills/data-platform.md#data-dagster) | Dagster DAGs: assets, checks, schedules, template, dagster_* OTel metrics, dashboard |
+| [data-pathway](docs/skills/data-platform.md#data-pathway) | Realtime Pathway pipelines: Kafka in/out, windows, template, OTel metrics, dashboard |
 | [db-migrations](docs/skills/data-platform.md#db-migrations) | PostgreSQL schema changes as goose SQL files, safe by default |
-| [db-orm](docs/skills/data-platform.md#db-orm) | Opt-in ORM adapters (bun, SQLAlchemy, SeaORM) behind the same port as raw SQL |
+| [db-orm](docs/skills/data-platform.md#db-orm) | Opt-in go-pg v10 ORM adapter behind the same port as raw SQL |
 
 ### API and deployment
 
@@ -157,8 +166,10 @@ variable always wins.
 |---|---|
 | `make build` | render `dist/<name>/` from `src/` |
 | `make validate` | build, then validate (names, links, groups, portability, placeholders) |
-| `make <harness>` | build, validate, install: `claude codex omp hermes opencode ...` (`make agents` lists all) |
-| `make install` | every harness found on this machine |
+| `make install` | build, validate, install into every harness detected on this machine |
+| `make <harness>` | install into that harness only: `make claude`, `make codex omp hermes ...` |
+| `make harness` (`make list`) | list every supported harness (60+), detected ones marked |
+| `make skills` | list the skills |
 | `make <harness> REMOVE=1` | uninstall (only what this tool installed) |
 | `make cli` | link the `<name>-cli` command into `~/.local/bin` |
 | `make test` | build, enforcement, frontend and cli tests |
@@ -176,7 +187,14 @@ swe-cli init                          # AGENTS.md (the orchestrator), PROJECT.md
                                       # then asks for git URLs until you are done, and clones each one here
 swe-cli project add <git url>         # later, from the shell, or ask the orchestrator to do it
 swe-cli orchestrate orders            # start the manager agent (any CLI) in this directory
+
+swe-cli update                        # git pull main, rebuild, reinstall into every detected harness, relink the command
+swe-cli update claude codex           # the same, but only into these harnesses
+swe-cli project update                # refresh this project's AGENTS.md, workflows, roles, models and learn skill
 ```
+
+`project update` replaces the files you did not edit and writes `<file>.new` next to the ones you did (`--force` replaces
+them after saving `<file>.bak`); `PROJECT.md`, `project.yaml` and the clones are never touched.
 
 The manager takes a request, picks a **workflow** and runs it (`swe-cli flow run orders feature --goal "..."`).
 A workflow is a YAML DAG: every node is one agent with only the skills its role needs, on the harness, model
@@ -199,7 +217,6 @@ scripts/             build.py, install.py, validate_skills.py, gen_docs.py, publ
 cli/                 the `<name>-cli` command, workflows/, roles.yaml, models.yaml, briefs, tests
 docs/                architecture.md (the design), agents-and-skills.md (the recommended setup)
 tests/               build_test.sh, enforcement_test.sh, fixtures
-LICENSES/           the MIT notice for the pstack ideas the first version started from
 CHANGELOG.md         one entry per version (make publish requires it)
 dist/                build output (git-ignored); never edit it
 ```

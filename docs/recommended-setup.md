@@ -26,7 +26,7 @@ What to run, in what order, and what to keep switched off until it has earned tr
    family for step 5.
 4. **Enforce the rules.** Layering checks (`archcheck`, `lint-imports`), `structcheck`, ruff bans,
    `pr_lint.py` run in `make verify`; add one check for each mistake you correct twice.
-5. **Fleet, one project.** Logins, `swe-cli models check`, `swe-cli project add`, `swe-cli orchestrate`. One
+5. **One project of agents.** Logins, `swe-cli models check`, `swe-cli init` (add the repos), `swe-cli orchestrate`. One
    card end to end; you merge. Then three cards with disjoint files, then about five.
 6. **More projects.** `swe-cli project add` for each; one manager each.
 7. **Autopilot.** Pin full model ids; after 20 clean merges set `autopilot.auto_merge: [low]`; sample

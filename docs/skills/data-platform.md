@@ -23,13 +23,33 @@ checks naming, contiguity, Up and Down, concurrent indexes, NOT NULL defaults, l
 
 ### db-orm
 
-**What it is.** An ORM, but only when asked or already present. **Use it when** you say "use SQLAlchemy / bun /
-SeaORM", or the project already uses one. Otherwise raw SQL stays. **Rules.** The ORM lives only inside the
-adapter and implements the same port and table as the raw SQL adapter; the schema belongs to goose files
-(no `AutoMigrate`, `create_all`, `synchronize`); no lazy loading (N+1), every list has a `LIMIT`, one
+**What it is.** The go-pg v10 ORM (Go only; other languages use raw SQL) (`pg.DB.Model`) for Go services, but only when asked or already present. **Use it when**
+you say "use the ORM", or the project already uses it. Otherwise raw SQL on the same library stays. **Rules.** The ORM
+lives only inside the adapter and implements the same port and table as the raw SQL adapter; `use_zero` on every written
+column, no pointers; the schema belongs to goose files (no `orm.CreateTable`); no N+1, every list has a `LIMIT`, one
 transaction per business operation, raw SQL stays available for queries the builder makes unreadable.
-**References.** `orm-rules`, `go-bun` (bun 1.3), `py-sqlalchemy` (SQLAlchemy 2.1 + psycopg 3),
-`rust-sea-orm` (SeaORM 2.0); tested adapters in `assets/`.
+**References.** `orm-rules`, `go-pg` (go-pg v10.15); a live-tested adapter and zero-value test in `assets/go-pg`.
+
+### data-pathway
+
+**What it is.** Realtime pipelines with Pathway (Python code on a Rust engine): Kafka in, transforms, tumbling windows, joins, Kafka
+or database out. **Use it when** you start or change a streaming pipeline that computes over events as they arrive. **Say.**
+`/swe:data-pathway a pipeline that reads trades from Kafka and writes one-minute VWAP per symbol`.
+**What you get.** A project template (`assets/template`): config from env, pure business logic in plain functions (tested with
+pytest alone), thin Pathway wiring, persistence for restarts, a Dockerfile and compose file, and the shared `stream_pipeline_*`
+OTel metrics (see **data-realtime-metrics**) with a Grafana dashboard (`assets/grafana-dashboard.json`, uid `pathway-pipelines`).
+**References.** `pipeline`, `metrics`, `deploy`. **Honest limit.** The pure-logic tests ran; the Pathway tests need the
+`pathway` package, which was not installed when this was written, so run them first.
+
+### data-dagster
+
+**What it is.** Batch and scheduled data pipelines as Dagster assets: daily partitions, asset checks that block bad data, jobs,
+schedules, resources and backfills. **Use it when** data is produced on a schedule or on demand rather than per event.
+**Say.** `/swe:data-dagster a daily asset of closing prices from Postgres with a row-count check`.
+**What you get.** A project template (polars, PostgreSQL source, Docker, compose) whose tests run in process, `dagster_*` OTel
+metrics exported by a sensor with bounded labels (job, asset), and a Grafana dashboard (uid `dagster-orchestration`) checked by
+`scripts/check_dashboard.py`, which fails when the dashboard queries a metric the code does not emit.
+**References.** `assets`, `metrics`, `testing`, `deploy`. **Honest limit.** The compose stack and Dockerfile were not run.
 
 ### api-contract
 

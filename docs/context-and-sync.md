@@ -73,7 +73,7 @@ One run only, without touching any file: `CLAUDE_CODE_AUTO_COMPACT_WINDOW=300000
 ### Notes
 
 - **Hermes ratio.** Hermes compacts at the lower of `threshold` times the window and
-  `threshold_tokens`, and raises any ratio under 0.75 for windows below 512k. So `fleet` sets the
+  `threshold_tokens`, and raises any ratio under 0.75 for windows below 512k. So `swe-cli` sets the
   ratio to `compact_at / window`, rounded up (0.88 and 0.91), and lets `threshold_tokens` decide.
 - **oh-my-pi** has one global threshold, so every model there compacts at the default 245k. That fits
   "log in and use the model": nothing else to configure per model. A Claude model used through omp

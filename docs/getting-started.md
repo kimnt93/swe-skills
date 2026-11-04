@@ -16,7 +16,7 @@ Ten minutes from a fresh clone to `/swe` working in your coding agent.
 
 ```bash
 cd swe-skills
-make validate          # renders dist/swe/ and checks it: 40 skills checked, 0 error(s)
+make validate          # renders dist/swe/ and checks it: 42 skills checked, 0 error(s)
 ```
 
 The plugin's name comes from `plugin.env` (`PLUGIN_NAME ?= swe`). Change it there, or per command
@@ -31,6 +31,9 @@ make omp               # oh-my-pi:    /skill:swe, /skill:<skill>
 make codex             # Codex (optional): $swe:swe
 make hermes            # Hermes (optional): skills swe, swe-<skill>
 ```
+
+`make install` installs into every harness detected on the machine; `make harness` (or `make list`) lists the 55+
+supported ones with the detected ones marked; `make <harness>` installs into just that one.
 
 Any of 31 harnesses works the same way (`make cursor`, `make gemini-cli`, `make opencode`, ...): see
 [harnesses.md](harnesses.md). Start a new session afterwards. Per-agent details: [setup-claude.md](setup-claude.md) and
@@ -63,6 +66,8 @@ bash cli/tests/selftest.sh               # proves the cli against fake CLIs, a s
 mkdir orders && cd orders
 swe-cli init                             # writes AGENTS.md, workflows/, roles.yaml, models.yaml, project.yaml;
                                          # asks for git URLs until you press Enter on an empty line
+swe-cli update                           # later: pull main, reinstall everywhere
+swe-cli project update                   # later: refresh this project's workflows and AGENTS.md
 swe-cli doctor orders                    # git credentials, CLIs, tmux or Orca, the clones
 swe-cli orchestrate orders               # start the manager agent (default claude) in this directory
 ```
