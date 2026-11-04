@@ -32,8 +32,8 @@ for line in sys.stdin:
     if not m:
         continue
     brief = open(os.path.join(".swe", m.group(1))).read()
-    role = re.search(r"You are the ([\w-]+) for node", brief).group(1)
-    report = re.search(r"Write your report to (\S+)", brief).group(1)
+    role = re.search(r"# You are the ([\w-]+)", brief).group(1)
+    report = re.search(r"Write your report to `([^`]+)`", brief).group(1)
     files = re.search(r"files you may change: (.*)", brief)
     open(f".swe/argv-{role}.txt", "w").write(ARGV)
     print("esc to interrupt", flush=True)
@@ -65,7 +65,7 @@ for line in sys.stdin:
                 open(pr_file, "w").write(str(n))
         n = open(pr_file).read()
         open(os.path.join(state, f"head-{n}"), "w").write(sh("git", "rev-parse", "HEAD"))
-        open(report, "w").write(f"{role} did the work at {sha}\n")
+        open(report, "w").write(f"{role} did the work at {sha}\n\n## Learned\n- make verify is the proof command\n")
         print(f"CARD DONE {sha} https://example.test/acme/app/pull/{n}", flush=True)
     elif role == "reviewer":
         sha = sh("git", "rev-parse", "--short", "HEAD")
@@ -137,7 +137,9 @@ b1, b2 = n["c1/build"], n["c2/build"]
 assert max(b1["started"], b2["started"]) < min(b1["finished"], b2["finished"]), "the two builds did not overlap"
 assert len(d["ready"]) == 2 and {e["pr"] for e in d["ready"]} == {"1", "2"}, d["ready"]
 PY
-grep -q "skills: use only developer, swe, tdd, deslop, github" "$tmp/proj/.wt/app/"*/.swe/brief-*c1-build.md 2>/dev/null || grep -rq "use only developer, swe, tdd, deslop, github" "$tmp/proj/.wt/app/" || fail "build node did not get only its skills"
+grep -rqF 'Enable only these `swe` skills for this role: developer, swe, tdd, deslop, github' "$tmp/proj/.wt/app/" || fail "build node did not get only its skills"
+grep -rqF 'Disable every other `swe` skill' "$tmp/proj/.wt/app/" || fail "brief does not disable the other plugin skills"
+grep -rq "^## Learned" "$SWE_TMP/swe/ft/r1/report.md" || fail "learned facts are not collected into the run report"
 ! grep -rq "go-code" "$tmp/proj/.wt/app/"*/.swe/brief-*.md || fail "a build brief names a language skill the role does not enable"
 grep -q "ready to merge (2)" "$SWE_TMP/swe/ft/r1/report.md" || fail "report"
 pass "flow feature: plan, two cards in parallel (own worktrees), checks, review by omp (another family), one fix round each, report lists 2 PRs ready"

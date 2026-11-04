@@ -11,6 +11,7 @@ projects from the project directory's project.yaml (see init).
     swe-cli init [dir] [--repo <git url>]...   make the directory a project: AGENTS.md (orchestrator), workflows/, roles.yaml,
                                           models.yaml, project.yaml; asks for git URLs until you are done
     swe-cli project add <git url|owner/repo> [--name N] [--dir sub]   add a repo to this project directory's project.yaml, clone it
+    swe-cli project notes                   PROJECT.md word count against the 2000-word limit; the project's own skills
     swe-cli project add <name> --dir <path> --repo <name>=<owner/repo|url> [--repo ...] [--description "..."]
                       [--cli claude|codex|omp] [--orchestrator <cli>[:<tier>]] [--dry-run]
     swe-cli project list
@@ -77,6 +78,7 @@ CLI_NAMES = ("claude", "codex", "omp")
 LAUNCHERS = ("tmux", "orca")
 TIERS = ("top", "mid", "low")
 LEVELS = ("board", "clis", "workers", "reviewers", "subagents", "omp_roles", "context", "kanban", "autopilot")
+NOTES_LIMIT = 2000
 NEVER_AUTO_MERGE = {"money-path"}
 NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 GITHUB_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
@@ -1003,7 +1005,8 @@ def init_workspace(args: list[str], dry: bool) -> int:
     if (root / "project.yaml").exists() and not force:
         sys.exit(f"swe-cli: {root} is already a project (project.yaml exists); add repos with `swe-cli project add <url>`, or --force")
     plugin = plugin_name()
-    files = {"AGENTS.md": (FLEET / "AGENTS.template.md", True)}
+    files = {"AGENTS.md": (FLEET / "AGENTS.template.md", True), "PROJECT.md": (FLEET / "templates" / "PROJECT.md", True),
+             "skills/learn/SKILL.md": (FLEET / "templates" / "skills" / "learn" / "SKILL.md", False)}
     for rel in ("roles.yaml", "models.yaml"):
         files[rel] = (FLEET / rel, False)
     for wf in sorted((FLEET / "workflows").glob("*.yaml")):
@@ -1039,6 +1042,20 @@ def init_workspace(args: list[str], dry: bool) -> int:
                 break
             add_repo_to_workspace(root, url)
     print(f"next: cd {root} && {plugin}-cli orchestrate {name}   (add repos any time: {plugin}-cli project add <git url>)")
+    return 0
+
+
+def project_notes(root: Path | None) -> int:
+    """PROJECT.md stays short: count its words against the limit the learn skill sets."""
+    if not root or not (root / "PROJECT.md").is_file():
+        sys.exit("swe-cli: no PROJECT.md here (run inside a project made by `swe-cli init`)")
+    text = re.sub(r"<!--.*?-->", "", (root / "PROJECT.md").read_text(encoding="utf-8"), flags=re.S)
+    words = len(text.split())
+    skills = sorted(p.parent.name for p in (root / "skills").glob("*/SKILL.md"))
+    print(f"PROJECT.md: {words} words (limit {NOTES_LIMIT}); project skills: {', '.join(skills) or 'none'}")
+    if words > NOTES_LIMIT:
+        print(f"PROBLEM PROJECT.md is over the limit: move the most detailed section into skills/<topic>/SKILL.md (learn skill)")
+        return 1
     return 0
 
 
@@ -1158,6 +1175,8 @@ def main() -> int:
             return add_repo_to_workspace(root, rest[1], flags.get("--name", ""), flags.get("--dir", ""), dry)
         if rest[0] == "add":
             return project_add(cfg, rest[1:], dry)
+        if rest[0] == "notes":
+            return project_notes(WORKSPACE)
         if rest[0] == "list":
             for name, project in sorted(projects.items()):
                 view = project_view(name, project)

@@ -333,6 +333,11 @@ def truthy(expression: str, ctx: dict, run: Run) -> bool:
 SEM = threading.Semaphore(int(os.environ.get("SWE_MAX_AGENTS", "6")))
 
 
+def project_skill_lines(directory: str) -> str:
+    found = sorted(Path(directory).glob("skills/*/SKILL.md"))
+    return "".join(f"- `{p}`\n" for p in found) or "- (none yet)\n"
+
+
 def skill_ref(plugin: str, cli: str, skill: str) -> str:
     if cli == "claude":
         return f"/{plugin}" if skill == plugin else f"/{plugin}:{skill}"
@@ -426,13 +431,14 @@ def run_agent(run: Run, wf: dict, ctx: dict, name: str, node: dict, attempt: int
             context.append(f"issue: #{spec.get('issue') or ctx['item']['issue']}")
         if spec.get("inputs_note"):
             context.append(str(spec["inputs_note"]))
-        text = delegate.render("brief-node.md", role=node["role"], node=key, run=run.id, workflow=wf["name"], project=run.project,
-                               repo=record["repo"], skills=", ".join(skills), first=skill_ref(plugin, cli, skills[0]) if skills else "the task",
+        text = delegate.render("brief-node.md", plugin=plugin, role=node["role"], node=key, run=run.id, workflow=wf["name"], project=run.project,
+                               repo=record["repo"], skills=", ".join(skills), project_dir=project["dir"],
+                               project_skills=project_skill_lines(project["dir"]), first=skill_ref(plugin, cli, skills[0]) if skills else "the task",
                                goal=goal, context="\n".join(context) + "\n", report=report, worktree=record["worktree"], scope=scope_text,
                                upstream=("- Read these reports from the steps before you first:\n" + "".join(f"  - {p}\n" for p in upstream)) if upstream else "",
                                artifact=(f"- Write the plan to {artifact} (JSON, the planner skill's format).\n" if node["role"] == "planner" else ""),
                                outcomes="\n".join(f"  {line}" for line in OUTCOMES[spec["outcome"]]))
-        return text + (f"\nSkill invocations: {refs}\n")
+        return text + (f"\n# Skill invocations\n\n{refs}\n")
 
     run.update(key, status="running", cli=cli, tier=tier, card=card, session=session, report=str(report), attempt=attempt,
                started=int(time.time()))
@@ -578,6 +584,14 @@ def run_report(run: Run, wf: dict, ctx: dict, name: str, node: dict) -> dict:
         lines += ["", "needs attention (no PASS verdict):"] + [f"- #{e['pr']} {e['pr_url']} verdict {e['verdict']}" for e in attention]
     if failed:
         lines += ["", "failed:"] + [f"- {k}: {v.get('reason', '')} (report {v.get('report', '-')})" for k, v in failed.items()]
+    learned = []
+    for report in sorted((run.dir / "reports").glob("*.md")):
+        block = re.search(r"^## Learned\s*\n(.*?)(?=^#|\Z)", report.read_text(encoding="utf-8"), re.S | re.M)
+        for item in (block.group(1).splitlines() if block else []):
+            if item.strip().startswith(("-", "*")) and item.strip() not in learned:
+                learned.append(item.strip())
+    if learned:
+        lines += ["", "## Learned (fold into PROJECT.md with the learn skill before `flow clean`)", ""] + learned
     lines += ["", f"next: swe-cli flow merge {run.project} {run.id} [--approved], then swe-cli flow clean {run.project} {run.id}"]
     text = "\n".join(lines) + "\n"
     (run.dir / "report.md").write_text(text, encoding="utf-8")

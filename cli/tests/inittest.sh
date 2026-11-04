@@ -17,7 +17,7 @@ unset SWE_PROJECTS SWE_WORKSPACE
 mkdir "$tmp/acme" && cd "$tmp/acme"
 # non-interactive: --repo
 "$cli" init --name acme --repo "$tmp/remote-api-server" >"$tmp/init.txt" 2>&1 || { cat "$tmp/init.txt"; fail "init"; }
-for f in AGENTS.md project.yaml roles.yaml models.yaml workflows/feature.yaml workflows/card.yaml; do
+for f in AGENTS.md PROJECT.md skills/learn/SKILL.md project.yaml roles.yaml models.yaml workflows/feature.yaml workflows/card.yaml; do
     [ -e "$f" ] || fail "init did not write $f"
 done
 grep -q "flow run acme feature" AGENTS.md || fail "AGENTS.md is not rendered for the project"
@@ -29,6 +29,11 @@ grep -q "remote-api-server" project.yaml || fail "repo not listed in project.yam
 "$cli" project add "$tmp/remote-web-app" --name web | grep -q "already" || fail "adding the same repo twice must be a no-op"
 "$cli" project list | grep -q "^acme" || fail "project list"
 "$cli" init >/dev/null 2>&1 && fail "init over an existing project must refuse"
+"$cli" project notes | grep -q "PROJECT.md: .* words (limit 2000)" || fail "project notes"
+python3 -c "print('word ' * 2100)" >>PROJECT.md
+"$cli" project notes >/dev/null 2>&1 && fail "an over-long PROJECT.md must fail project notes"
+# an existing directory with files in it becomes a project too, files kept
+mkdir "$tmp/old" && echo keep >"$tmp/old/README.md" && (cd "$tmp/old" && "$cli" init --name old >/dev/null 2>&1 && grep -q keep README.md && [ -f PROJECT.md ]) || fail "init on an existing directory"
 # works from a subdirectory and from anywhere via the registry
 mkdir -p sub/deep && (cd sub/deep && "$cli" project list | grep -q "^acme") || fail "discovery from a subdirectory"
 (cd / && "$cli" project list | grep -q "^acme") || fail "registry lookup from elsewhere"
