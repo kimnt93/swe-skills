@@ -1,9 +1,9 @@
 ---
 name: router
-description: "Entry point of the @PLUGIN@ plugin for any non-trivial engineering task: picks the language for the job (Go/Fiber for APIs, Python for ML and data, Rust for performance, Next.js or Vite + React + TypeScript for frontends), restates the goal and the done-predicate, picks a playbook, loads the matching skills and principles, delegates by model tier, and does not finish until the project's verify command passes on the committed head. Use at the start of a feature, bug, perf, migration, incident, refactor or investigation, or with no request to list the plugin."
+description: "Entry point of the @PLUGIN@ plugin for any non-trivial engineering task: picks the language for the job (Go/Fiber for APIs, Python for ML and data, Rust for performance, Next.js or Vite + React + TypeScript for frontends), restates the goal and the done-predicate, picks a playbook, loads the matching skills and principles, delegates by agent (cli, model, reasoning), and does not finish until the project's verify command passes on the committed head. Use at the start of a feature, bug, perf, migration, incident, refactor or investigation, or with no request to list the plugin."
 metadata:
   group: start
-  summary: "Entry point: picks language and playbook, delegates by tier, finishes only when make verify passes"
+  summary: "Entry point: picks language and playbook, delegates by agent, finishes only when make verify passes"
 ---
 
 # @PLUGIN@
@@ -79,10 +79,10 @@ proof), `correct` (a repeated mistake becomes a check), `reflect` (capture what 
 
 ## Subagents
 
-- **Pick a tier, never a model:** `top`, `mid`, `low` ([models](references/models.md));
+- **Pick an agent, never a model:** `developer-strong`, `developer`, `documenter` ([models](references/models.md));
   [harness](references/harness.md) says how in this harness.
-- `mid` is the default for code. `top` for money-path, cross-service design, concurrency, a bug
-  with no repro. `low` only for mechanical work with a deterministic check.
+- `developer` is the default for code. `developer-strong` for money-path, cross-service design, concurrency, a bug
+  with no repro. `documenter` only for mechanical work with a deterministic check.
 - **A second opinion is the same brief on another model family** (a cross-family review).
 - **You own every subagent's work.** Read its diff; write your own summary.
 - **Fresh subagents by default**, with the original brief, every later directive and the prior

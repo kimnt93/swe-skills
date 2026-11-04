@@ -56,7 +56,7 @@ PR → optional cross-family review → human merge. One card, then 3, then abou
 1. `bash cli/tests/selftest.sh` passes. `make cli`.
 2. **Human logins** (interactive), once each: `claude auth login`, `codex login`, `omp login openai-codex`, `gh auth login`
    (whichever CLIs you use).
-3. Pick exact ids with `omp models ls`; edit the project's `models.yaml` (`orchestrator`, `launcher`, `workers`); then
+3. Pick exact ids with `omp models ls`; edit the project's `models.yaml` (`manager`, `launcher`, `agents`); then
    `swe-cli models check` reports only logins.
 4. `swe-cli bootstrap` (projects, model roles, context limits).
 5. **Add the pilot project:** `mkdir ~/work/<name> && cd ~/work/<name> && swe-cli init` and give it the pilot repo's git URL
@@ -124,9 +124,9 @@ A new model ships (say Opus 6), a model is retired, or a CLI's cost or quality c
 
 ### Steps
 
-1. `claude update`: the `claude` workers' `opus` / `sonnet` / `haiku` aliases now mean the newest
+1. `claude update`: the `claude` agents' `opus` / `sonnet` / `haiku` aliases now mean the newest
    models, unless `models.yaml` pins full ids.
-2. Edit `models.yaml` where needed: pinned worker ids, the omp workers, `omp_roles`, the subagents' tiers.
+2. Edit `models.yaml` where needed: pinned model ids in `agents`, the omp and opencode agents, `omp_roles`, the subagents' agents (`swe-cli models set <agent> --model <id>`).
 3. `swe-cli models check`: 0 problems (each id exists where it runs, each provider is logged in).
 4. `swe-cli models apply`, then `swe-cli models show`.
 5. `make claude codex omp`, so the plugin's subagents get the new models.
@@ -135,7 +135,7 @@ A new model ships (say Opus 6), a model is retired, or a CLI's cost or quality c
    worse. **Human** approves.
 7. Commit `chore(agents): <model> for <agents>` with the `show` output in the body.
 
-Skills never change in an upgrade: they name tiers, not models.
+Skills never change in an upgrade: they name agents, not models.
 
 ## 5. Publish the plugin to teammates
 

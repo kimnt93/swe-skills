@@ -5,7 +5,7 @@ nodes:
     role: developer
     goal: "${item.goal}"
     files: "${item.files}"
-    tier: "${item.tier|mid}"
+    agent: "${item.agent|developer}"
     issue: "${item.issue}"
     risk: "${item.risk|standard}"
     branch_type: "${item.type|feat}"

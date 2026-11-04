@@ -1,0 +1,64 @@
+# Setup D: opencode is the only coding agent; any provider you logged in to (opencode providers login), models are provider/model (opencode models).
+# One harness, so the reviewer is a fresh session on the same cli. Use it with: SWE_MODELS=cli/examples/models.opencode-only.yaml swe-cli models show
+# or copy it over your project's models.yaml.
+manager: manager
+launcher: tmux
+clis:
+  opencode:
+    model: opencode/big-pickle
+    ready: ctrl+p commands
+    settle: 3
+    busy: esc interrupt
+agents:
+  manager:
+    cli: opencode
+    model: opencode/claude-sonnet-5
+    reasoning: medium
+  planner:
+    cli: opencode
+    model: opencode/claude-opus-5-5
+    reasoning: high
+  developer:
+    cli: opencode
+    model: opencode/claude-sonnet-5
+    reasoning: medium
+  developer-strong:
+    cli: opencode
+    model: opencode/claude-opus-5-5
+    reasoning: high
+  documenter:
+    cli: opencode
+    model: opencode/claude-haiku-5-5
+  scribe:
+    cli: opencode
+    model: opencode/claude-haiku-5-5
+  ci-fixer:
+    cli: opencode
+    model: opencode/claude-sonnet-5
+    reasoning: medium
+  integrator:
+    cli: opencode
+    model: opencode/claude-sonnet-5
+    reasoning: medium
+  verifier:
+    cli: opencode
+    model: opencode/claude-haiku-5-5
+  reviewer:
+    cli: opencode
+    model: opencode/claude-opus-5-5
+    reasoning: high
+reviewers:
+  opencode: reviewer
+subagents: {}
+omp_roles: {}
+context:
+  default:
+    window: 272000
+    compact_at: 245000
+  families:
+    claude:
+      window: 400000
+      compact_at: 350000
+  models: {}
+autopilot:
+  auto_merge: []

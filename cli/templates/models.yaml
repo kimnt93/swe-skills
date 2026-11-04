@@ -1,67 +1,78 @@
-# models.yaml: the ONE place that says which model runs at which tier. It lives in the project directory
-# (`swe-cli init` copies it there; edit it freely). Roles (roles.yaml) and workflow nodes name only a tier
-# (top, mid, low) and a harness; this file turns that into a model and an effort level.
+# models.yaml: the ONE place that says which agent runs what. It lives in the project directory
+# (`swe-cli init` copies it there; edit it freely). An agent is three things: the harness (cli), the model and the
+# reasoning level. Roles (roles.yaml) and workflow nodes name an agent, never a model.
 #
-#   swe-cli models show      who uses what
-#   swe-cli models check     every model exists where it will run, every provider is logged in
-#   swe-cli models apply     write omp's model roles
+#   swe-cli models show                          who runs what
+#   swe-cli models check                         every model exists where it will run, every provider is logged in
+#   swe-cli models set <agent> --cli C --model M --reasoning R     change one agent (the manager does this for the project)
+#   swe-cli models apply                         write omp's model roles
 #
 # A new model (say Opus 6) is an edit here plus `swe-cli models check`; nothing else names a model.
-# tiers:  top = design and review, mid = building (the default), low = docs, changelog, mechanical work.
+# Harnesses: claude, codex, omp, opencode. Reasoning is passed the harness's own way and left out when empty:
+#   claude   --effort low|medium|high|xhigh|max      codex  model_reasoning_effort minimal|low|medium|high|xhigh
+#   omp      --thinking minimal|low|medium|high|xhigh   opencode  --variant (provider-specific: high, max, minimal, ...)
 
-# Orchestrator: the agent that runs the project (`swe-cli orchestrate <project>`): any harness started in
-# the project directory with AGENTS.md. A project may override it in project.yaml (`orchestrator:`).
-orchestrator: {cli: claude, tier: mid}
+# The manager: the agent you talk to at the project level (`swe-cli orchestrate <project>`, or just `claude` / `codex`
+# in the project directory). project.yaml may name another agent in `manager:`.
+manager: manager
 
 # Where CLI sessions run: tmux (attach with tmux), or orca (terminals inside the Orca app, which also
 # shows the worktrees). Both keep every session alive after you disconnect.
 launcher: tmux
 
-# Coding CLIs. The orchestrator starts one in a session inside a git worktree
-# (`swe-cli delegate start`), hands it the brief and reads its result. Each project has a default CLI
-# (`cli:` in projects.yaml); the reviewer is another family (`reviewers`).
+# The harnesses. Launch settings only (permissions, and the text in the pane that says "ready" or "busy"); the
+# model comes from the agent. `model` is used when an agent switches to this harness without naming a model.
 clis:
   claude:
     permission_mode: bypassPermissions   # Claude Code: Claude models only
+    model: sonnet
     ready: "❯"                           # text in the pane when the prompt is ready for a brief
     busy: "esc to interrupt"             # text in the pane while it works
   codex:
     approval_policy: never               # Codex CLI: OpenAI models; sandbox danger-full-access inside a worktree
     sandbox: danger-full-access
+    model: gpt-6-sol
     ready: "›"                           # the composer prompt
     busy: "esc to interrupt"
   omp:
     approval_mode: yolo                  # oh-my-pi: OpenAI models (Codex login) and Google models (Antigravity login)
+    model: openai-codex/gpt-6-sol
     ready: "π >"                         # the status line is up
     busy: "⎋"                            # the "⎋ Running ..." line while a tool runs
+  opencode:
+    model: opencode/big-pickle           # opencode: any provider, models are provider/model (opencode models)
+    ready: "ctrl+p commands"
+    settle: 3                            # seconds to wait after ready before the brief is typed
+    busy: "esc interrupt"      # opencode prints this next to the ready footer while it works
 
-# Workers: the model a CLI runs for a card, per tier.
+# Agents: name -> cli, model, reasoning. A role in roles.yaml names its agent (developer, planner, ...); a workflow
+# node or a planner card may name another (a card with "agent": "developer-strong").
 # Claude aliases (opus, sonnet, haiku) follow the newest model after `claude update`;
 # pin a full id (claude-opus-5-5) to make upgrades explicit.
-workers:
-  claude:
-    top: {model: opus, effort: xhigh}
-    mid: {model: sonnet, effort: high}       # the default for most cards
-    low: {model: haiku}
-  codex:
-    top: {model: gpt-6-sol, effort: high}
-    mid: {model: gpt-6-sol, effort: medium}
-    low: {model: gpt-6-luna, effort: low}   # documentation, mechanical cards
-  omp:
-    top: {model: openai-codex/gpt-6-sol, thinking: high}
-    mid: {model: openai-codex/gpt-6-sol, thinking: medium}
-    low: {model: google-antigravity/gemini-3.8-flash, thinking: low}
+agents:
+  manager: {cli: claude, model: sonnet, reasoning: high}
+  planner: {cli: claude, model: opus, reasoning: high}
+  developer: {cli: claude, model: sonnet, reasoning: medium}     # the default for most cards
+  developer-strong: {cli: claude, model: opus, reasoning: xhigh}  # hard cards, design, diagnosis
+  documenter: {cli: claude, model: haiku}                         # documentation, mechanical cards (no reasoning flag)
+  scribe: {cli: claude, model: haiku}
+  ci-fixer: {cli: claude, model: sonnet, reasoning: medium}
+  integrator: {cli: claude, model: sonnet, reasoning: medium}
+  verifier: {cli: claude, model: haiku}
+  reviewer: {cli: omp, model: openai-codex/gpt-6-sol, reasoning: high}        # breaks Claude-written code
+  reviewer-claude: {cli: claude, model: opus, reasoning: high}                # breaks everything else
 
-# Reviewers: which CLI reviews work written with each CLI (always the other family), at which tier.
+# Reviewers: which agent reviews work written on each cli (always another family than the author).
 reviewers:
-  claude: {cli: omp, tier: top}        # Claude-written code is broken by gpt-6-sol
-  codex: {cli: claude, tier: top}      # Codex-written code is broken by Opus
-  omp: {cli: claude, tier: mid}        # GPT/Gemini-written code is broken by Sonnet
+  claude: reviewer
+  codex: reviewer-claude
+  omp: reviewer-claude
+  opencode: reviewer-claude
 
-# Claude Code subagents shipped inside the plugin, as a tier of the claude workers.
+# Claude Code subagents shipped inside the plugin, run as the model of one of the agents above.
 subagents:
-  worker: {tier: mid}
-  adversary: {tier: top}
+  worker: {agent: developer}
+  adversary: {agent: developer-strong}
 
 # omp's own internal subagents (scout, task, ...), written to ~/.omp/agent/config.yml.
 omp_roles:

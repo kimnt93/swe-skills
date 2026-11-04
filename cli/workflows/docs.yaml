@@ -7,8 +7,7 @@ inputs:
 nodes:
   plan:
     role: planner
-    tier: low
-    effort: low
+    agent: documenter
     goal: "Plan these documentation changes as cards, every card with \"workflow\": \"docs-card\" and \"type\": \"docs\". Goal: ${inputs.goal}"
   cards:
     needs: [plan]

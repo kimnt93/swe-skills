@@ -55,17 +55,17 @@
     "description": "Worked with oh-my-pi"
   },
   {
-    "name": "tier:low",
+    "name": "agent:documenter",
     "color": "f9d0c4",
-    "description": "Mechanical"
+    "description": "Mechanical: the documenter agent"
   },
   {
-    "name": "tier:mid",
+    "name": "agent:developer",
     "color": "f7c6c7",
     "description": "Default"
   },
   {
-    "name": "tier:top",
+    "name": "agent:developer-strong",
     "color": "e99695",
     "description": "Hard or money-path"
   },

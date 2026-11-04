@@ -1,31 +1,57 @@
 # Setup B: oh-my-pi is the only coding agent, on OpenAI (omp login openai-codex) and Google (omp login google-antigravity) logins.
-# One CLI, so the reviewer is omp at tier top, in a fresh session that sees only the diff and the card.
-# The orchestrator is oh-my-pi itself (swe-cli orchestrate <project>).
-# Use it with: SWE_MODELS=cli/examples/models.omp-only.yaml swe-cli bootstrap
-orchestrator:
-  cli: omp
-  tier: mid
+# One harness, so the reviewer is a fresh session on the same cli. Use it with: SWE_MODELS=cli/examples/models.omp-only.yaml swe-cli models show
+# or copy it over your project's models.yaml.
+manager: manager
 launcher: tmux
 clis:
   omp:
     approval_mode: yolo
+    model: openai-codex/gpt-6-sol
     ready: π >
     busy: ⎋
-workers:
-  omp:
-    top:
-      model: openai-codex/gpt-6-sol
-      thinking: high
-    mid:
-      model: openai-codex/gpt-6-sol
-      thinking: medium
-    low:
-      model: google-antigravity/gemini-3.8-flash
-      thinking: low
-reviewers:
-  omp:
+agents:
+  manager:
     cli: omp
-    tier: top
+    model: openai-codex/gpt-6-sol
+    reasoning: medium
+  planner:
+    cli: omp
+    model: openai-codex/gpt-6-sol
+    reasoning: high
+  developer:
+    cli: omp
+    model: openai-codex/gpt-6-sol
+    reasoning: medium
+  developer-strong:
+    cli: omp
+    model: openai-codex/gpt-6-sol
+    reasoning: high
+  documenter:
+    cli: omp
+    model: google-antigravity/gemini-3.8-flash
+    reasoning: low
+  scribe:
+    cli: omp
+    model: google-antigravity/gemini-3.8-flash
+    reasoning: low
+  ci-fixer:
+    cli: omp
+    model: openai-codex/gpt-6-sol
+    reasoning: medium
+  integrator:
+    cli: omp
+    model: openai-codex/gpt-6-sol
+    reasoning: medium
+  verifier:
+    cli: omp
+    model: google-antigravity/gemini-3.8-flash
+    reasoning: low
+  reviewer:
+    cli: omp
+    model: openai-codex/gpt-6-sol
+    reasoning: high
+reviewers:
+  omp: reviewer
 subagents: {}
 omp_roles:
   default: google-antigravity/gemini-3.8-flash

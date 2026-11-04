@@ -37,31 +37,31 @@ Useful flags: `--model <provider/id>`, `--thinking low|medium|high`, `-p` (print
 The model roles omp uses for its own subagents (`default`, `smol`, `slow`) are written by
 `swe-cli models apply` from `omp_roles` in the project's `models.yaml`.
 
-## 4. Run it unattended (the orchestrator starts it in a worktree)
+## 4. Run it unattended (the manager starts it in a worktree)
 
-A project's orchestrator runs `swe-cli delegate start --cli omp`, which starts `omp --model <id> --thinking <level>
+A project's manager runs `swe-cli flow run` (or `swe-cli delegate start --agent <agent>`), which starts `omp --model <id> --thinking <level>
 --approval-mode yolo` interactively in a session (tmux or an Orca terminal) inside a git worktree for each card
 ([delegation.md](delegation.md)). `swe-cli lane` keeps the headless one-shot form (`omp -p ... --max-time 45m`).
 
 ```bash
 export SWE_MODELS=cli/examples/models.omp-only.yaml    # one CLI: omp
 swe-cli models check          # every id must exist in `omp models ls`; fix models.yaml if not
-swe-cli project add orders --dir ~/work/orders --repo api=acme/orders-api --cli omp
+swe-cli project add orders --dir ~/work/orders --repo api=acme/orders-api
 swe-cli doctor orders
-swe-cli orchestrate orders --cli omp    # omp as the orchestrator too
+swe-cli orchestrate orders              # the manager agent is omp too
 ```
 
-Tiers in the default file:
+Agents in the default file:
 
-| Tier | Model | Use |
+| Agent | Model | Use |
 |---|---|---|
-| `top` | `openai-codex/gpt-6-sol`, thinking high | money-path, hard design, the reviewer |
-| `mid` | `openai-codex/gpt-6-sol`, thinking medium | most cards |
-| `low` | `google-antigravity/gemini-3.8-flash`, thinking low | mechanical cards, docs, scouting |
+| `planner`, `developer-strong`, `reviewer` | `openai-codex/gpt-6-sol`, thinking high | money-path, hard design, the reviewer |
+| `developer`, `ci-fixer`, `integrator` | `openai-codex/gpt-6-sol`, thinking medium | most cards |
+| `documenter`, `scribe`, `verifier` | `google-antigravity/gemini-3.8-flash`, thinking low | mechanical cards, docs, scouting |
 
-**The reviewer's family:** with one CLI, the reviewer is omp at tier `top`. Make it a
+**The reviewer's family:** with one CLI, the reviewer is the `reviewer` agent on omp. Make it a
 different model from the one that wrote the card: write `mid` and `low` cards with Gemini or GPT
-and review with the other, by editing `workers.omp` in `models.yaml` (for example `mid` on
+and review with the other, by editing `agents` in `models.yaml` (for example `mid` on
 `google-antigravity/gemini-3.8-flash` high and `top` on `openai-codex/gpt-6-sol`). Run `swe-cli models
 show` to see the result.
 

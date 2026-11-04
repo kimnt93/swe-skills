@@ -18,10 +18,10 @@ repository (or several) with few conflicts. The commands are `swe-cli delegate` 
 ```bash
 swe-cli project add orders --dir ~/work/orders --repo api=acme/orders-api --repo web=acme/orders-web
 swe-cli doctor <project>                       # git credentials, tmux or Orca, CLIs, gh, the state of each clone
-swe-cli orchestrate <project> [--cli codex]    # the project's orchestrator, in its directory
+swe-cli orchestrate <project> [--agent A]       # the project's manager agent, in its directory
 swe-cli delegate start <project> <card> --repo api --files internal/orders/,go.mod \
      --goal "<outcome, acceptance command, shared decisions>" --branch feat/41-cancel-order --issue 41 \
-     [--cli claude|codex|omp] [--tier mid] [--risk standard] [--dry-run]
+     [--agent developer] [--cli C] [--model M] [--reasoning R] [--risk standard] [--dry-run]
 swe-cli delegate status <project> [<card>] [--fetch]   # table, or one card's JSON
 swe-cli delegate send <project> <card> "<text>"        # type into the session
 swe-cli delegate review <project> <card>               # the other CLI, read-only, same worktree

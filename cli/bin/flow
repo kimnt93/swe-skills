@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""swe-cli flow: run a YAML workflow, a DAG whose nodes are agents (a role, its skills, a harness, a model, an effort).
+"""swe-cli flow: run a YAML workflow, a DAG whose nodes are agents (a role, its skills, an agent: cli + model + reasoning).
 
     swe-cli flow list [project]                         the workflows (project ones win) and their inputs
-    swe-cli flow validate [project] [workflow]          check workflows and roles: needs, cycles, skills, tiers
+    swe-cli flow validate [project] [workflow]          check workflows and roles: needs, cycles, skills, agents
     swe-cli flow graph <workflow> [project]             the DAG as text
-    swe-cli flow run <project> <workflow> [--goal T] [--input k=v ...] [--repo R] [--harness H] [--detach] [--dry-run]
+    swe-cli flow run <project> <workflow> [--goal T] [--input k=v ...] [--repo R] [--merge [--approved]] [--detach] [--dry-run]
     swe-cli flow status <project> [run]                 runs, or one run node by node
     swe-cli flow retry <project> <run> [node]           run failed nodes again (and what depends on them)
     swe-cli flow merge <project> <run> [--approved]     the manager merges the ready PRs through the gate
@@ -181,13 +181,19 @@ def problems_of(wf: dict, roles: dict, cfg: dict, project: dict | None, depth: i
             for skill in spec.get("skills", []):
                 if skill not in skills:
                     found.append(f"{label}: skill {skill!r} does not exist in src/skills")
-            if "${" not in str(spec.get("tier")) and spec.get("tier") not in fleet.TIERS:
-                found.append(f"{label}: tier must be one of {', '.join(fleet.TIERS)}")
-            harness = spec.get("harness", "project")
-            if harness not in ("project", "other") and harness not in cfg["clis"]:
-                found.append(f"{label}: harness {harness!r} is not project, other or one of {', '.join(cfg['clis'])}")
-            if harness == "other" and not node.get("reviews"):
-                found.append(f"{label}: harness other needs `reviews: <node>` (the node whose author it must differ from)")
+            agent = str(spec.get("agent") or "")
+            if not agent:
+                found.append(f"{label}: no agent (set `agent:` on the role or the node; agents are in models.yaml)")
+            elif "${" not in agent and agent not in (cfg.get("agents") or {}):
+                found.append(f"{label}: agent {agent!r} is not in models.yaml agents ({', '.join(cfg.get('agents') or {})})")
+            if spec.get("cli") and spec["cli"] not in cfg["clis"]:
+                found.append(f"{label}: cli {spec['cli']!r} is not one of {', '.join(cfg['clis'])}")
+            if spec.get("cross_family"):
+                if not node.get("reviews"):
+                    found.append(f"{label}: cross_family needs `reviews: <node>` (the node whose author it must differ from)")
+                for author, reviewer in (cfg.get("reviewers") or {}).items():
+                    if reviewer not in (cfg.get("agents") or {}):
+                        found.append(f"{label}: reviewers.{author} names {reviewer!r}, which is not an agent")
             ws = spec.get("workspace", "new")
             if not (ws in ("new", "scratch", "pr") or re.match(r"^same:[\w-]+$", ws) or ws == "same"):
                 found.append(f"{label}: workspace must be new, scratch, pr or same:<node>")
@@ -343,6 +349,8 @@ def skill_ref(plugin: str, cli: str, skill: str) -> str:
         return f"/{plugin}" if skill == plugin else f"/{plugin}:{skill}"
     if cli == "codex":
         return f"${plugin}" if skill == plugin else f"${plugin}:{skill}"
+    if cli == "opencode":   # skills install as <plugin> (the entry) and <plugin>-<skill>; opencode loads them with its skill tool
+        return f"skill `{plugin}`" if skill == plugin else f"skill `{plugin}-{skill}`"
     return f"/skill:{skill}"
 
 
@@ -360,15 +368,15 @@ def parse_outcome(line: str) -> dict:
     return {"ok": False, "reason": line.split(" ", 2)[-1] if " " in line else line}
 
 
-def resolve_harness(cfg: dict, project: dict, spec: dict, node: dict, run: Run, ctx: dict) -> str:
-    forced = run.data["inputs"].get("harness")
-    harness = spec.get("harness", "project")
-    if harness == "other":
-        author = run.node(ctx["prefix"] + node["reviews"]).get("cli") or project["cli"]
-        return cfg["reviewers"].get(author, {}).get("cli", author)
-    if forced:
-        return forced
-    return project["cli"] if harness == "project" else harness
+def resolve_agent(cfg: dict, spec: dict, node: dict, run: Run, ctx: dict) -> dict:
+    """The agent a node runs as: the role's (or node's) `agent`, or, for a cross-family reviewer, the agent that
+    `reviewers` names for the cli that wrote the reviewed node. `cli`, `model`, `reasoning` on the node win."""
+    name = spec.get("agent") or ""
+    if spec.get("cross_family"):
+        author = run.node(ctx["prefix"] + node["reviews"]).get("cli") or fleet.agent_spec(cfg, name)["cli"]
+        name = (cfg.get("reviewers") or {}).get(author, name)
+    return fleet.agent_spec(cfg, name, cli=str(spec.get("cli") or ""), model=str(spec.get("model") or ""),
+                            reasoning=str(spec.get("reasoning") or ""))
 
 
 def run_agent(run: Run, wf: dict, ctx: dict, name: str, node: dict, attempt: int = 1, extra: dict | None = None) -> dict:
@@ -379,14 +387,8 @@ def run_agent(run: Run, wf: dict, ctx: dict, name: str, node: dict, attempt: int
     key = ctx["prefix"] + name
     label = slug(ctx["prefix"] + name) + (f"-{attempt}" if attempt > 1 else "")
     card = f"{run.id}-{label}"
-    cli = resolve_harness(cfg, project, spec, node, run, ctx)
-    tier = spec.get("tier", "mid")
-    override = {}
-    base = fleet.worker(cfg, cli, tier)
-    if spec.get("model"):
-        override["model"] = spec["model"]
-    if spec.get("effort") and (base.get("effort") or base.get("thinking")):
-        override["effort"] = spec["effort"]
+    agent = resolve_agent(cfg, spec, node, run, ctx)
+    cli = agent["cli"]
     plugin = fleet.plugin_name()
     skills = list(spec.get("skills", []))
     refs = ", ".join(f"{s} ({skill_ref(plugin, cli, s)})" for s in skills)
@@ -440,21 +442,24 @@ def run_agent(run: Run, wf: dict, ctx: dict, name: str, node: dict, attempt: int
                                outcomes="\n".join(f"  {line}" for line in OUTCOMES[spec["outcome"]]))
         return text + (f"\n# Skill invocations\n\n{refs}\n")
 
-    run.update(key, status="running", cli=cli, tier=tier, card=card, session=session, report=str(report), attempt=attempt,
+    run.update(key, status="running", cli=cli, agent=agent["name"], model=agent["model"], reasoning=agent["reasoning"], card=card, session=session, report=str(report), attempt=attempt,
                started=int(time.time()))
-    run.log(f"{key}: {spec['role']} on {cli}/{tier}{(' ' + override.get('model', '')).rstrip()} -> {session}")
+    run.log(f"{key}: {spec['role']} as {agent['name']} ({cli} {agent['model']} {agent['reasoning']}) -> {session}".replace("  ", " "))
     if not existing.exists():
         waited = 0
         while True:
             try:
                 with SEM:
-                    record = delegate.start_task(run.project, card, brief=brief, cli=cli, tier=tier, repo=repo, workspace=workspace,
-                                                 owner=owner, files=files, branch=branch, override=override or None, risk=risk,
+                    record = delegate.start_task(run.project, card, brief=brief, agent=agent, repo=repo, workspace=workspace,
+                                                 owner=owner, files=files, branch=branch, risk=risk,
                                                  issue=str(spec.get("issue") or "-"), goal=goal, role=node["role"],
                                                  brief_name=f"brief-{label}.md", pr=str(spec.get("pr") or "") or None)
                 break
             except SystemExit as error:
                 text = delegate.LAST_ERROR[0] if delegate.LAST_ERROR else ""
+                if error.code == 5 and re.search(rf"card {re.escape(run.id)}-[\w-]+ already holds", text):
+                    raise NodeFail("the plan gives two cards of this run the same files (a card holds its files until its PR is merged, so it cannot wait): "
+                                   + text.splitlines()[-1].strip(" -"), "failed")
                 if error.code == 5 and waited < int(spec.get("lock_wait", 120)) * 60:
                     run.update(key, status="waiting", reason="files are held by another card")
                     time.sleep(max(POLL, 2))
@@ -465,6 +470,12 @@ def run_agent(run: Run, wf: dict, ctx: dict, name: str, node: dict, attempt: int
         delegate.save_record(record)
     else:
         record = delegate.load_record(run.project, card)
+        if not delegate.alive(record["session"]):   # a retry, or the runner died: the old session is gone, start a fresh one in the same worktree
+            record["report"] = str(report)
+            record["status"] = "running"
+            delegate.save_record(record)
+            with SEM:
+                delegate.launch(cfg, record["worktree"], record["session"], agent, brief(record), False, f"brief-{label}.md")
     run.update(key, status="running", reason="")
     outcome = poll(run, key, record, int(spec.get("timeout", 60)) * 60)
     delegate.close_session(record["session"])
@@ -574,11 +585,11 @@ def run_report(run: Run, wf: dict, ctx: dict, name: str, node: dict) -> dict:
         (ready if verdict == "PASS" and review.get("status") == "done" else attention).append(entry)
     failed = {k: v for k, v in data["nodes"].items() if v.get("status") in ("failed", "blocked")}
     lines = [f"# Run {run.id}: {wf['name']} ({run.project})", "", f"goal: {data['inputs'].get('goal', '')}", ""]
-    lines += ["| node | status | harness | outcome |", "|---|---|---|---|"]
+    lines += ["| node | status | agent | outcome |", "|---|---|---|---|"]
     for key, state in sorted(data["nodes"].items()):
         outputs = state.get("outputs", {})
         result = outputs.get("pr_url") or outputs.get("verdict") or outputs.get("summary") or state.get("reason", "")
-        lines.append(f"| {key} | {state.get('status')} | {state.get('cli', '')}/{state.get('tier', '')} | {str(result)[:80]} |")
+        lines.append(f"| {key} | {state.get('status')} | {state.get('agent', '')} ({state.get('cli', '')} {state.get('model', '')}) | {str(result)[:80]} |")
     lines += ["", f"ready to merge ({len(ready)}):"] + [f"- #{e['pr']} {e['pr_url']} at {str(e['sha'])[:12]} risk {e['risk']}" for e in ready]
     if attention:
         lines += ["", "needs attention (no PASS verdict):"] + [f"- #{e['pr']} {e['pr_url']} verdict {e['verdict']}" for e in attention]
@@ -744,11 +755,17 @@ def execute(run: Run) -> int:
            "run": {"id": run.id, "dir": str(run.dir)}, "project": run.project}
     run.log(f"run {run.id}: {wf['name']} for {run.project}")
     status = exec_scope(run, wf, ctx)
-    run.data["status"] = "ready" if status == "done" else "attention"
+    broken = [k for k, n in run.data["nodes"].items() if n.get("status") in ("failed", "blocked", "cancelled")]   # a card inside a map counts too
+    run.data["status"] = "ready" if status == "done" and not broken else "attention"
     run.data["finished"] = int(time.time())
     run.save()
     print(f"run {run.id}: {run.data['status']}; report {run.dir / 'report.md'}")
-    return 0 if status == "done" else 1
+    if run.data["status"] == "ready" and run.data.get("auto"):
+        run.log("auto: merging the ready PRs through the gate")
+        if cmd_merge([run.project, run.id] + (["--approved"] if run.data["auto"].get("approved") else [])) == 0:
+            return cmd_clean([run.project, run.id])
+        return 3
+    return 0 if run.data["status"] == "ready" else 1
 
 
 # ------------------------------------------------------------------------------------------------ commands
@@ -811,8 +828,8 @@ def cmd_validate(args: list[str]) -> int:
         for skill in spec.get("skills", []):
             if skill not in known_skills():
                 problems.append(f"role {role}: skill {skill!r} does not exist in src/skills")
-        if spec.get("tier") not in fleet.TIERS:
-            problems.append(f"role {role}: bad tier {spec.get('tier')!r}")
+        if spec.get("agent") not in (cfg.get("agents") or {}):
+            problems.append(f"role {role}: agent {spec.get('agent')!r} is not in models.yaml agents")
     for message in problems:
         print("PROBLEM", message)
     print(f"{len(names)} workflow(s) checked, {len(problems)} problem(s)")
@@ -831,7 +848,9 @@ def cmd_graph(args: list[str]) -> int:
         detail = kind
         if kind == "agent":
             spec = {**roles.get(node.get("role"), {}), **node}
-            detail = f"{node['role']} [{spec.get('harness', 'project')}/{spec.get('tier')}/{spec.get('effort', '-')}] skills {','.join(spec.get('skills', []))}"
+            agent = (cfg.get("agents") or {}).get(spec.get("agent") or "", {})
+            who = "cross-family reviewer" if spec.get("cross_family") else f"{spec.get('agent')}: {spec.get('cli') or agent.get('cli', '?')}/{spec.get('model') or agent.get('model', '?')}/{spec.get('reasoning') or agent.get('reasoning') or '-'}"
+            detail = f"{node['role']} [{who}] skills {','.join(spec.get('skills', []))}"
         if kind == "map":
             detail = f"map {node['map']} -> workflow {node['workflow']}"
         extras = ("  (manual: runs on failure)" if node.get("manual") else "") + (f"  fix: {node['on_fail']['run']} x{node['on_fail']['rounds']}" if node.get("on_fail") else "")
@@ -840,9 +859,9 @@ def cmd_graph(args: list[str]) -> int:
 
 
 def cmd_run(args: list[str]) -> int:
-    pos, flags, on = parse(args, {"--dry-run", "--detach", "--foreground"})
+    pos, flags, on = parse(args, {"--dry-run", "--detach", "--foreground", "--merge", "--approved"})
     if len(pos) != 2:
-        die("usage: swe-cli flow run <project> <workflow> [--goal T] [--input k=v] [--repo R] [--harness H] [--detach] [--dry-run]")
+        die("usage: swe-cli flow run <project> <workflow> [--goal T] [--input k=v] [--repo R] [--merge [--approved]] [--detach] [--dry-run]")
     name, workflow = pos
     cfg, project = fleet.load(), project_view(name)
     wf = find_workflow(workflow, project)
@@ -851,7 +870,7 @@ def cmd_run(args: list[str]) -> int:
         print("\n".join("PROBLEM " + p for p in problems))
         return 1
     given = dict(flags.get("inputs", {}))
-    for key in ("goal", "repo", "harness", "risk"):
+    for key in ("goal", "repo", "risk"):
         if key in flags:
             given[key] = flags[key]
     inputs = inputs_of(wf, given)
@@ -866,6 +885,9 @@ def cmd_run(args: list[str]) -> int:
     if "--foreground" in on and "run-id" in flags:
         return execute(Run.load(name, flags["run-id"]))
     run = Run.create(name, workflow, inputs)
+    if "--merge" in on:   # fully automated: when every card passed, merge through the gate and clean
+        run.data["auto"] = {"approved": "--approved" in on}
+        run.save()
     if "--detach" in on:
         log = (run.dir / "runner.log").open("ab")
         subprocess.Popen([sys.executable, str(HERE / "flow"), "run", name, workflow, "--foreground", "--run-id", run.id],
@@ -889,11 +911,11 @@ def cmd_status(args: list[str]) -> int:
         return 0
     run = Run.load(args[0], args[1])
     print(f"run {run.id}: {run.data['workflow']} {run.data['status']}  ({run.dir})")
-    print(f"{'node':<22}{'status':<11}{'harness':<16}outcome")
+    print(f"{'node':<22}{'status':<11}{'agent':<16}outcome")
     for key, state in sorted(run.data["nodes"].items()):
         out = state.get("outputs", {})
         result = out.get("pr_url") or out.get("verdict") or out.get("summary") or state.get("reason", "")
-        print(f"{key:<22}{state.get('status', ''):<11}{(state.get('cli', '') + '/' + state.get('tier', '')).strip('/'):<16}{str(result)[:70]}")
+        print(f"{key:<22}{state.get('status', ''):<11}{state.get('agent', ''):<16}{str(result)[:70]}")
     if run.data.get("ready"):
         print("ready to merge: " + ", ".join(f"#{e['pr']}" for e in run.data["ready"]))
     return 0
@@ -909,6 +931,10 @@ def cmd_retry(args: list[str]) -> int:
             if state.get("status") in ("failed", "blocked", "cancelled") and (not wanted or key.endswith(wanted)):
                 state.update(status="pending", reason="")
                 state.pop("outputs", None)
+        wf = find_workflow(run.data["workflow"], project_view(run.project))
+        for name, node in wf["nodes"].items():   # the report is built from what the nodes produced: build it again
+            if node_type(node) == "report" and run.data["nodes"].get(name, {}).get("status") == "done":
+                run.data["nodes"][name].update(status="pending", reason="")
         run.data["status"] = "running"
         run.save()
     return execute(run)
@@ -940,7 +966,7 @@ def record_changelog(run: Run, entry: dict) -> None:
 def update_branch(run: Run, entry: dict) -> bool:
     """The branch is behind main or conflicts: the reviewer agent brings it up to date, resolves, re-verifies, re-reviews."""
     wf = {"name": "update", "nodes": {"update": {"role": "reviewer", "workspace": "same", "card": entry["card"],
-                                                 "reviews": "update", "harness": "other", "goal":
+                                                 "reviews": "update", "agent": "reviewer", "cross_family": True, "goal":
                                                  "The PR is behind main or conflicts with it. Bring it up to date as the integrator skill says "
                                                  "(rebase, resolve only inside this card's own files, make verify), push your fix with "
                                                  "--force-with-lease, then review the result at the new head and give your verdict."}}}

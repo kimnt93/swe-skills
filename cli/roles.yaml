@@ -1,12 +1,13 @@
 # cli/roles.yaml: one entry per role an agent node can play. A workflow node names a role and may override
-# anything here. The role decides which skills the agent enables (and only those), which harness and tier it
-# runs on, and how hard it thinks, so a documentation node does not use the model a design node needs.
+# anything here. The role decides which skills the agent enables (and only those) and which agent runs it: an
+# agent is a cli + model + reasoning level defined in models.yaml (`agents:`), so a documentation node does not
+# use the model a design node needs.
 #
 #   skills     the plugin skills the agent is told to use, nothing else (the first is the role's own skill)
-#   harness    claude | codex | omp | project (the project's default CLI) | other (a different family than the
-#              node named in the workflow's `reviews:`, from `reviewers` in models.yaml)
-#   tier       top | mid | low: the model of that tier in `workers` (low: Haiku on claude, gpt-6-luna on codex)
-#   effort     low | medium | high | xhigh; used only when the tier's model takes an effort (Haiku does not)
+#   agent      the name of an agent in models.yaml (cli, model, reasoning); a node may name another agent, or
+#              override `cli`, `model` or `reasoning` on its own
+#   cross_family  true: the agent is the one `reviewers` in models.yaml names for the cli that wrote the node in
+#              the workflow's `reviews:` (a reviewer is never the author's family)
 #   workspace  new (own worktree and branch) | same:<node> (that node's worktree) | scratch (read-only, origin/main)
 #              | pr (the worktree of an open PR's branch)
 #   outcome    the last line the agent prints: card | review | node (see cli/brief-node.md)
@@ -14,65 +15,50 @@
 roles:
   planner:
     skills: [planner, architect, how, project, github]
-    harness: project
-    tier: mid
-    effort: high
+    agent: planner
     workspace: scratch
     outcome: node
     timeout: 45
   developer:
     skills: [developer, swe, tdd, deslop, changelog, github]
-    harness: project
-    tier: mid
-    effort: medium
+    agent: developer
     workspace: new
     outcome: card
     timeout: 90
   documenter:
     skills: [documenter, deslop, github]
-    harness: project
-    tier: low
-    effort: low
+    agent: documenter
     workspace: new
     outcome: card
     timeout: 45
   reviewer:
     skills: [reviewer, interrogate, why, integrator, changelog, github]
-    harness: other
-    tier: top
-    effort: high
+    cross_family: true
+    agent: reviewer
     workspace: same
     outcome: review
     timeout: 60
   ci-fixer:
     skills: [ci-fixer, tdd, github]
-    harness: project
-    tier: mid
-    effort: medium
+    agent: ci-fixer
     workspace: same
     outcome: card
     timeout: 60
   scribe:
     skills: [changelog, deslop, github]
-    harness: project
-    tier: low
-    effort: low
+    agent: scribe
     workspace: pr
     outcome: card
     timeout: 30
   verifier:
     skills: [verifier, verify-maintain, github]
-    harness: project
-    tier: low
-    effort: low
+    agent: verifier
     workspace: scratch
     outcome: node
     timeout: 60
   integrator:
     skills: [integrator, github, why]
-    harness: project
-    tier: mid
-    effort: medium
+    agent: integrator
     workspace: pr
     outcome: card
     timeout: 60

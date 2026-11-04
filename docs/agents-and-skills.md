@@ -6,18 +6,18 @@ the project directories from the project's `models.yaml`; this page is the refer
 ## Roles and their skills
 
 Every role is one agent session started by a workflow node (or by the manager). The role names its skills in
-`roles.yaml`; the brief tells the agent to use only those. Skills name tiers, never models; the model comes
-from the project's `models.yaml` (the one place tiers are defined).
+`roles.yaml`; the brief tells the agent to use only those. Skills name agents, never models; the cli, model and reasoning
+come from the project's `models.yaml` (the one place agents are defined).
 
-| Role | Harness / tier | Skills it enables | Edits code? | Merges? |
+| Role | Agent | Skills it enables | Edits code? | Merges? |
 |---|---|---|---|---|
-| Manager (orchestrator, one per project) | any CLI, `mid`; started in the project directory with its `AGENTS.md` | `manager`, `project`, `github`, `ketchup` | no | through the gate (`flow merge`), with approval where required |
-| Intake (chat to goals) | any harness, `low` | `intake`, `github` | no | no |
-| Planner | project CLI, `mid`, high effort, read-only | `planner`, `architect`, `how`, `project`, `github` | no | no |
-| Developer | project CLI, `mid` (card tier decides), own worktree | `developer`, `swe`, `tdd`, `deslop`, `github` | yes, its files | no |
-| Documenter | project CLI, `low` (Haiku / gpt-6-luna), no effort flag | `documenter`, `deslop`, `github` | docs only | no |
-| Reviewer | other model family, `top`, high effort, the author's worktree | `reviewer`, `interrogate`, `why`, `integrator`, `github` | conflict files of its card | no |
-| CI fixer | project CLI, `mid` | `ci-fixer`, `tdd`, `github`, `blast-radius` | its card's files | no |
+| Manager (one per project) | the `manager` agent, any CLI; started in the project directory with its `AGENTS.md` | `manager`, `project`, `github`, `ketchup` | no | through the gate (`flow merge`), with approval where required |
+| Intake (chat to goals) | any harness, a light agent | `intake`, `github` | no | no |
+| Planner | the `planner` agent, read-only | `planner`, `architect`, `how`, `project`, `github` | no | no |
+| Developer | the `developer` agent (a card may name `developer-strong`), own worktree | `developer`, `swe`, `tdd`, `deslop`, `github` | yes, its files | no |
+| Documenter | the `documenter` agent (Haiku), no reasoning flag | `documenter`, `deslop`, `github` | docs only | no |
+| Reviewer | `reviewers` names the agent: another model family, the author's worktree | `reviewer`, `interrogate`, `why`, `integrator`, `github` | conflict files of its card | no |
+| CI fixer | the `ci-fixer` agent | `ci-fixer`, `tdd`, `github`, `blast-radius` | its card's files | no |
 | Integrator | project CLI, `mid` | `integrator`, `github`, `why`, `tdd` | conflict files of its card | no |
 | Verifier (nightly) | project CLI, `low`, read-only | `verifier`, `verify-maintain`, `correct`, `github` | no (files issues) | no |
 | Staff (later) | resident `platform` project | not yet | its own repo only | no |
@@ -26,14 +26,14 @@ from the project's `models.yaml` (the one place tiers are defined).
 Not built yet: a supervisor daemon (the runner has timeouts and stuck detection only), a chat adapter for intake
 (the `SWE_NOTIFY` out-hook exists), and fork support in code (`github/references/fork.md` describes it).
 
-## Orchestrators
+## Managers
 
-Every project has one orchestrator: any CLI agent (Claude Code, Codex, oh-my-pi) started in the project directory
+Every project has one manager: any CLI agent (Claude Code, Codex, oh-my-pi, opencode) started in the project directory
 by `swe-cli orchestrate <project>`, running the `manager`, `project` and `github` skills. It creates issues, starts
-the coding sessions and merges through the gate; it never edits code. The default is `orchestrator:` in
-`models.yaml`; a project overrides it.
+the coding sessions and merges through the gate; it never edits code. It answers questions itself with the read-only skills. The
+default is `manager:` in `models.yaml`; a project overrides it with `manager:` in `project.yaml`.
 
-## Coding CLIs (started by the orchestrator in worktrees)
+## Coding CLIs (started by the manager in worktrees)
 
 | CLI | Plugin | Skills used most | Subagents |
 |---|---|---|---|
@@ -51,7 +51,7 @@ skill for every git and GitHub action.
 |---|---|---|---|---|---|
 | root | — | — | read | read | never |
 | `pm-<project>` | — | — | create, label, close as "not planned" | yes | `swe-cli merge`: with `--approved` when the human says so, or for a risk class autopilot allows |
-| coding CLIs | yes (own branch only, never `main`) | yes | comment | verdicts as comment reviews | no: the orchestrator runs the gate |
+| coding CLIs | yes (own branch only, never `main`) | yes | comment | verdicts as comment reviews | no: the manager runs the gate |
 | human | — | — | anything | approve | anything (GitHub UI, or tell the manager) |
 
 Setup once per repo, by the manager or by hand: `src/skills/project/scripts/setup_repo.sh

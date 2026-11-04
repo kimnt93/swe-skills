@@ -1,37 +1,60 @@
-# Setup C: Codex CLI is the only coding agent, on your ChatGPT login (codex login).
-# One CLI, so the reviewer is Codex at tier top, in a fresh session that sees only the diff and the card.
-# The orchestrator is Codex itself (swe-cli orchestrate <project>).
-# Use it with: SWE_MODELS=cli/examples/models.codex-only.yaml swe-cli bootstrap
-orchestrator:
-  cli: codex
-  tier: mid
+# Setup C: Codex CLI is the only coding agent (ChatGPT login). The reviewer is a fresh Codex session at the top model.
+# One harness, so the reviewer is a fresh session on the same cli. Use it with: SWE_MODELS=cli/examples/models.codex-only.yaml swe-cli models show
+# or copy it over your project's models.yaml.
+manager: manager
 launcher: tmux
 clis:
   codex:
     approval_policy: never
     sandbox: danger-full-access
+    model: gpt-6-sol
     ready: ›
     busy: esc to interrupt
-workers:
-  codex:
-    top:
-      model: gpt-6-sol
-      effort: high
-    mid:
-      model: gpt-6-sol
-      effort: medium
-    low:
-      model: gpt-6-luna
-      effort: low
-reviewers:
-  codex:
+agents:
+  manager:
     cli: codex
-    tier: top
+    model: gpt-6-sol
+    reasoning: medium
+  planner:
+    cli: codex
+    model: gpt-6-sol
+    reasoning: high
+  developer:
+    cli: codex
+    model: gpt-6-sol
+    reasoning: medium
+  developer-strong:
+    cli: codex
+    model: gpt-6-sol
+    reasoning: high
+  documenter:
+    cli: codex
+    model: gpt-6-luna
+    reasoning: low
+  scribe:
+    cli: codex
+    model: gpt-6-luna
+    reasoning: low
+  ci-fixer:
+    cli: codex
+    model: gpt-6-sol
+    reasoning: medium
+  integrator:
+    cli: codex
+    model: gpt-6-sol
+    reasoning: medium
+  verifier:
+    cli: codex
+    model: gpt-6-luna
+    reasoning: low
+  reviewer:
+    cli: codex
+    model: gpt-6-sol
+    reasoning: high
+reviewers:
+  codex: reviewer
 subagents: {}
-omp_roles:
-  default: google-antigravity/gemini-3.8-flash
-  smol: google-antigravity/gemini-3.8-flash
-  slow: openai-codex/gpt-6-sol
+omp_roles: {}
 context:
   default:
     window: 272000

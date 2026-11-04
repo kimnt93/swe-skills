@@ -21,7 +21,7 @@ when to use it, what to say, what happens, what you get, and its files.
 
 | Skill | Description |
 |---|---|
-| [swe](router.md#router) | Entry point: picks language and playbook, delegates by tier, finishes only when make verify passes |
+| [swe](router.md#router) | Entry point: picks language and playbook, delegates by agent, finishes only when make verify passes |
 
 ### Process and proof
 
@@ -43,7 +43,7 @@ when to use it, what to say, what happens, what you get, and its files.
 | [interrogate](process.md#interrogate) | Adversarial review where only findings proven by a run survive |
 | [ketchup](process.md#ketchup) | Plain-words catch-up on what changed and what waits on you |
 | [manager](process.md#manager) | Manager: pick the workflow for a request, start it, watch it, handle approvals, report |
-| [planner](process.md#planner) | Planner: split a goal into PR-sized cards with disjoint files, risks and tiers, as a JSON plan |
+| [planner](process.md#planner) | Planner: split a goal into PR-sized cards with disjoint files, risks and agents, as a JSON plan |
 | [principles](process.md#principles) | 22 engineering principles; the router opens the ones that apply (money-path, idempotency, ...) |
 | [project](process.md#project) | Run a project's docs, GitHub repo setup, backlog and status |
 | [reflect](process.md#reflect) | Turn a long task's lessons into approved skill edits or new checks |

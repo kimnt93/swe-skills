@@ -11,7 +11,7 @@ metadata:
 Read-only. Explain enough to build a working mental model, not a tour of every line.
 
 1. **Size it.** One module or function: explain it yourself in one pass. A subsystem across files or
-   services: start 2–4 read-only subagents (tier `low` or `mid`), one per angle, then merge.
+   services: start 2–4 read-only subagents (the `documenter` or `developer` agent), one per angle, then merge.
 2. **Follow the flow that matters for this stack:**
    - Go/Fiber API: route (the router file) → handler → use case → port → adapter → SQL / Redis / Kafka.
    - Kafka consumer: topic → decode → handler → transaction → offset commit.

@@ -22,7 +22,7 @@ plain skills for every other harness. `cli/` is the `<name>-cli` command (`swe-c
    `src/skills/router/` and is renamed to the plugin's name at build.
 4. **Every skill has `metadata.group`:** `start`, `process`, `language`, `data`, `platform` or
    `observability`. The router index and the plugin README group by it.
-5. **Harness-neutral text.** Say "start a subagent at tier T", never a tool name or a model slug.
+5. **Harness-neutral text.** Say "start a subagent as agent A" (a name in `models.yaml`), never a tool name or a model slug.
    The how-to lives in `src/skills/router/references/harness.md`. Model ids live only in
    the project's `models.yaml`.
 6. **Skills describe this stack only:** no repository, project or tool-specific names (the validator

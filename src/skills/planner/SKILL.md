@@ -1,9 +1,9 @@
 ---
 name: planner
-description: "How the planner agent turns a goal into a list of PR-sized cards for a workflow to run in parallel: read the architecture, find the files each card touches, give disjoint files, record shared decisions, set risk and tier, write .swe/plan.json. Use when a workflow node asks for a plan, or when a goal must be split before anyone codes."
+description: "How the planner agent turns a goal into a list of PR-sized cards for a workflow to run in parallel: read the architecture, find the files each card touches, give disjoint files, record shared decisions, set risk and agent, write .swe/plan.json. Use when a workflow node asks for a plan, or when a goal must be split before anyone codes."
 metadata:
   group: process
-  summary: "Planner: split a goal into PR-sized cards with disjoint files, risks and tiers, as a JSON plan"
+  summary: "Planner: split a goal into PR-sized cards with disjoint files, risks and agents, as a JSON plan"
 ---
 
 # Planner
@@ -22,8 +22,8 @@ You plan; you do not edit tracked files, commit or open PRs. You work in a read-
 3. **For each card** write: `id` (short, `c1`..), `title`, `goal` (the outcome a caller can observe, the
    acceptance command, every shared decision: names, schema, message format, API shape), `files` (a file,
    a `directory/` or a glob it may touch), `risk` (`low`, `standard`, `money-path`: anything touching
-   orders, fills, positions, balances, risk limits or P&L is money-path), `tier` (`low` mechanical,
-   `mid` default, `top` for money-path, races, design), `workflow` (`card` by default, `docs-card` for
+   orders, fills, positions, balances, risk limits or P&L is money-path), `agent` (`documenter` mechanical,
+   `developer` default, `developer-strong` for money-path, races, design; the names are in `models.yaml`), `workflow` (`card` by default, `docs-card` for
    documentation-only), `type` (`feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`, `ci`: the branch prefix), `repo` when the project has several, and `after`.
 4. **Decide every shared choice once** and put it in each dependent card's goal. Never leave two cards to
    invent the same name.
@@ -37,7 +37,7 @@ The plan file (path in your brief):
 ```json
 {"summary": "one line", "cards": [
   {"id": "c1", "title": "...", "goal": "...", "files": ["internal/orders/"], "risk": "standard",
-   "tier": "mid", "workflow": "card", "repo": "api", "issue": 41, "after": []}]}
+   "agent": "developer", "workflow": "card", "repo": "api", "issue": 41, "after": []}]}
 ```
 
 Last line, exactly one of:

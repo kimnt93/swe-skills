@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""swe-cli delegate: a project's orchestrator (any CLI agent) starts coding CLIs, one git worktree per card.
+"""swe-cli delegate: a project's manager (any CLI agent) starts coding CLIs, one git worktree per card.
 
 Sessions run in tmux or, with launcher: orca in models.yaml, as Orca terminals you can watch in the Orca UI.
 A project is a directory holding one or more repo clones; worktrees live in <dir>/.wt/<repo>/<branch>.
 
     swe-cli delegate start <project> <card> --files a,b --goal "..." [--repo name] [--branch type/n-slug] [--issue N]
-                         [--risk standard] [--cli claude|codex|omp] [--tier mid] [--brief-file F] [--dry-run]
-    swe-cli orchestrate <project> [--cli X] [--tier T] [--dry-run]   the project's orchestrator, in its directory
-    swe-cli delegate review <project> <card> [--cli omp] [--tier top] [--dry-run]    the other CLI, read-only
+                         [--risk standard] [--agent developer] [--cli C] [--model M] [--reasoning R] [--brief-file F] [--dry-run]
+    swe-cli orchestrate <project> [--agent A] [--dry-run]   the project's manager agent, in its directory
+    swe-cli delegate review <project> <card> [--agent A] [--dry-run]    the other CLI, read-only
     swe-cli delegate status <project> [card] [--fetch]      JSON for one card, a table for the project
     swe-cli delegate send <project> <card|orchestrator> <text...>   type a message into a card's (or the orchestrator's) session
     swe-cli delegate sync-branch [--verify]                 in a worktree: fetch, rebase on origin/main, make verify
@@ -331,17 +331,17 @@ def pretrust_claude(path: str) -> None:
         os.replace(temp, CLAUDE_JSON)
 
 
-def command_line(cfg: dict, cli: str, tier: str, override: dict | None = None) -> str:
-    command = fleet.argv(cfg, cli, tier, interactive=True, override=override)
-    env = dict(line.split("=", 1) for line in sh([sys.executable, str(HERE / "main"), "context", "env", cli, tier]).stdout.split() if "=" in line)
+def command_line(cfg: dict, agent: dict) -> str:
+    command = fleet.argv(cfg, agent, interactive=True)
+    env = fleet.agent_env(cfg, agent)
     env["PATH"] = os.environ.get("PATH", "")
     return "env " + " ".join(f"{k}={shlex.quote(v)}" for k, v in env.items()) + " " + shlex.join(command)
 
 
-def launch(cfg: dict, cwd: str, session: str, cli: str, tier: str, brief: str, dry: bool, brief_name: str = "brief.md",
-           override: dict | None = None) -> None:
+def launch(cfg: dict, cwd: str, session: str, agent: dict, brief: str, dry: bool, brief_name: str = "brief.md") -> None:
     """Open the session in cwd, wait for the CLI's prompt, then hand it the brief (a file, named in one line)."""
-    line = command_line(cfg, cli, tier, override)
+    cli = agent["cli"]
+    line = command_line(cfg, agent)
     where = launcher_name()
     if dry:
         print(f"would run ({where}): {session} in {cwd}: {line}")
@@ -354,6 +354,7 @@ def launch(cfg: dict, cwd: str, session: str, cli: str, tier: str, brief: str, d
         pretrust_claude(cwd)
     open_session(session, cwd, line)
     wait_ready(session, cli, str((cfg["clis"].get(cli) or {}).get("ready", "")))
+    time.sleep(float((cfg["clis"].get(cli) or {}).get("settle", 0)))   # opencode draws its footer before the input takes text
     paste(session, f"Read .swe/{brief_name} and follow it exactly. It is your whole task.")
 
 
@@ -363,7 +364,7 @@ def render(name: str, **values) -> str:
 
 def start_command(plugin: str, cli: str) -> str:
     return {"claude": f"/{plugin} in Claude Code", "codex": f"${plugin} in Codex",
-            "omp": f"/skill:{plugin} in oh-my-pi"}[cli]
+            "omp": f"/skill:{plugin} in oh-my-pi", "opencode": f"the `{plugin}` skill (opencode skill tool)"}[cli]
 
 
 # ------------------------------------------------------------------------------------------------ commands
@@ -397,9 +398,34 @@ def ensure_excluded(worktree: Path) -> None:
             handle.write(".swe/\n")
 
 
-def start_task(name: str, card: str, *, brief, cli: str, tier: str, repo: str | None = None, workspace: str = "new",
+def start_task(name: str, card: str, **kwargs) -> dict:
+    """Serialize the overlap check and the card record: two cards started at once must not both pass the check."""
+    import fcntl
+    import threading
+    state = STATE
+    state.mkdir(parents=True, exist_ok=True)
+    with _START_THREADS:
+        handle = open(state / "start.lock", "w")
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        done = []
+
+        def release() -> None:
+            if not done:
+                done.append(1)
+                fcntl.flock(handle, fcntl.LOCK_UN)
+                handle.close()
+        try:
+            return _start_task(name, card, _release=release, **kwargs)
+        finally:
+            release()
+
+
+_START_THREADS = __import__("threading").Lock()
+
+
+def _start_task(name: str, card: str, *, _release, brief, agent: dict, repo: str | None = None, workspace: str = "new",
                owner: dict | None = None, files: list[str] | None = None, branch: str | None = None,
-               override: dict | None = None, risk: str = "standard", issue: str = "-", goal: str = "", role: str = "",
+               risk: str = "standard", issue: str = "-", goal: str = "", role: str = "",
                brief_name: str = "brief.md", dry: bool = False, pr: str | None = None) -> dict:
     """One agent session for one task. workspace: `new` (a worktree and branch from origin/main, holds its files),
     `scratch` (a detached read-only worktree of origin/main), `pr` (the branch of open PR `pr`) or `same` (the
@@ -408,10 +434,8 @@ def start_task(name: str, card: str, *, brief, cli: str, tier: str, repo: str | 
     if not ID_RE.match(card):
         die(2, f"card id {card!r} must match {ID_RE.pattern}")
     cfg, project = fleet.load(), project_of(name)
-    if cli not in cfg["clis"]:
-        die(2, f"unknown cli {cli!r}")
-    if tier not in fleet.TIERS:
-        die(2, f"tier must be one of {', '.join(fleet.TIERS)}")
+    if agent["cli"] not in cfg["clis"]:
+        die(2, f"unknown cli {agent['cli']!r}")
     files = list(files or [])
     if any(f.startswith("/") or ".." in f.split("/") for f in files):
         die(2, "files must be repo-relative paths (a file, a directory/ or a glob)")
@@ -462,11 +486,10 @@ def start_task(name: str, card: str, *, brief, cli: str, tier: str, repo: str | 
         else:
             worktree, branch = base_root / f"scratch-{card}", ""
     record = {"project": name, "repo": repo_name, "repo_path": str(clone), "github": github, "card": card, "branch": branch,
-              "worktree": str(worktree), "session": session, "cli": cli, "tier": tier, "files": files, "base": base,
+              "worktree": str(worktree), "session": session, "agent": agent["name"], "cli": agent["cli"], "model": agent["model"],
+              "reasoning": agent.get("reasoning", ""), "files": files, "base": base,
               "risk": risk, "issue": issue, "goal": goal, "role": role, "workspace": workspace,
               "owner": workspace != "same", "status": "running", "started": int(time.time())}
-    if override:
-        record["override"] = override
     text = brief(record)
     if dry:
         verb = {"new": f"git -C {clone} worktree add -b {branch} {worktree} {base[:12]}",
@@ -485,7 +508,8 @@ def start_task(name: str, card: str, *, brief, cli: str, tier: str, repo: str | 
                 die(1, f"git worktree add failed: {made.stderr.strip()[:300]}")
         ensure_excluded(worktree)
         save_record(record)
-    launch(cfg, str(worktree), session, cli, tier, text, dry, brief_name, override)
+    _release()
+    launch(cfg, str(worktree), session, agent, text, dry, brief_name)
     return record
 
 
@@ -493,7 +517,7 @@ def cmd_start(args: list[str]) -> int:
     pos, flag, switch = flags_of(args, {"--dry-run"})
     if len(pos) != 2 or "--files" not in flag or not ("--goal" in flag or "--brief-file" in flag):
         die(2, "usage: swe-cli delegate start <project> <card> --files a,b --goal \"...\" [--branch type/n-slug] "
-               "[--issue N] [--repo name] [--risk standard] [--cli claude|codex|omp] [--tier mid] [--brief-file F] [--dry-run]")
+               "[--issue N] [--repo name] [--risk standard] [--agent developer] [--cli C] [--model M] [--reasoning R] [--brief-file F] [--dry-run]")
     name, card = pos
     project = project_of(name)
     cfg = fleet.load()
@@ -501,7 +525,9 @@ def cmd_start(args: list[str]) -> int:
     if not files:
         die(2, "--files must be repo-relative paths (a file, a directory/ or a glob)")
     goal = Path(flag["--brief-file"]).read_text(encoding="utf-8").strip() if "--brief-file" in flag else flag["--goal"]
-    cli = flag.get("--cli", project["cli"])
+    agent = fleet.agent_spec(cfg, flag.get("--agent", "developer"), cli=flag.get("--cli", ""), model=flag.get("--model", ""),
+                             reasoning=flag.get("--reasoning", ""))
+    cli = agent["cli"]
     plugin = fleet.plugin_name()
 
     def brief(record: dict) -> str:
@@ -511,7 +537,7 @@ def cmd_start(args: list[str]) -> int:
                       base=record["base"][:12], files=", ".join(files), worktree=record["worktree"], fleet=HERE / "main",
                       hotspots=("hotspots you hold: " + ", ".join(spots) + " (no other card may touch them until yours merges)\n") if spots else "")
 
-    record = start_task(name, card, brief=brief, cli=cli, tier=flag.get("--tier", "mid"), repo=flag.get("--repo"),
+    record = start_task(name, card, brief=brief, agent=agent, repo=flag.get("--repo"),
                         workspace="new", files=files, branch=flag.get("--branch") or f"feat/{card}", risk=flag.get("--risk", "standard"),
                         issue=flag.get("--issue", "-"), goal=goal, dry="--dry-run" in switch)
     if "--dry-run" not in switch:
@@ -523,15 +549,12 @@ def cmd_start(args: list[str]) -> int:
 def cmd_review(args: list[str]) -> int:
     pos, flag, switch = flags_of(args, {"--dry-run"})
     if len(pos) != 2:
-        die(2, "usage: swe-cli delegate review <project> <card> [--cli omp] [--tier top] [--dry-run]")
+        die(2, "usage: swe-cli delegate review <project> <card> [--agent A] [--dry-run]")
     name, card = pos
     cfg = fleet.load()
     record = load_record(name, card)
-    other, tier = (flag.get("--cli"), flag.get("--tier"))
-    if not other:
-        reviewer = cfg["reviewers"][record["cli"]]
-        other, tier = reviewer["cli"], flag.get("--tier", reviewer["tier"])
-    tier = tier or "top"
+    reviewer = fleet.agent_spec(cfg, flag.get("--agent") or cfg["reviewers"][record["cli"]])
+    other = reviewer["cli"]
     if other not in cfg["clis"]:
         die(2, f"unknown cli {other!r}")
     session = f"{name}-{card}-review"
@@ -539,11 +562,11 @@ def cmd_review(args: list[str]) -> int:
         die(2, f"tmux session {session} already exists")
     brief = render("brief-review.md", plugin=fleet.plugin_name(), start=start_command(fleet.plugin_name(), other),
                    card=card, project=name, goal=record["goal"], base_ref=record["base"][:12])
-    launch(cfg, record["worktree"], session, other, tier, brief, "--dry-run" in switch, "brief-review.md")
+    launch(cfg, record["worktree"], session, reviewer, brief, "--dry-run" in switch, "brief-review.md")
     if "--dry-run" not in switch:
         record["review_session"] = session
         save_record(record)
-        print(f"reviewing {card} with {other} ({tier}): {attach_hint(session)}")
+        print(f"reviewing {card} with {reviewer['name']} ({other} {reviewer['model']}): {attach_hint(session)}")
     return 0
 
 
@@ -563,8 +586,8 @@ def card_status(record: dict, fetch: bool) -> dict:
     recent = tail[-6:]
     busy_at = max((i for i, l in enumerate(recent) if marker.get("busy") and marker["busy"] in l), default=-1)
     ready_at = max((i for i, l in enumerate(recent) if marker.get("ready") and marker["ready"] in l), default=-1)
-    state = "stopped" if not text else ("working" if busy_at > ready_at else "idle")
-    return {"project": record["project"], "card": record["card"], "cli": record["cli"], "tier": record["tier"],
+    state = "stopped" if not text else ("working" if busy_at >= 0 and busy_at >= ready_at else "idle")   # opencode shows both on one line: busy wins
+    return {"project": record["project"], "card": record["card"], "cli": record["cli"], "agent": record.get("agent", ""), "model": record.get("model", ""),
             "session": record["session"], "session_alive": bool(text), "state": state,
             "outcome": outcome[-1] if outcome else None, "branch": record["branch"], "base": record["base"][:12],
             "head": head[:12], "behind_main": int(behind) if behind.isdigit() else None,
@@ -709,10 +732,10 @@ def cmd_orchestrate(args: list[str]) -> int:
     """Start the project's orchestrator: any CLI agent, in the project directory, with the manager brief."""
     pos, flag, switch = flags_of(args, {"--dry-run"})
     if len(pos) != 1:
-        die(2, "usage: swe-cli orchestrate <project> [--cli claude|codex|omp] [--tier top|mid|low] [--dry-run]")
+        die(2, "usage: swe-cli orchestrate <project> [--agent A] [--dry-run]")
     cfg, project = fleet.load(), project_of(pos[0])
-    default = {**cfg["orchestrator"], **project["orchestrator"]}
-    cli, tier = flag.get("--cli", default["cli"]), flag.get("--tier", default.get("tier", "mid"))
+    manager = fleet.agent_spec(cfg, flag.get("--agent") or project["manager"] or cfg["manager"])
+    cli = manager["cli"]
     if cli not in cfg["clis"]:
         die(2, f"unknown cli {cli!r}")
     session = f"{pos[0]}-orchestrator"
@@ -725,9 +748,9 @@ def cmd_orchestrate(args: list[str]) -> int:
                    project=pos[0], skills=SWE_DIR / "skills", dir=project["dir"], repos=repo_lines, fleet=HERE / "main", description=project["description"])
     if "--dry-run" not in switch:
         Path(project["dir"]).mkdir(parents=True, exist_ok=True)
-    launch(cfg, project["dir"], session, cli, tier, brief, "--dry-run" in switch, "brief-orchestrator.md")
+    launch(cfg, project["dir"], session, manager, brief, "--dry-run" in switch, "brief-orchestrator.md")
     if "--dry-run" not in switch:
-        print(f"orchestrator {cli} ({tier}) for {pos[0]} in {project['dir']}: {attach_hint(session)}")
+        print(f"manager {manager['name']} ({cli} {manager['model']}) for {pos[0]} in {project['dir']}: {attach_hint(session)}")
     return 0
 
 

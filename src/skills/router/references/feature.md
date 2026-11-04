@@ -11,8 +11,8 @@
    - Rust: types → pure core → I/O at the edge; benches in `benches/` for anything on a hot path.
    - Frontend: the API client from OpenAPI → data hooks → components → page or route.
 5. Order the work as verifiable units (the **sequence-verifiable-units** principle); one commit each.
-   Independent slices (backend endpoint, frontend page) can go to parallel subagents on the `mid`
-   tier, each in its own worktree, once the shared contract (the OpenAPI shape) is settled.
+   Independent slices (backend endpoint, frontend page) can go to parallel subagents on the `developer`
+   agent, each in its own worktree, once the shared contract (the OpenAPI shape) is settled.
 6. **Prove it on the real surface:** `make verify` (e2e + live probe for services; Playwright for
    frontends; an evaluation run with the metric for ML).
 7. If the design is contested, run the **interrogate** skill. Then [opening-a-pr](opening-a-pr.md).

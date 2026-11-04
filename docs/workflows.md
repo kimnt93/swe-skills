@@ -16,8 +16,8 @@ orders/
   skills/            the project's own skills; `learn` is created by init, the manager adds topics here
   project.yaml       name, default cli, and the repos: git url, github owner/repo, folder, hotspots
   workflows/*.yaml   this project's copy of the workflows (edit them; they override the bundled ones)
-  roles.yaml         the roles (skills, harness, tier, effort); a role here replaces the bundled one
-  models.yaml        tier to model per harness, reviewers, orchestrator, launcher
+  roles.yaml         the roles (skills, agent); a role here replaces the bundled one
+  models.yaml        the agents (cli, model, reasoning), reviewers, manager, launcher
   api/  web/         the repo clones (worktrees of running cards are under .wt/)
 ```
 
@@ -62,26 +62,26 @@ nodes:
 
 | Node | Meaning |
 |---|---|
-| `role: <name>` | an agent: starts one session with the role's skills only, on its harness, model and effort |
+| `role: <name>` | an agent: starts one session with the role's skills only, run by the role's agent (cli, model, reasoning) |
 | `type: checks` | wait for the PR's required checks; `on_fail: {run: ci-fix, rounds: 2}` runs a fix node and retries |
 | `map` + `workflow` | fan out over a list (the plan's cards) into a sub-workflow, in parallel |
 | `type: report` | write the run report for the manager |
 | `type: shell` | a command, no agent |
 | `needs`, `when`, `always`, `manual` | order, a condition, run even after a failure, run only as a fix target |
 | `workspace` | `new` own worktree and branch, `same:<node>` reuse that node's worktree, `scratch` read-only, `pr` an open PR's branch |
-| `reviews: <node>` | the harness must be another model family than that node's |
-| `tier`, `effort`, `harness` | override the role per node |
+| `reviews: <node>` | with `cross_family: true` on the role, the agent is the one `reviewers` names for the cli that wrote that node (never the author's family) |
+| `agent`, `cli`, `model`, `reasoning` | override the role's agent per node (`agent:` picks another from `models.yaml`; the others change one field) |
 
 Values can use `${inputs.x}`, `${item.y|default}` and `${nodes.n.field}`. Shipped: `feature`, `bugfix`, `docs`,
 `card` (build, checks, review with fix rounds), `docs-card`, `ci-fix`, `conflict`, `verify`, `changelog`.
-`swe-cli flow validate` checks roles, skills, tiers, cycles and `when` expressions; `swe-cli flow graph <wf>` prints
-the DAG with each node's harness, tier and effort.
+`swe-cli flow validate` checks roles, skills, agents, cycles and `when` expressions; `swe-cli flow graph <wf>` prints
+the DAG with each node's agent, cli, model and reasoning.
 
 ## Roles: the right model for the job
 
-`roles.yaml` decides, per role, the skills, the harness, the tier and the effort. A documenter runs on `low`
-(Haiku 5.5 on Claude, gpt-6-luna on Codex, no effort flag); a developer on `mid`; a reviewer on `top`, on another
-model family than the developer. Tiers map to models in `models.yaml` (`workers`, `reviewers`).
+`roles.yaml` decides, per role, the skills and the agent. A documenter runs the `documenter` agent (Haiku on Claude,
+no reasoning flag); a developer the `developer` agent; a reviewer the agent `reviewers` names for the author's cli, so
+it is another model family than the developer. Agents are defined in `models.yaml` (`agents`, `reviewers`).
 
 ## Reports, the manager, and cleaning up
 
@@ -93,14 +93,22 @@ manager. Then:
 ```bash
 swe-cli flow merge <project> <run> [--approved]   # the merge gate for each ready PR
 swe-cli flow clean <project> <run>                # sessions, worktrees, branches, records, tmp directory
+swe-cli flow run <project> <workflow> --goal T --merge [--approved]   # all of it in one command
 ```
 
-## Tiers: one place
+`--merge` merges through the same gate and cleans when every card passed; without `--approved` the gate still holds
+what needs a human (autopilot decides). A run with a failed, blocked or cancelled card ends as `attention` and
+`flow merge` merges only the PRs that passed. `flow retry` starts a fresh session in the same worktree for a failed
+node and rebuilds the report. Two cards of one run must have disjoint files: a card holds its files until its PR is
+merged, so a clash inside a run fails at once, while a clash with another run's open card waits (`lock_wait`).
 
-Roles and nodes name a **tier** (`top`, `mid`, `low`) and a harness, never a model. The project's `models.yaml` (template:
-`cli/templates/models.yaml`, copied by `swe-cli init`, refreshed by `swe-cli project update`) is the only file that says which model
-and effort a tier means on each harness, which harness reviews which, the launcher (tmux or Orca), the context policy and the
-autopilot switch. A new model is one edit there plus `swe-cli models check`.
+## Agents: one place
+
+Roles and nodes name an **agent**, never a model. An agent is `{cli, model, reasoning}` with `cli` one of `claude`, `codex`,
+`omp`, `opencode`. The project's `models.yaml` (template: `cli/templates/models.yaml`, copied by `swe-cli init`, refreshed by
+`swe-cli project update`) is the only file that defines the agents, which agent reviews which author's work, the manager, the
+launcher (tmux or Orca), the context policy and the autopilot switch. A new model is one edit there (or
+`swe-cli models set <agent> --cli C --model M --reasoning R`) plus `swe-cli models check`.
 
 ## Change logs
 

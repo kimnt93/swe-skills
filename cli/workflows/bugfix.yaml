@@ -7,7 +7,7 @@ inputs:
 nodes:
   plan:
     role: planner
-    tier: top
+    agent: developer-strong
     goal: >-
       Diagnose this defect before planning (evidence first, the how and why skills) and plan the smallest fix as one
       card whose goal starts with the failing test that reproduces it, with "type": "fix". More than one card only

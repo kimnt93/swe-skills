@@ -4,7 +4,7 @@
 Code that moves or counts money is held to a higher bar than the rest of the stack, because a
 wrong answer there is a loss, not a bug report.
 
-- **Top tier only.** Never give money-path work to a `low` tier model, and never let one review it.
+- **Strong agent only.** Never give money-path work to a light agent (`documenter`, `scribe`, `verifier`), and never let one review it.
 - **Prove it on a replay, not only on unit tests.** Replay a recorded stream of market data,
   orders and fills through the changed code, and diff positions, balances and P&L against a
   known-good result (the **replay-test** skill). A unit test proves the case you thought of; a replay

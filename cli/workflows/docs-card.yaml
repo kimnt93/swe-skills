@@ -5,7 +5,7 @@ nodes:
     role: documenter
     goal: "${item.goal}"
     files: "${item.files}"
-    tier: "${item.tier|low}"
+    agent: "${item.agent|documenter}"
     issue: "${item.issue}"
     risk: low
     branch_type: docs
@@ -18,13 +18,12 @@ nodes:
     role: ci-fixer
     manual: true
     workspace: "same:build"
-    tier: low
+    agent: documenter
     goal: "A required check on the PR is red. Fix the cause on this branch (ci-fixer skill)."
   review:
     role: reviewer
     needs: [checks]
     reviews: build
-    tier: mid
     workspace: "same:build"
     goal: >-
       Review this documentation PR at its head against the goal: ${item.goal}. Run every command it shows and open

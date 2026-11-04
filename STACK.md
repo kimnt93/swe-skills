@@ -71,6 +71,6 @@ Router rule: Go unless the task is ML or data (Python) or a measured hot path (R
 | Harnesses | Claude Code, Codex, oh-my-pi as plugins; 52 more as plain skills (`make harness`) |
 | Project runner | `swe-cli`: YAML workflows, one agent per node, tmux or Orca, one git worktree per card |
 | Roles | manager, planner, developer, reviewer, documenter, intake, integrator, ci-fixer, verifier, scribe |
-| Model tiers | top for review and design, mid for building, low for docs and changelog (`models.yaml`) |
+| Agents | `{cli, model, reasoning}` per role in `models.yaml`: claude, codex, omp or opencode; strong for review and design, default for building, small for docs and changelog |
 
 Change this file in the same PR as the choice it describes.

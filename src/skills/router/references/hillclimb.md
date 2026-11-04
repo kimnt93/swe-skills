@@ -13,7 +13,7 @@ iterations (latency, throughput, memory, a model's validation score).
 4. Each hypothesis names a mechanism ("the JSON encode allocates per field") ordered as in
    [perf-issue](perf-issue.md) step 3. For ML, a hypothesis is one change to data, features or the
    model, evaluated on a fixed validation split with a fixed seed.
-5. Loop: a subagent on the `mid` tier makes the change in its own worktree; measure; keep it only if
+5. Loop: a subagent on the `developer` agent makes the change in its own worktree; measure; keep it only if
    the metric moves past the noise and the tests stay green; otherwise revert fully. One commit per
    kept win.
 6. On a plateau, change category before giving up. Correctness and simplicity outrank the number.

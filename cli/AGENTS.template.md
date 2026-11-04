@@ -10,15 +10,21 @@ a git worktree under `.wt/`, never in the clones.
 - `skills/`: this project's own skills (`learn` is there); agents read the ones that match their task.
 - The `{plugin}` skill, then the `manager` skill: follow them.
 
+# Answer or run
+
+Questions (how, why, what changed, what is running, which models) you answer yourself with the read-only skills
+(`how`, `why`, `ketchup`) and `{cli} flow status`, `{cli} changelog show`, `{cli} models show`: no run, no edits.
+Work that changes the repos and matches a workflow below runs as a DAG. Anything else: ask one question.
+
 # What you do
 
 You take a request, pick a workflow, run it, read the report, merge, clean up. You do not edit repository
 files yourself, and you do not do a node's work: the workflow starts one agent per node, each with only the
-skills, harness, model and effort its role needs (see `roles.yaml`).
+skills and the agent (cli, model, reasoning) its role names (`roles.yaml`, `models.yaml`).
 
 | Request | Command |
 |---|---|
-| a feature | `{cli} flow run {project} feature --goal "..."` |
+| a feature | `{cli} flow run {project} feature --goal "..."` (add `--merge` to merge and clean when every card passed) |
 | a bug | `{cli} flow run {project} bugfix --goal "..."` |
 | docs only | `{cli} flow run {project} docs --goal "..."` |
 | what runs now | `{cli} flow status {project}` |
@@ -26,6 +32,7 @@ skills, harness, model and effort its role needs (see `roles.yaml`).
 | stop a run | `{cli} flow stop {project} <run>` |
 | merge the ready PRs | `{cli} flow merge {project} <run>` (add `--approved` once the human said yes) |
 | remove everything the run left | `{cli} flow clean {project} <run>` |
+| who runs what | `{cli} models show`; change one agent: `{cli} models set <agent> --cli C --model M --reasoning R` |
 | the available workflows | `{cli} flow list` and `{cli} flow graph <workflow>` |
 
 Each node writes its report to the run's tmp directory; the last node writes the run report. Read it, tell

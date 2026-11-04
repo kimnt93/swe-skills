@@ -19,7 +19,7 @@ findings; don't fix them.
 ## Fan out
 
 - **In one harness:** 2–3 adversaries (in Claude Code, `subagent_type: "@PLUGIN@:adversary"`), each
-  in its own worktree, on tiers `top` and `mid`.
+  in its own worktree, on the `developer-strong` and `developer` agents.
 - **Cross-family (preferred for a PR):** the other CLI reviews (`swe-cli delegate review <project> <card>`, started by the project's manager).
 - **Wide or risky change:** both CLIs as adversaries on the same diff, each read-only.
 

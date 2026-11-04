@@ -240,12 +240,12 @@ def render_harnesses() -> str:
         "| Use | Harnesses |",
         "|---|---|",
         "| interactive coding with the skills | all of the above |",
-        f"| a **delegated session** (unattended, started by `swe-cli flow` or `swe-cli delegate`) | Claude Code (`claude`) and oh-my-pi (`omp`) |",
-        "| the **orchestrator** of a project (`swe-cli orchestrate`) | any of Claude Code, Codex, oh-my-pi |",
+        f"| a **delegated session** (unattended, started by `swe-cli flow` or `swe-cli delegate`) | Claude Code (`claude`), Codex (`codex`), oh-my-pi (`omp`) and opencode (`opencode`) |",
+        "| the **manager** of a project (`swe-cli orchestrate`, or the harness started in the project directory) | any of Claude Code, Codex, oh-my-pi, opencode |",
         "",
-        "Codex and the other harnesses use the same skills by hand; workflows drive only the coding CLIs.",
+        "The other harnesses use the same skills by hand; workflows drive the four coding CLIs above.",
         "A new coding CLI needs a branch in `cli/bin/main` (`argv`) and an entry under `clis:` and",
-        "`workers:` in the project's `models.yaml`.",
+        "`agents:` in the project's `models.yaml`.",
         "",
         "## Check an install",
         "",
@@ -267,7 +267,6 @@ def main() -> int:
     outputs = {
         OUT: render(),
         OUT_HARNESS: render_harnesses(),
-        ROOT / "README.md": inject(ROOT / "README.md", group_tables(detail_link("docs/skills/"), level=3)),
         DETAIL / "README.md": inject(DETAIL / "README.md", group_tables(detail_link(""), level=3)),
     }
     if "--check" in sys.argv[1:]:

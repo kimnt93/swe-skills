@@ -16,7 +16,7 @@ live database.** For PostgreSQL schema changes as goose SQL files, follow the `d
    service's tests, migrate down, migrate up again. Paste the commands and their output.
 5. For a backfill, measure rows per second on a realistic copy and state the expected wall time
    and lock behaviour before it runs anywhere shared (the **explain-the-number** principle).
-6. Money-path tables (orders, fills, positions, balances) are `top` tier, and the contract phase
+6. Money-path tables (orders, fills, positions, balances) go to the `developer-strong` agent, and the contract phase
    needs a human go.
 7. Run [opening-a-pr](opening-a-pr.md), one PR per phase.
 

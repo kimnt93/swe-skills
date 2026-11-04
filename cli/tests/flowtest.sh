@@ -37,17 +37,26 @@ for line in sys.stdin:
     files = re.search(r"files you may change: (.*)", brief)
     open(f".swe/argv-{role}.txt", "w").write(ARGV)
     print("esc to interrupt", flush=True)
-    time.sleep(2)
+    time.sleep(60 if os.path.exists(os.path.join(state, "slow")) else 2)
     if role == "planner":
         plan = re.search(r"Write the plan to (\S+)", brief).group(1)
-        cards = [{"id": "c1", "title": "a", "goal": "add a", "files": ["src/a.txt"], "risk": "standard", "tier": "mid", "workflow": "card"},
-                 {"id": "c2", "title": "b", "goal": "add b", "files": ["src/b.txt"], "risk": "standard", "tier": "mid", "workflow": "card"}]
+        cards = [{"id": "c1", "title": "a", "goal": "add a", "files": ["src/a.txt"], "risk": "standard", "agent": "developer", "workflow": "card"},
+                 {"id": "c2", "title": "b", "goal": "add b", "files": ["src/b.txt"], "risk": "standard", "agent": "developer", "workflow": "card"}]
+        if os.path.exists(os.path.join(state, "overlap")):
+            cards[1]["files"] = ["src/a.txt"]
         if "documentation" in brief.lower() or "docs-card" in brief:
             cards = [{"id": "d1", "title": "doc", "goal": "write docs", "files": ["docs/"], "risk": "low", "workflow": "docs-card", "type": "docs"}]
         json.dump({"summary": "s", "cards": cards}, open(plan, "w"))
         open(report, "w").write("planned\n")
         print(f"NODE DONE {len(cards)} card(s) planned", flush=True)
     elif role in ("developer", "documenter", "ci-fixer", "integrator", "scribe"):
+        if role == "developer" and os.path.exists(os.path.join(state, "block")):
+            open(report, "w").write("blocked\n")
+            print("CARD BLOCKED the spec contradicts ARCHITECTURE.md", flush=True)
+            print("❯ π >", flush=True)
+            continue
+        if role == "ci-fixer" and os.path.exists(os.path.join(state, "red-once")):
+            os.unlink(os.path.join(state, "red-once"))
         first = files.group(1).split(",")[0].strip() if files else "note.txt"
         target = first + "item.txt" if first.endswith("/") else first
         os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
@@ -96,7 +105,7 @@ case "$1 $2" in
     n="$3"; head="$(cat "$s/head-$n" 2>/dev/null || true)"; m=CLEAN; [ -e "$s/behind-$n" ] && m=BEHIND
     files='[{"path":"CHANGELOG.md"}]'; [ -e "$s/nolog-$n" ] && files='[{"path":"a.py"}]'
     echo "{\"headRefOid\":\"$head\",\"state\":\"OPEN\",\"isDraft\":false,\"mergeStateStatus\":\"$m\",\"title\":\"feat: card $n\",\"url\":\"https://github.com/o/r/pull/$n\",\"files\":$files,\"labels\":[]}";;
-  "pr checks") echo '[{"name":"verify","bucket":"pass"}]';;
+  "pr checks") if [ -e "$s/red-once" ]; then echo '[{"name":"verify","bucket":"fail"}]'; else echo '[{"name":"verify","bucket":"pass"}]'; fi;;
   "pr merge") echo "MERGED $*" >>"$s/gh.log"; touch "$s/merged-any";;
   "auth status") exit 0;;
 esac
@@ -110,9 +119,9 @@ git clone -q "$tmp/origin.git" "$tmp/proj/app" 2>/dev/null
   && printf 'verify:\n\t@echo ok\n' >Makefile && git add . && git commit -qm "chore: init" && git push -q origin main )
 printf 'projects:\n  ft:\n    dir: %s\n    description: Flow demo\n    repos:\n      app: {github: acme/app}\n' "$tmp/proj" >"$SWE_PROJECTS"
 
-# 1. the workflows are valid and the graph shows roles, harnesses, tiers
+# 1. the workflows are valid and the graph shows roles and agents
 "$fleet" flow validate >"$tmp/val.txt" || { cat "$tmp/val.txt"; fail "validate"; }
-"$fleet" flow graph card | grep -q "reviewer \[other/top/high\]" || fail "graph"
+"$fleet" flow graph card | grep -q "reviewer \[cross-family reviewer\]" || fail "graph"
 printf 'nodes:\n  a: {role: nobody}\n  b: {needs: [a], role: developer}\n  c: {needs: [b], role: developer}\n' >"$tmp/bad.yaml"
 mkdir -p "$tmp/proj/.swe/workflows"; cp "$tmp/bad.yaml" "$tmp/proj/.swe/workflows/bad.yaml"
 "$fleet" flow validate ft bad >"$tmp/val.txt" && fail "a workflow with an unknown role validated"
@@ -122,8 +131,8 @@ printf 'nodes:\n  a: {needs: [b], role: developer}\n  b: {needs: [a], role: deve
 grep -q "cycle" "$tmp/val.txt" || fail "cycle not found"
 rm "$tmp/proj/.swe/workflows/bad.yaml"
 "$fleet" flow run ft feature --goal "two files" --dry-run >"$tmp/dry.txt"
-grep -q "planner \[project/mid/high\]" "$tmp/dry.txt" || fail "dry-run"
-pass "flow: workflows validate (unknown role and cycles are found); graph and dry-run show role, harness, tier, effort"
+grep -q "planner \[planner: claude/opus/high\]" "$tmp/dry.txt" || fail "dry-run"
+pass "flow: workflows validate (unknown role and cycles are found); graph and dry-run show role, agent, cli, model, reasoning"
 
 # 2. a feature: plan -> two cards in parallel -> report; the reviewer is another family; a review FAIL gets one fix round
 touch "$FAKE_STATE/fail-once"
@@ -154,8 +163,8 @@ rm -f "$FAKE_STATE/fail-once"
 argv="$(cat "$tmp/proj/.wt/app/"*/.swe/argv-documenter.txt)"
 case "$argv" in *"--model haiku"*) ;; *) fail "documentation did not run on haiku: $argv";; esac
 case "$argv" in *--effort*) fail "haiku got an effort flag: $argv";; esac
-grep -q '"cli": "claude"' "$SWE_TMP/swe/ft/r2/run.json" && grep -q '"tier": "low"' "$SWE_TMP/swe/ft/r2/run.json" || fail "docs tiers"
-pass "flow docs: the documenter runs on the low tier (haiku, no effort flag); its reviewer is the other family"
+grep -q '"cli": "claude"' "$SWE_TMP/swe/ft/r2/run.json" && grep -q '"agent": "documenter"' "$SWE_TMP/swe/ft/r2/run.json" || fail "docs agent"
+pass "flow docs: the documenter agent runs haiku (no reasoning flag); its reviewer is the other family"
 
 # 4. the manager merges (a branch that is behind gets the reviewer to update it), then cleans: nothing is left
 touch "$FAKE_STATE/behind-2" "$FAKE_STATE/nolog-1"
@@ -192,6 +201,12 @@ assert n["c1/review"]["status"] == "failed" and n["c1/review"].get("rounds") == 
 assert not d.get("ready"), d.get("ready")
 PY
 "$fleet" flow merge ft "$r3" --approved >/dev/null 2>&1 && fail "flow merge merged a run with nothing ready"
+"$fleet" flow retry ft "$r3" >"$tmp/retry.txt" 2>&1 || { tail -20 "$tmp/retry.txt"; fail "flow retry of the failed reviews"; }
+python3 - "$SWE_TMP/swe/ft/$r3/run.json" <<'PY' || { tail -20 "$tmp/retry.txt"; fail "retry state"; }
+import json, sys
+d = json.load(open(sys.argv[1]))
+assert d["status"] == "ready" and len(d["ready"]) == 2, (d["status"], d.get("ready"))
+PY
 "$fleet" flow clean ft "$r3" >/dev/null 2>&1 || fail "clean r3"
 pass "flow review FAIL: two fix rounds then the node fails, the run needs attention, nothing is ready to merge"
 
@@ -204,8 +219,61 @@ python3 - "$SWE_TMP/swe/ft/$r4/run.json" <<'PY' || { tail -20 "$tmp/run4.txt"; f
 import json, sys
 d = json.load(open(sys.argv[1])); n = d["nodes"]
 assert all(n[k]["status"] == "done" for k in ("add", "checks", "review", "report")), {k: v["status"] for k, v in n.items()}
-assert n["add"]["cli"] == "claude" and n["add"]["tier"] == "low" and n["review"]["cli"] == "omp", (n["add"]["cli"], n["add"]["tier"])
+assert n["add"]["cli"] == "claude" and n["add"]["agent"] == "scribe" and n["review"]["cli"] == "omp", (n["add"]["cli"], n["add"]["agent"])
 PY
 "$fleet" flow clean ft "$r4" >/dev/null 2>&1 || fail "clean r4"
-pass "flow changelog: a scribe on the low tier works on an existing PR branch, checks run on that PR, another family reviews"
+pass "flow changelog: the scribe agent works on an existing PR branch, checks run on that PR, another family reviews"
+
+# 7. a red check goes to the ci-fixer, then the checks turn green and the review runs
+touch "$FAKE_STATE/red-once"
+"$fleet" flow run ft feature --goal "two files" >"$tmp/run5.txt" 2>&1 || { tail -30 "$tmp/run5.txt"; fail "ci-fix run"; }
+r5="$(sed -n 's/^run \(r[0-9]*\):.*/\1/p' "$tmp/run5.txt" | tail -1)"
+grep -q "checks are red.*fix round 1/2 with ci-fix" "$SWE_TMP/swe/ft/$r5/run.log" || fail "a red check did not start a ci-fix round"
+"$fleet" flow clean ft "$r5" >/dev/null 2>&1 || fail "clean r5"
+pass "flow ci-fix: a red check starts the ci-fixer on the same branch, then checks and review go on"
+
+# 8. BLOCKED: the agent says it cannot continue; the run needs attention with the reason, nothing is ready
+touch "$FAKE_STATE/block"
+"$fleet" flow run ft feature --goal "two files" >"$tmp/run6.txt" 2>&1 && fail "a blocked run reported success"
+rm -f "$FAKE_STATE/block"
+r6="$(sed -n 's/^run \(r[0-9]*\):.*/\1/p' "$tmp/run6.txt" | tail -1)"
+python3 - "$SWE_TMP/swe/ft/$r6/run.json" <<'PY' || { tail -20 "$tmp/run6.txt"; fail "blocked state"; }
+import json, sys
+d = json.load(open(sys.argv[1])); n = d["nodes"]
+assert d["status"] == "attention" and n["c1/build"]["status"] == "blocked", (d["status"], n["c1/build"])
+assert "ARCHITECTURE.md" in n["c1/build"]["reason"], n["c1/build"]["reason"]
+assert n["c1/review"]["status"] == "cancelled" and not d.get("ready"), n["c1/review"]
+PY
+"$fleet" flow clean ft "$r6" --force >/dev/null 2>&1 || fail "clean r6"
+pass "flow BLOCKED: the reason is kept, later nodes are cancelled, nothing is ready"
+
+# 9. two cards of one run that touch the same file: the second fails at once with a clear reason (it would wait for a merge that comes after the run)
+touch "$FAKE_STATE/overlap"
+"$fleet" flow run ft feature --goal "two files" >"$tmp/run7.txt" 2>&1 && fail "a plan with overlapping cards reported success"
+rm -f "$FAKE_STATE/overlap"
+grep -q "gives two cards of this run the same files" "$tmp/run7.txt" || { tail -20 "$tmp/run7.txt"; fail "overlap reason"; }
+r7="$(sed -n 's/^run \(r[0-9]*\):.*/\1/p' "$tmp/run7.txt" | tail -1)"
+"$fleet" flow clean ft "$r7" --force >/dev/null 2>&1 || fail "clean r7"
+pass "flow overlap: the files of an open card are held; a second card of the same run on those files fails with the reason"
+
+# 10. stop: the sessions close, running nodes fail as stopped, the run is stopped
+touch "$FAKE_STATE/slow"
+"$fleet" flow run ft feature --goal "two files" >"$tmp/run8.txt" 2>&1 &
+bg=$!
+for _ in $(seq 1 40); do tmux ls 2>/dev/null | grep -q '^ft-r[0-9]*-plan' && break; sleep 0.5; done
+r8="$(ls -t "$SWE_TMP/swe/ft" | head -1)"
+"$fleet" flow stop ft "$r8" >/dev/null 2>&1 || fail "flow stop"
+kill "$bg" 2>/dev/null || true; wait "$bg" 2>/dev/null || true
+rm -f "$FAKE_STATE/slow"
+! tmux ls 2>/dev/null | grep -q '^ft-r' || fail "sessions remain after stop"
+grep -q '"status": "stopped"' "$SWE_TMP/swe/ft/$r8/run.json" || fail "run not marked stopped"
+"$fleet" flow clean ft "$r8" --force >/dev/null 2>&1 || fail "clean r8"
+pass "flow stop: sessions closed, run marked stopped, clean removes it"
+
+# 11. fully automated: --merge merges the ready PRs through the gate and cleans, nothing is left
+: >"$FAKE_STATE/gh.log"
+"$fleet" flow run ft feature --goal "two files" --merge --approved >"$tmp/run9.txt" 2>&1 || { tail -20 "$tmp/run9.txt"; fail "flow run --merge"; }
+[ "$(grep -c '^MERGED pr merge' "$FAKE_STATE/gh.log")" = 2 ] || { cat "$FAKE_STATE/gh.log"; fail "--merge did not merge both PRs"; }
+[ -z "$(ls "$SWE_TMP/swe/ft" 2>/dev/null)" ] && [ -z "$(ls "$SWE_STATE/ft" 2>/dev/null)" ] && [ "$(git -C "$tmp/proj/app" worktree list | wc -l)" = 1 ] || fail "--merge left something behind"
+pass "flow run --merge: plan, build, review, merge through the gate and clean in one command"
 echo "all passed"

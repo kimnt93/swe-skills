@@ -13,6 +13,5 @@
 #       url: <clone url>              optional, when it is not github.com
 #       hotspots: [schemas/, go.sum]  repo-relative paths that collide even between unrelated features: a card
 #                                     that lists one holds it exclusively until it merges
-#   cli: claude | codex | omp         the coding CLI cards use by default (default claude)
-#   orchestrator: {cli: claude, tier: mid}   optional override of the orchestrator in models.yaml
+#   manager: <agent>                  optional: the agent (a name in models.yaml) that runs `swe-cli orchestrate`
 projects: {}

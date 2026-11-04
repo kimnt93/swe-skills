@@ -1,17 +1,23 @@
 # swe-cli (`<plugin>-cli`)
 
-Runs the plugin's agents: a project is a directory of repo clones listed in `project.yaml`, its orchestrator is any CLI agent
-(Claude Code, Codex, oh-my-pi). **Every tier and the model it uses is set in one file, the project's `models.yaml`**
+Runs the plugin's agents: a project is a directory of repo clones listed in `project.yaml`, its manager is any CLI agent
+(Claude Code, Codex, oh-my-pi, opencode). **Every agent, its harness (cli), model and reasoning level, is set in one file, the project's `models.yaml`**
 (template: `cli/templates/models.yaml`; `swe-cli init` copies it into the project). The command reads it. `make cli` links it as `<plugin>-cli`; `swe-cli init` makes a directory a project; workflows are in `workflows/`, roles in `roles.yaml` ([docs/workflows.md](../docs/workflows.md)).
 
-| Level | Agents | Writes code? | Default model |
-|---|---|---|---|
-| orchestrator | any CLI agent started in the project directory (`swe-cli orchestrate`); `orchestrator:` in `models.yaml`, per project override | no | claude, tier mid |
-| CLIs | `claude`, `codex`, `omp`: the coding CLIs the orchestrator starts in worktrees (`swe-cli delegate`) | yes | — |
-| workers | the model a CLI runs, per tier `top` / `mid` / `low` | yes | claude: opus / sonnet / haiku; codex: gpt-6-sol; omp: gpt-6-sol high / medium, Gemini 3.8 Flash |
-| reviewers | which CLI reviews work written with each CLI, at which tier | no | Claude work → omp top; codex work → claude top; omp work → claude mid |
-| subagents | `<plugin>:worker`, `<plugin>:adversary` shipped in the Claude Code plugin | yes / no | the claude mid / top worker |
-| omp roles | omp's own internal subagents | — | Gemini 3.8 Flash, gpt-6-sol |
+An agent is three fields: `cli` (`claude`, `codex`, `omp` or `opencode`), `model` and `reasoning`. A role in `roles.yaml` names its agent;
+a node or a planner card may name another or override one field.
+
+| Level | What | Default |
+|---|---|---|
+| manager | the agent you talk to in the project directory (`swe-cli orchestrate`); `manager:` in `models.yaml`, `manager:` in `project.yaml` per project | claude sonnet, high |
+| agents | `planner`, `developer`, `developer-strong`, `documenter`, `scribe`, `ci-fixer`, `integrator`, `verifier`, `reviewer`, `reviewer-claude`: `{cli, model, reasoning}` | claude opus / sonnet / haiku; reviewer on omp gpt-6-sol |
+| clis | launch settings per harness (permissions, the prompt text the runner waits for) | claude, codex, omp, opencode |
+| reviewers | the agent that reviews work written with each cli (always another family) | Claude work → omp reviewer; the rest → Claude Opus |
+| subagents | `<plugin>:worker`, `<plugin>:adversary` shipped in the Claude Code plugin, run as the model of an agent | developer / developer-strong |
+| omp roles | omp's own internal subagents | Gemini 3.8 Flash, gpt-6-sol |
+
+Reasoning is passed the harness's own way and left out when empty: `claude --effort`, `codex -c model_reasoning_effort`,
+`omp --thinking`, `opencode --variant` (headless) or the `variant` of its `build` agent (interactive).
 
 `models.yaml` also holds the context policy and the autopilot switch
 (`autopilot.auto_merge`, empty until you trust a risk class).
@@ -19,7 +25,8 @@ Runs the plugin's agents: a project is a directory of repo clones listed in `pro
 ## The command
 
 ```bash
-swe-cli models show                 # every agent, its level and its model
+swe-cli models show                 # every agent: its cli, model and reasoning
+swe-cli models set <agent> --cli C --model M --reasoning R   # change one agent (comments in the file stay)
 swe-cli models check                # each model exists where it runs, each provider is logged in
 swe-cli models apply [--dry-run]    # write omp's model roles
 swe-cli init [dir] [--repo url]...   # make a directory a project: AGENTS.md, workflows, roles, models, project.yaml; asks for git URLs
@@ -28,12 +35,12 @@ swe-cli project update [--force]    # refresh this project's AGENTS.md, workflow
 swe-cli project add <git url>       # add a repo to this project's project.yaml and clone it
 swe-cli project list|sync           # the projects; clone what is missing, Orca registration
 swe-cli flow run|status|retry|merge|clean|stop|list|validate|graph   # YAML workflows, one agent per node
-swe-cli orchestrate <project>       # start the project's orchestrator (any CLI) in its directory
+swe-cli orchestrate <project>       # start the project's manager (any CLI) in its directory
 swe-cli bootstrap                   # clone repos, apply models and context
 swe-cli context show|apply          # context window and compaction point per tool; write Claude Code, Codex, omp
 swe-cli doctor [project]            # git credentials, tmux or Orca, CLIs, gh, each central clone
 swe-cli delegate start|status|send|review|scope|sync-branch|stop|cleanup   # coding CLIs in worktrees (docs/delegation.md)
-swe-cli lane run <cli> <tier> <card> | swe-cli lane review <author-cli> <card>   # headless one-shot
+swe-cli lane run <agent> <card> | swe-cli lane review <author-cli> <card>   # headless one-shot
 swe-cli merge <pr> --risk <r> --sha <verified sha> [--approved]   # the merge gate
 swe-cli name                        # the plugin name
 ```

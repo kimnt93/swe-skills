@@ -2,10 +2,10 @@
 # swe-cli lane: headless one-shot, one card through a coding CLI (-p), then prove it. Interactive sessions
 # in tmux worktrees are `swe-cli delegate`.
 #
-#   swe-cli lane run <cli> <top|mid|low> <card-file>    implement the card, then make verify
+#   swe-cli lane run <agent> <card-file>                implement the card with that agent (models.yaml), then make verify
 #   swe-cli lane review <author-cli> <card-file>        the other family breaks the diff
 #
-# The worker model comes from models.yaml on every call. Evidence goes to .swe/ in the
+# The agent (cli, model, reasoning) comes from models.yaml on every call. Evidence goes to .swe/ in the
 # workspace: evidence.json (run) or review.json (review). Exit code = make verify.
 # SWE_BASE (default origin/main) and SWE_AGENT_TIMEOUT (default 90m) tune a run.
 set -euo pipefail
@@ -25,10 +25,9 @@ git fetch -q origin 2>/dev/null || { echo "swe-cli lane: cannot fetch origin: a 
 
 case "$mode" in
   run)
-    lane="${2:?cli}"
-    tier="${3:?tier}"
-    card="${4:?card file}"
-    brief="Start with the $plugin skill (/$plugin in Claude Code, /skill:$plugin in omp).
+    agent="${2:?agent (a name in models.yaml agents)}"
+    card="${3:?card file}"
+    brief="Start with the $plugin skill (/$plugin in Claude Code, \$$plugin in Codex, /skill:$plugin in omp, the $plugin skill in opencode).
 $(cat "$card")
 
 Work only inside this worktree. Commit in small conventional commits.
@@ -37,7 +36,7 @@ Do not push to main. Done means: make verify exits 0 on the committed head."
   review)
     author="${2:?author cli}"
     card="${3:?card file}"
-    read -r lane tier <<<"$("$fleet" models reviewer "$author")"
+    agent="$("$fleet" models reviewer "$author")"
     brief="You are reviewing, not fixing. Do not edit, commit or push.
 Use the interrogate skill of the $plugin plugin on: git diff $base...HEAD
 The change is meant to do this:
@@ -53,9 +52,9 @@ Write the report to .swe/review.md. If nothing is proven, write: no verified fin
     ;;
 esac
 
-mapfile -t cmd < <("$fleet" models cmd "$lane" "$tier")
+mapfile -t cmd < <("$fleet" models cmd "$agent")
 # the context policy: Claude Code reads its compaction point from the environment
-while IFS= read -r setting; do [ -n "$setting" ] && export "$setting"; done < <("$fleet" context env "$lane" "$tier")
+while IFS= read -r setting; do [ -n "$setting" ] && export "$setting"; done < <("$fleet" context env "$agent")
 before="$(git status --porcelain)"
 agent_rc=0
 timeout "${SWE_AGENT_TIMEOUT:-90m}" "${cmd[@]}" "$brief" >"$out/$mode-agent.log" 2>&1 || agent_rc=$?
@@ -63,13 +62,13 @@ after="$(git status --porcelain)"
 verify_rc=0
 make verify >"$out/$mode-verify.log" 2>&1 || verify_rc=$?
 
-python3 - "$out" "$mode" "$lane" "$tier" "$agent_rc" "$verify_rc" "$base" "$before" "$after" "${cmd[*]}" <<'EOF'
+python3 - "$out" "$mode" "$agent" "$agent_rc" "$verify_rc" "$base" "$before" "$after" "${cmd[*]}" <<'EOF'
 import json, subprocess, sys
-out, mode, lane, tier, agent_rc, verify_rc, base, before, after, command = sys.argv[1:]
+out, mode, agent, agent_rc, verify_rc, base, before, after, command = sys.argv[1:]
 def git(*a):
     return subprocess.run(["git", *a], capture_output=True, text=True).stdout.strip()
 evidence = {
-    "mode": mode, "cli": lane, "tier": tier, "command": command,
+    "mode": mode, "agent": agent, "command": command,
     "head": git("rev-parse", "HEAD"),
     "commits": git("log", "--oneline", f"{base}..HEAD").splitlines(),
     "changed_files": git("diff", "--name-only", f"{base}...HEAD").splitlines(),

@@ -11,7 +11,7 @@
 2. **Find the root cause** (the **fix-root-causes** principle): bisect hypotheses with the evidence:
    `git log -p` / `git bisect`, logs in Loki, the trace in Tempo, the error in Sentry/GlitchTip.
 3. **Plan the fix.** If it crosses a function boundary, run the **architect** skill first. Delegate
-   the change to a subagent on the `mid` tier with the failing test as its target.
+   the change to a subagent on the `developer` agent with the failing test as its target.
 4. **Prove it:** the test passes, `make verify` passes, and the original symptom is gone on the
    real surface (the endpoint, the consumer, the page).
 5. Add a guard only if the bad state is legitimate input; otherwise fix the producer.

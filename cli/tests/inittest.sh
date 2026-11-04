@@ -20,7 +20,7 @@ mkdir "$tmp/acme" && cd "$tmp/acme"
 for f in AGENTS.md PROJECT.md skills/learn/SKILL.md project.yaml roles.yaml models.yaml workflows/feature.yaml workflows/card.yaml; do
     [ -e "$f" ] || fail "init did not write $f"
 done
-grep -q "^workers:" models.yaml && grep -q "top:" models.yaml && ! grep -qi "hermes\|kanban\|^board:" models.yaml || fail "models.yaml is the tier template (workers per tier, no Hermes)"
+grep -q "^agents:" models.yaml && grep -q "developer-strong:" models.yaml && ! grep -qi "hermes\|kanban\|^board:\|^workers:\|tier" models.yaml || fail "models.yaml is the agents template (cli, model, reasoning per agent, no tiers, no Hermes)"
 grep -q "flow run acme feature" AGENTS.md || fail "AGENTS.md is not rendered for the project"
 grep -q "swe-cli project add" AGENTS.md || fail "AGENTS.md does not tell the manager how to add repos"
 [ -d remote-api-server/.git ] || fail "repo not cloned"

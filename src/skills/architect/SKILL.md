@@ -18,7 +18,7 @@ with the **why** skill.
 
 ## 2. Sketch at least two shapes
 
-Start two subagents at tier `top` (different model families when you can), each with the grounding
+Start two subagents on the `developer-strong` agent (different model families when you can), each with the grounding
 and [runner-prompt](references/runner-prompt.md). Each returns a sketch in the language of the job:
 
 | Language | The sketch |

@@ -1,39 +1,60 @@
-# Setup A: Claude Code is the only coding agent, on your Claude subscription (claude auth login).
-# One CLI, so no second model family reviews: the reviewer is Claude at tier top (Opus), in a fresh
-# session that sees only the diff and the card. The orchestrator is Claude Code itself (swe-cli orchestrate <project>).
-# Use it with: SWE_MODELS=cli/examples/models.claude-only.yaml swe-cli bootstrap
-orchestrator:
-  cli: claude
-  tier: mid
+# Setup A: Claude Code is the only coding agent (Claude login). The reviewer is a fresh Claude session at the top model that sees only the diff and the card.
+# One harness, so the reviewer is a fresh session on the same cli. Use it with: SWE_MODELS=cli/examples/models.claude-only.yaml swe-cli models show
+# or copy it over your project's models.yaml.
+manager: manager
 launcher: tmux
 clis:
   claude:
     permission_mode: bypassPermissions
+    model: sonnet
     ready: ❯
     busy: esc to interrupt
-workers:
-  claude:
-    top:
-      model: opus
-      effort: xhigh
-    mid:
-      model: sonnet
-      effort: high
-    low:
-      model: haiku
-reviewers:
-  claude:
+agents:
+  manager:
     cli: claude
-    tier: top
+    model: sonnet
+    reasoning: high
+  planner:
+    cli: claude
+    model: opus
+    reasoning: high
+  developer:
+    cli: claude
+    model: sonnet
+    reasoning: medium
+  developer-strong:
+    cli: claude
+    model: opus
+    reasoning: xhigh
+  documenter:
+    cli: claude
+    model: haiku
+  scribe:
+    cli: claude
+    model: haiku
+  ci-fixer:
+    cli: claude
+    model: sonnet
+    reasoning: medium
+  integrator:
+    cli: claude
+    model: sonnet
+    reasoning: medium
+  verifier:
+    cli: claude
+    model: haiku
+  reviewer:
+    cli: claude
+    model: opus
+    reasoning: high
+reviewers:
+  claude: reviewer
 subagents:
   worker:
-    tier: mid
+    agent: developer
   adversary:
-    tier: top
-omp_roles:
-  default: google-antigravity/gemini-3.8-flash
-  smol: google-antigravity/gemini-3.8-flash
-  slow: openai-codex/gpt-6-sol
+    agent: developer-strong
+omp_roles: {}
 context:
   default:
     window: 272000

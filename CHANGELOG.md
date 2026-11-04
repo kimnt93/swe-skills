@@ -27,11 +27,11 @@ First release. What it is today.
 
 **`swe-cli` (`<plugin>-cli`)**
 - `swe-cli init` makes a directory a project: `AGENTS.md` (the orchestrator's instructions), `PROJECT.md` (self-learned notes, under
-  2000 words), `models.yaml` (the one place that maps tiers top, mid, low to models), `roles.yaml`, `workflows/`, `changelog/`, a
+  2000 words), `models.yaml` (the one place that defines the agents: cli, model and reasoning, for claude, codex, omp or opencode), `roles.yaml`, `workflows/`, `changelog/`, a
   `learn` skill and `project.yaml` (the repos); it asks for git URLs and clones them. `swe-cli project add` adds a repo later, and
   `swe-cli project update` refreshes the shipped files without overwriting yours.
-- Any harness is the orchestrator (`swe-cli orchestrate`). Workflows are YAML DAGs, one agent per node, each with only the skills of its
-  role and the model of its tier: feature, bugfix, docs, card, docs-card, ci-fix, conflict, verify, changelog. Agents run in tmux or
+- Any harness is the manager (`swe-cli orchestrate`); it answers questions itself and runs workflows for work. Workflows are YAML DAGs, one agent per node, each with only the skills of its
+  role and the agent (cli, model, reasoning) it names: feature, bugfix, docs, card, docs-card, ci-fix, conflict, verify, changelog. Agents run in tmux or
   Orca sessions, one git worktree per card, and write reports to a tmp directory.
 - The merge gate (`swe-cli merge`, run by `flow merge`) needs the verified head, green required checks, no conflict with `main` and a
   `CHANGELOG.md` entry in the PR (docs, chore, ci, test, style and build PRs and the `no-changelog` label are exempt). After each merge the

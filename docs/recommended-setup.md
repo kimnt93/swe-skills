@@ -8,8 +8,8 @@ What to run, in what order, and what to keep switched off until it has earned tr
 |---|---|
 | coding agents | any of **Claude Code** ([setup A](setup-claude.md)), **oh-my-pi** ([setup B](setup-omp.md)) and **Codex** ([setup C](setup-codex.md)): a default CLI per project, another family reviewing on request. One CLI works too, with a weaker review. |
 | plugin | built once, installed into every CLI you use: `make claude codex omp` |
-| models | tiers in the project's `models.yaml`: Opus / `gpt-6-sol` high for `top`, Sonnet / `gpt-6-sol` medium for `mid`, Haiku / Gemini Flash for `low`. Default every card to `mid`. |
-| orchestration | one orchestrator per project, any CLI agent started by `swe-cli orchestrate`; a project is a directory with its repo clones, and the orchestrator starts the coding CLIs in worktrees (tmux, or Orca terminals) ([delegation.md](delegation.md), [architecture.md](architecture.md)). Hermes managers on a cheap non-Claude model are optional. |
+| models | agents in the project's `models.yaml` (cli, model, reasoning): Opus / `gpt-6-sol` high for `developer-strong`, Sonnet / `gpt-6-sol` medium for `developer`, Haiku / Gemini Flash for `documenter`. Default every card to `developer`. |
+| orchestration | one manager per project, any CLI agent started by `swe-cli orchestrate`; a project is a directory with its repo clones, and the manager starts the coding CLIs in worktrees (tmux, or Orca terminals) ([delegation.md](delegation.md), [architecture.md](architecture.md)). Hermes managers on a cheap non-Claude model are optional. |
 | GitHub | `project/scripts/setup_repo.sh` per repo: squash only, protected `main`, required `verify` check, labels, PR and issue templates |
 | proof | `make verify` in every repo (`/swe:verify-create`), required in CI |
 | context | Claude 350k, every other model 245k (about the 272k price step), set once in the project's `models.yaml` and applied with `swe-cli context apply` and `swe-cli sync` ([context.md](context.md)) |
@@ -61,4 +61,4 @@ The step-by-step runbooks, with commands and exit checks, are in [runbooks.md](r
 - Let a manager or the root edit a repository, or edit the central clone: agents work in worktrees.
 - Run parallel cards on the same files: the manager refuses it for a reason.
 - Run `bypassPermissions` or `--approval-mode yolo` outside a card's worktree.
-- Put a model id in a skill: tiers only; ids live in the project's `models.yaml`.
+- Put a model id in a skill: agent names only; ids live in the project's `models.yaml`.

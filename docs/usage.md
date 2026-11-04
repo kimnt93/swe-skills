@@ -11,7 +11,7 @@ How to work with the plugin day to day. Examples use the default name `swe`; in 
 
 The router (1) restates your goal and a **done-predicate** (a command and its expected output),
 (2) picks the language, (3) picks a playbook, (4) loads the domain skill and the principles that apply,
-(5) delegates by tier, and (6) finishes only when `make verify` exits 0 on the committed head, with its
+(5) delegates by agent, and (6) finishes only when `make verify` exits 0 on the committed head, with its
 tail in the reply. Called with no request, `/swe` prints the skill table.
 
 ### Which language it picks
@@ -69,17 +69,17 @@ code, only the files the task allows, and the project's `ARCHITECTURE.md` respec
 
 ## With a project of agents (unattended)
 
-A project is a directory. In it, `swe-cli init` writes `AGENTS.md` (the orchestrator's instructions), the
+A project is a directory. In it, `swe-cli init` writes `AGENTS.md` (the manager's instructions), the
 workflows, `roles.yaml`, `models.yaml` and `project.yaml`, and asks for git URLs until you are done. You talk to
-the **orchestrator**, any CLI agent started with `swe-cli orchestrate <project>` in that directory. It picks a
-workflow and runs it; every node is one agent; the **gate** merges. See [workflows.md](workflows.md).
+the **manager**, any CLI agent started with `swe-cli orchestrate <project>` (or just `claude`, `codex`, `omp`, `opencode` in that
+directory). A question (`/swe:how ...`) it answers itself; work that matches a workflow it runs as a DAG; every node is one agent; every node is one agent; the **gate** merges. See [workflows.md](workflows.md).
 
 ```text
-you → orchestrator: "add cancel-order and a Cancel button"
-orchestrator:    swe-cli flow run orders feature --goal "..."
+you → manager: "add cancel-order and a Cancel button"
+manager:         swe-cli flow run orders feature --goal "..."
 workflow:        plan → two cards in parallel (build → checks → review by another family) → report
-orchestrator:    reads the report: "2 PRs ready"; you say "merge"; it runs flow merge, then flow clean
-you → orchestrator: "add github.com/acme/billing-api to this project"     (it runs swe-cli project add)
+manager:         reads the report: "2 PRs ready"; you say "merge"; it runs flow merge, then flow clean
+you → manager: "add github.com/acme/billing-api to this project"     (it runs swe-cli project add)
 ```
 
 Your commands:
@@ -87,8 +87,8 @@ Your commands:
 ```bash
 swe-cli init [dir] [--repo <git url>]...   # make a directory a project, add repos
 swe-cli project add <git url>              # another repo in this project (project.yaml + clone)
-swe-cli orchestrate <name>                 # start the project's orchestrator (any CLI) in its directory
-swe-cli flow run|status|retry|merge|clean|stop ...   # what the orchestrator runs; you can too
+swe-cli orchestrate <name>                 # start the project's manager (any CLI) in its directory
+swe-cli flow run|status|retry|merge|clean|stop ...   # what the manager runs; you can too
 swe-cli models show | check | apply        # who runs on which model
 swe-cli delegate status <project>          # live cards: state, outcome, behind main
 tmux attach -t <project>-<card>            # watch or take over a session (or open it in Orca)

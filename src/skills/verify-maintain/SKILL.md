@@ -20,7 +20,7 @@ or a regression (report it).
 1. **Find the target:** `.agents/skills/verify-*/` (or `.claude/skills/verify-*/`). None: use the
    **verify-create** skill instead.
 2. **Index:** fix missing, extra or dead entries in `features/README.md`.
-3. **Source pass:** one read-only subagent per feature file (tier `low` or `mid`), in parallel. Each
+3. **Source pass:** one read-only subagent per feature file (the `verifier` or `developer` agent), in parallel. Each
    checks the feature against the code (routes in the Fiber router, the OpenAPI file, Next.js `app/`
    routes or React Router routes, topic names, model entry points) and returns drift with `file:line`
    and one drive recipe.
