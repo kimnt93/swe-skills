@@ -12,6 +12,8 @@ do a node's work.
 ```
 orders/
   AGENTS.md          the orchestrator's instructions (read by Claude Code, Codex, oh-my-pi)
+  PROJECT.md         stack, dependencies, commands, conventions, gotchas; under 2000 words, kept by the manager
+  skills/            the project's own skills; `learn` is created by init, the manager adds topics here
   project.yaml       name, default cli, and the repos: git url, github owner/repo, folder, hotspots
   workflows/*.yaml   this project's copy of the workflows (edit them; they override the bundled ones)
   roles.yaml         the roles (skills, harness, tier, effort); a role here replaces the bundled one
@@ -22,6 +24,20 @@ orders/
 `swe-cli project add <git url>` (or the orchestrator, when you ask) adds a repo to `project.yaml` and clones it.
 The command finds the project from the current directory upward (`project.yaml`), or by name from anywhere
 (`~/.swe/workspaces.yaml`, written by `init`).
+
+`swe-cli init <new dir>` creates the directory with these files; `swe-cli init` inside an existing directory adds
+them and keeps what is there. `swe-cli project notes` checks `PROJECT.md` against the 2000-word limit.
+
+## Skills per node, and self-improvement
+
+A node's brief tells the agent which `swe` skills to enable (only those of its role, from `roles.yaml`) and to
+disable the other `swe` skills. Skills from the agent's system or harness stay available. Every brief says to
+read `PROJECT.md` first and lists the project's own skills.
+
+Each agent ends its report with `## Learned`: up to five durable facts. The run report collects them. After the
+merge, and before `flow clean`, the manager folds them into `PROJECT.md` with the project's `learn` skill; detail
+that would push the file past 2000 words moves into `skills/<topic>/SKILL.md`. Agents never edit `PROJECT.md`
+themselves, so parallel nodes cannot collide.
 
 ## A workflow
 

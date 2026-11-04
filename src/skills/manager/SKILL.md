@@ -15,11 +15,13 @@ merge or resolve conflicts yourself.
 
 ## Before you start a run
 
-1. `swe-cli doctor <project>`: any PROBLEM (git credentials, a missing clone, a central clone off `main`) is
+1. Read `PROJECT.md` in the project directory (stack, dependencies, commands, conventions) and the project's own
+   `skills/` that match the request. Follow them; they are what earlier runs learned.
+2. `swe-cli doctor <project>`: any PROBLEM (git credentials, a missing clone, a central clone off `main`) is
    fixed or reported first. A run with a failing fetch is refused anyway.
-2. Read the repo's `ARCHITECTURE.md`, `AGENTS.md` and the open issues (`gh issue list`). The architecture is
+3. Read the repo's `ARCHITECTURE.md`, `AGENTS.md` and the open issues (`gh issue list`). The architecture is
    the contract every run must respect.
-3. Restate the goal and its done-predicate (the command that proves it) in one line. No predicate, no run:
+4. Restate the goal and its done-predicate (the command that proves it) in one line. No predicate, no run:
    ask the requester for it.
 
 ## Pick the workflow
@@ -60,6 +62,10 @@ swe-cli flow merge <project> <run>               # the merge gate for each ready
 swe-cli flow merge <project> <run> --approved    # only after the human said yes (money-path always waits)
 swe-cli flow clean <project> <run>               # sessions, worktrees, branches, records and the tmp directory
 ```
+
+After the merge, and before `flow clean` deletes the reports, fold the run report's `## Learned` bullets into
+`PROJECT.md` with the project's `learn` skill (`skills/learn/SKILL.md`), and run `swe-cli project notes`: the file
+stays under 2000 words, the rest moves into a project skill.
 
 Merge only PRs the run report lists as ready. Clean only after the merge; a run with an open PR keeps
 its worktrees until then. Nothing of a finished run stays on the machine.

@@ -14,6 +14,10 @@ First release.
 - `swe-cli` (`<plugin>-cli`, linked by `make cli`): `swe-cli init` turns a directory into a project: `AGENTS.md` for the
   orchestrator, `workflows/*.yaml`, `roles.yaml`, `models.yaml` and `project.yaml` (the repo URLs and their folders), then
   asks for git URLs until you are done and clones them. `swe-cli project add <git url>` adds one later; the manager can too.
+- Projects improve themselves: `PROJECT.md` (under 2000 words, checked by `swe-cli project notes`) and `skills/` (with a `learn`
+  skill) are created by `init`; every node reads them, reports `## Learned` facts, and the manager folds them in. A node's brief
+  enables only its role's `swe` skills and disables the other `swe` skills; system skills stay available. Briefs and
+  `AGENTS.md` are structured markdown.
 - Workflows: YAML DAGs run by a small Python runner (`swe-cli flow`). Each node is one agent with only the skills of its
   role, on the harness, model and effort that fit it; nodes run in parallel and write reports to a tmp directory; the
   manager merges the ready PRs through the gate and `flow clean` removes sessions, worktrees, branches and tmp files. A

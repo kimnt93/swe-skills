@@ -172,7 +172,7 @@ variable always wins.
 
 ```bash
 mkdir orders && cd orders
-swe-cli init                          # AGENTS.md (the orchestrator), workflows/, roles.yaml, models.yaml, project.yaml;
+swe-cli init                          # AGENTS.md (the orchestrator), PROJECT.md, skills/, workflows/, roles.yaml, models.yaml, project.yaml;
                                       # then asks for git URLs until you are done, and clones each one here
 swe-cli project add <git url>         # later, from the shell, or ask the orchestrator to do it
 swe-cli orchestrate orders            # start the manager agent (any CLI) in this directory
@@ -182,7 +182,8 @@ The manager takes a request, picks a **workflow** and runs it (`swe-cli flow run
 A workflow is a YAML DAG: every node is one agent with only the skills its role needs, on the harness, model
 and effort that fit it (documentation runs on the smallest model). Nodes run in parallel, write a report to
 a tmp directory, and the last node reports to the manager, which merges the PRs through the gate and runs
-`swe-cli flow clean` so nothing stays on the machine. A reviewer agent resolves conflicts when a branch is behind.
+`swe-cli flow clean` so nothing stays on the machine. What the agents learn is folded into `PROJECT.md` (under 2000
+words) and project skills, so the next run starts smarter. Use `swe-cli init <new dir>` or run it in an existing directory. A reviewer agent resolves conflicts when a branch is behind.
 
 Design: [`docs/workflows.md`](docs/workflows.md) (the YAML, roles, reports), [`docs/architecture.md`](docs/architecture.md),
 [`docs/agents-and-skills.md`](docs/agents-and-skills.md). Commands: `cli/README.md`.
