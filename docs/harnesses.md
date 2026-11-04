@@ -63,12 +63,12 @@ Claude Code, Codex and omp), `DRY_RUN=1` (show what would happen). A harness tha
 | Use | Harnesses |
 |---|---|
 | interactive coding with the skills | all of the above |
-| a **delegated session** (unattended, started by a project manager with `fleet delegate`) | Claude Code (`claude`) and oh-my-pi (`omp`) |
-| the **fleet's own agents** (root, project managers) | Hermes Agent (`make hermes` also copies the skills for its profiles) |
+| a **delegated session** (unattended, started by a project manager with `swe-cli delegate`) | Claude Code (`claude`) and oh-my-pi (`omp`) |
+| the **project's own agents** (root, project managers) | Hermes Agent (`make hermes` also copies the skills for its profiles) |
 
-Codex and the other harnesses use the same skills by hand; the fleet drives only the two coding CLIs.
-A new coding CLI needs a branch in `fleet/bin/fleet` (`argv`) and an entry under `clis:` and
-`workers:` in `fleet/models.yaml`.
+Codex and the other harnesses use the same skills by hand; workflows drive only the coding CLIs.
+A new coding CLI needs a branch in `cli/bin/main` (`argv`) and an entry under `clis:` and
+`workers:` in `cli/models.yaml`.
 
 ## Check an install
 

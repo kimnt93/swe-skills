@@ -53,31 +53,31 @@ PR → optional cross-family review → human merge. One card, then 3, then abou
 
 ### Steps
 
-1. `bash fleet/tests/selftest.sh` passes (add `--hermes` only if you use Hermes). `ln -sf "$PWD"/fleet/bin/fleet ~/.local/bin/fleet`.
+1. `bash cli/tests/selftest.sh` passes (add `--hermes` only if you use Hermes). `make cli`.
 2. **Human logins** (interactive), once each: `claude auth login`, `codex login`, `omp login openai-codex`, `gh auth login`
    (whichever CLIs you use). Only with Hermes enabled: on the Hermes **default** profile `hermes auth add gemini`
-   (a non-Claude provider: Claude cannot be the Hermes orchestrator); `/sync` (or `fleet sync`) shares the keys
+   (a non-Claude provider: Claude cannot be the Hermes orchestrator); `/sync` (or `swe-cli sync`) shares the keys
    ([context-and-sync.md](context-and-sync.md)).
-3. Pick exact ids with `omp models ls`; edit `fleet/models.yaml` (`orchestrator`, `launcher`, `workers`); then
-   `fleet models check` reports only logins.
-4. `fleet bootstrap` (projects, model roles, context limits; with Hermes also root, managers, board settings).
-5. **Add the pilot project:** `fleet project add <name> --dir ~/work/<name> --repo <repo>=<owner>/<repo> --description "..."`
+3. Pick exact ids with `omp models ls`; edit `cli/models.yaml` (`orchestrator`, `launcher`, `workers`); then
+   `swe-cli models check` reports only logins.
+4. `swe-cli bootstrap` (projects, model roles, context limits; with Hermes also root, managers, board settings).
+5. **Add the pilot project:** `swe-cli project add <name> --dir ~/work/<name> --repo <repo>=<owner>/<repo> --description "..."`
    (it creates the directory and clones the repo; with Hermes also the manager `pm-<name>` and the board), then
-   `fleet models check` = 0 problems. Start the orchestrator with `fleet orchestrate <name>` and ask it to adopt the
+   `swe-cli models check` = 0 problems. Start the orchestrator with `swe-cli orchestrate <name>` and ask it to adopt the
    repo (the `project` skill: `setup_repo.sh`, templates, `ARCHITECTURE.md`).
-6. **One card:** `fleet doctor <name>` is clean, then a small `risk: low`, `tier: mid` card started by the orchestrator
-   (issue first, then `fleet delegate start`; see [delegation.md](delegation.md)). Watch with
-   `tmux attach -t <name>-<card>` (or the Orca terminal) and `fleet delegate status <name>`. Check the PR, `make verify`, and the
-   cross-family review (`fleet delegate review`) and its verdict SHA. **Human** merges.
-7. Fix whatever broke, with a test in `fleet/tests/selftest.sh`, before the next step.
+6. **One card:** `swe-cli doctor <name>` is clean, then a small `risk: low`, `tier: mid` card started by the orchestrator
+   (issue first, then `swe-cli delegate start`; see [delegation.md](delegation.md)). Watch with
+   `tmux attach -t <name>-<card>` (or the Orca terminal) and `swe-cli delegate status <name>`. Check the PR, `make verify`, and the
+   cross-family review (`swe-cli delegate review`) and its verdict SHA. **Human** merges.
+7. Fix whatever broke, with a test in `cli/tests/selftest.sh`, before the next step.
 8. Three independent cards with disjoint files, across two CLIs, then about five; then one rough goal given to the orchestrator and split by it.
 
 ### Verify
 
 ```bash
-fleet models check                                   # 0 problem(s)
+swe-cli models check                                   # 0 problem(s)
 hermes kanban diagnostics --board <name>            # no errors, nothing stranded
-fleet delegate status <name>                         # every card: state, outcome, behind main
+swe-cli delegate status <name>                         # every card: state, outcome, behind main
 gh pr list --state merged --repo <owner>/<repo>       # merged PRs
 ```
 
@@ -95,16 +95,16 @@ is a configuration change plus a sampling habit.
 
 ### What exists
 
-- `fleet merge <pr> --risk <r> --sha <sha>`: merges only an allowed risk class, at the reviewer's
+- `swe-cli merge <pr> --risk <r> --sha <sha>`: merges only an allowed risk class, at the reviewer's
   verified SHA, with every required check passed; never money-path; never a PR without required
   checks. The manager calls it after a clean verdict, or with `--approved` when you say merge. It also refuses a branch that is behind or in conflict with `main`.
-- `autopilot.auto_merge` in `fleet/models.yaml`, empty by default.
+- `autopilot.auto_merge` in `cli/models.yaml`, empty by default.
 
 ### Steps
 
 1. Gate: runbook 2 is done (20 clean merges). If not, stop.
-2. Pin model ids in `fleet/models.yaml` (replace the `opus` / `sonnet` / `haiku` aliases with full
-   ids) so no model changes during an autopilot run. `fleet models check && fleet models apply`.
+2. Pin model ids in `cli/models.yaml` (replace the `opus` / `sonnet` / `haiku` aliases with full
+   ids) so no model changes during an autopilot run. `swe-cli models check && swe-cli models apply`.
 3. **Human:** set `autopilot.auto_merge: [low]`.
 4. Add the sampling jobs with `hermes cron`: weekly, list the week's auto-merged PRs for the human to
    read; daily, a triage card for every red CI run on main.
@@ -113,8 +113,8 @@ is a configuration change plus a sampling habit.
 ### Verify
 
 ```bash
-bash fleet/tests/selftest.sh          # the merge guard cases
-fleet models show | tail -1           # autopilot auto_merge: ['low']
+bash cli/tests/selftest.sh          # the merge guard cases
+swe-cli models show | tail -1           # autopilot auto_merge: ['low']
 hermes cron list
 ```
 
@@ -127,11 +127,11 @@ A new model ships (say Opus 6), a model is retired, or a CLI's cost or quality c
 ### Steps
 
 1. `claude update`: the `claude` workers' `opus` / `sonnet` / `haiku` aliases now mean the newest
-   models, unless `fleet/models.yaml` pins full ids.
-2. Edit `fleet/models.yaml` where needed: pinned worker ids, the omp workers, the board
+   models, unless `cli/models.yaml` pins full ids.
+2. Edit `cli/models.yaml` where needed: pinned worker ids, the omp workers, the board
    brains, `omp_roles`, the subagents' tiers.
-3. `fleet models check`: 0 problems (each id exists where it runs, each provider is logged in).
-4. `fleet models apply`, then `fleet models show`.
+3. `swe-cli models check`: 0 problems (each id exists where it runs, each provider is logged in).
+4. `swe-cli models apply`, then `swe-cli models show`.
 5. `make claude omp hermes`, so the plugin's subagents get the new models.
 6. For a change to the managers' model (`board.manager`), run the router's `eval` playbook first: 10 past goals
    through the old and the new model, card graphs scored blind. Switch only if the new one is not

@@ -63,7 +63,7 @@ variable always wins.
 ## Skills
 
 <!-- skills:start -->
-31 skills in 6 groups. Click a skill for its detail.
+40 skills in 6 groups. Click a skill for its detail.
 
 ### Start here
 
@@ -78,18 +78,27 @@ variable always wins.
 | [architect](docs/skills/process.md#architect) | Sketch types and module shape twice, pick one, then implement against it |
 | [benchmark-checklist](docs/skills/process.md#benchmark-checklist) | Vet a measured number before you report it or act on it |
 | [blast-radius](docs/skills/process.md#blast-radius) | Find what a change could break elsewhere, and prove why it is safe |
+| [ci-fixer](docs/skills/process.md#ci-fixer) | CI fixer: reproduce a red check locally, fix the cause in the card's files, never weaken the check |
 | [correct](docs/skills/process.md#correct) | Make a repeated agent mistake impossible with a check, not a sentence |
 | [deslop](docs/skills/process.md#deslop) | Clean a diff before review: debug output, dead code, noisy comments |
+| [developer](docs/skills/process.md#developer) | Developer: one card in one worktree, test first, verify on the head, push and open the PR |
+| [documenter](docs/skills/process.md#documenter) | Documenter: update docs true to the code, check every command and path, open the PR |
 | [formal-verify](docs/skills/process.md#formal-verify) | Check state machines, races and retries across every case in a bounded scope |
 | [github](docs/skills/process.md#github) | Branch, commit, PR, issue, review and merge the one way, with a check after each step |
 | [how](docs/skills/process.md#how) | Explain how a part of the codebase works, with file:line evidence |
+| [intake](docs/skills/process.md#intake) | Intake: turn chat feedback into one clear goal per project, deduped and risk-classified |
+| [integrator](docs/skills/process.md#integrator) | Integrator: rebase a PR on main, resolve conflicts only in its own files, re-verify, re-review |
 | [interrogate](docs/skills/process.md#interrogate) | Adversarial review where only findings proven by a run survive |
 | [ketchup](docs/skills/process.md#ketchup) | Plain-words catch-up on what changed and what waits on you |
+| [manager](docs/skills/process.md#manager) | Manager: pick the workflow for a request, start it, watch it, handle approvals, report |
+| [planner](docs/skills/process.md#planner) | Planner: split a goal into PR-sized cards with disjoint files, risks and tiers, as a JSON plan |
 | [principles](docs/skills/process.md#principles) | 22 engineering principles; the router opens the ones that apply (money-path, idempotency, ...) |
 | [project](docs/skills/process.md#project) | Run a project's docs, GitHub repo setup, backlog and status |
 | [reflect](docs/skills/process.md#reflect) | Turn a long task's lessons into approved skill edits or new checks |
 | [replay-test](docs/skills/process.md#replay-test) | Prove money-path code on a recorded day, with duplicate and redelivery runs |
+| [reviewer](docs/skills/process.md#reviewer) | Reviewer: read-only verdict on one SHA, only findings proven by a run, PASS or FAIL |
 | [tdd](docs/skills/process.md#tdd) | Failing test first, then the smallest change that makes it pass |
+| [verifier](docs/skills/process.md#verifier) | Verifier: run the real app against the feature map, file regressions, list findings; edits nothing |
 | [verify-create](docs/skills/process.md#verify-create) | Give a project make verify and a verify skill that drives it like a user |
 | [verify-maintain](docs/skills/process.md#verify-maintain) | Keep the verify skill and its feature map true as the app changes |
 | [why](docs/skills/process.md#why) | Find the history and reasons behind code before changing or removing it |
@@ -146,42 +155,47 @@ variable always wins.
 
 | Target | What it does |
 |---|---|
-| `make build` | render `dist/<name>/` from `src/` and `fleet/skills` |
+| `make build` | render `dist/<name>/` from `src/` |
 | `make validate` | build, then validate (names, links, groups, portability, placeholders) |
 | `make <harness>` | build, validate, install: `claude codex omp hermes opencode ...` (`make agents` lists all) |
 | `make install` | every harness found on this machine |
 | `make <harness> REMOVE=1` | uninstall (only what this tool installed) |
-| `make test` | build, enforcement, frontend and fleet tests |
+| `make cli` | link the `<name>-cli` command into `~/.local/bin` |
+| `make test` | build, enforcement, frontend and cli tests |
 | `make docs` | regenerate `docs/skills.md` from the skills |
 | `make package` | `dist/<name>-<version>.zip` |
 | `make publish` | release `dist/<name>/` into a publish repo, commit and tag (`PUSH=1` pushes) |
 
-## The fleet
+## The command: `swe-cli`
 
-`fleet/` runs the plugin's agents, one directory per project (`fleet project add`: a directory that holds one or more repo clones):
+`make cli` links `<name>-cli` (default `swe-cli`) into `~/.local/bin`. A project is a directory:
 
-- **orchestrator**: any CLI agent (Claude Code, Codex, oh-my-pi), started in the project directory by
-  `fleet orchestrate <project>`. It turns goals into GitHub issues and cards that respect the project's
-  `ARCHITECTURE.md`, and never edits code. Hermes managers are an optional alternative (`board.enabled`).
-- **coding sessions**: the orchestrator starts Claude Code, Codex or oh-my-pi in a session (tmux, or an Orca terminal)
-  and a git worktree per card (`fleet delegate`), so several agents code in one repo with few conflicts; another CLI
-  family reviews on request. Two projects may clone the same GitHub repo; their cards are kept apart by branches.
-- **the merge gate** (`fleet merge`): squash-merges only at the reviewed SHA with green required
-  checks, and only for risk classes autopilot allows or with the human's approval.
+```bash
+mkdir orders && cd orders
+swe-cli init                          # AGENTS.md (the orchestrator), workflows/, roles.yaml, models.yaml, project.yaml;
+                                      # then asks for git URLs until you are done, and clones each one here
+swe-cli project add <git url>         # later, from the shell, or ask the orchestrator to do it
+swe-cli orchestrate orders            # start the manager agent (any CLI) in this directory
+```
 
-Every agent and model is set in `fleet/models.yaml`, every project in `fleet/projects.yaml`. Design:
-[`docs/architecture.md`](docs/architecture.md). Which agent gets which skills and GitHub rights:
-[`docs/agents-and-skills.md`](docs/agents-and-skills.md). Commands: `fleet/README.md`.
+The manager takes a request, picks a **workflow** and runs it (`swe-cli flow run orders feature --goal "..."`).
+A workflow is a YAML DAG: every node is one agent with only the skills its role needs, on the harness, model
+and effort that fit it (documentation runs on the smallest model). Nodes run in parallel, write a report to
+a tmp directory, and the last node reports to the manager, which merges the PRs through the gate and runs
+`swe-cli flow clean` so nothing stays on the machine. A reviewer agent resolves conflicts when a branch is behind.
+
+Design: [`docs/workflows.md`](docs/workflows.md) (the YAML, roles, reports), [`docs/architecture.md`](docs/architecture.md),
+[`docs/agents-and-skills.md`](docs/agents-and-skills.md). Commands: `cli/README.md`.
 
 ## Layout
 
 ```
 plugin.env           build settings (name, owner, version, domain, description)
 src/skills/          the skills; src/skills/router/ becomes /<name>
-src/agents/          Claude Code subagents (worker, adversary); models from fleet/models.yaml
+src/agents/          Claude Code subagents (worker, adversary); models from cli/models.yaml
 src/manifests/       plugin manifests with placeholders
 scripts/             build.py, install.py, validate_skills.py, gen_docs.py, publish.sh
-fleet/               models.yaml, projects.yaml, the fleet command, fleet skills, self-test
+cli/                 the `<name>-cli` command, workflows/, roles.yaml, models.yaml, briefs, tests
 docs/                architecture.md (the design), agents-and-skills.md (the recommended setup)
 tests/               build_test.sh, enforcement_test.sh, fixtures
 LICENSES/           the MIT notice for the pstack ideas the first version started from

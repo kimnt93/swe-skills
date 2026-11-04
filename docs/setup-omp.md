@@ -35,20 +35,20 @@ cd ~/code/orders && omp
 Useful flags: `--model <provider/id>`, `--thinking low|medium|high`, `-p` (print mode),
 `--max-time 45m`, `--approval-mode yolo` (only in a disposable worktree).
 The model roles omp uses for its own subagents (`default`, `smol`, `slow`) are written by
-`fleet models apply` from `omp_roles` in `fleet/models.yaml`.
+`swe-cli models apply` from `omp_roles` in `cli/models.yaml`.
 
 ## 4. Run it unattended (the orchestrator starts it in a worktree)
 
-A project's orchestrator runs `fleet delegate start --cli omp`, which starts `omp --model <id> --thinking <level>
+A project's orchestrator runs `swe-cli delegate start --cli omp`, which starts `omp --model <id> --thinking <level>
 --approval-mode yolo` interactively in a session (tmux or an Orca terminal) inside a git worktree for each card
-([delegation.md](delegation.md)). `fleet lane` keeps the headless one-shot form (`omp -p ... --max-time 45m`).
+([delegation.md](delegation.md)). `swe-cli lane` keeps the headless one-shot form (`omp -p ... --max-time 45m`).
 
 ```bash
-export FLEET_MODELS=fleet/examples/models.omp-only.yaml    # one CLI: omp
-fleet models check          # every id must exist in `omp models ls`; fix models.yaml if not
-fleet project add orders --dir ~/work/orders --repo api=acme/orders-api --cli omp
-fleet doctor orders
-fleet orchestrate orders --cli omp    # omp as the orchestrator too
+export SWE_MODELS=cli/examples/models.omp-only.yaml    # one CLI: omp
+swe-cli models check          # every id must exist in `omp models ls`; fix models.yaml if not
+swe-cli project add orders --dir ~/work/orders --repo api=acme/orders-api --cli omp
+swe-cli doctor orders
+swe-cli orchestrate orders --cli omp    # omp as the orchestrator too
 ```
 
 Tiers in the default file:
@@ -62,7 +62,7 @@ Tiers in the default file:
 **The reviewer's family:** with one CLI, the reviewer is omp at tier `top`. Make it a
 different model from the one that wrote the card: write `mid` and `low` cards with Gemini or GPT
 and review with the other, by editing `workers.omp` in `models.yaml` (for example `mid` on
-`google-antigravity/gemini-3.8-flash` high and `top` on `openai-codex/gpt-6-sol`). Run `fleet models
+`google-antigravity/gemini-3.8-flash` high and `top` on `openai-codex/gpt-6-sol`). Run `swe-cli models
 show` to see the result.
 
 ## 5. Context limit
@@ -71,11 +71,11 @@ Nothing per model: log in and use the model. omp compacts at one global threshol
 `compaction.thresholdTokens`, set to 245000 (the default policy, the same as Codex):
 
 ```bash
-fleet context apply      # writes compaction.thresholdTokens into ~/.omp/agent/config.yml (backup kept)
+swe-cli context apply      # writes compaction.thresholdTokens into ~/.omp/agent/config.yml (backup kept)
 omp config get compaction.thresholdTokens
 ```
 
-Change it under `context.default` in `fleet/models.yaml`. Details: [context-and-sync.md](context-and-sync.md).
+Change it under `context.default` in `cli/models.yaml`. Details: [context-and-sync.md](context-and-sync.md).
 
 ## 6. Plugin skills for omp's own agents
 

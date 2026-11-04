@@ -15,7 +15,7 @@ when to use it, what to say, what happens, what you get, and its files.
 ## Skills
 
 <!-- skills:start -->
-31 skills in 6 groups. Click a skill for its detail.
+40 skills in 6 groups. Click a skill for its detail.
 
 ### Start here
 
@@ -30,18 +30,27 @@ when to use it, what to say, what happens, what you get, and its files.
 | [architect](process.md#architect) | Sketch types and module shape twice, pick one, then implement against it |
 | [benchmark-checklist](process.md#benchmark-checklist) | Vet a measured number before you report it or act on it |
 | [blast-radius](process.md#blast-radius) | Find what a change could break elsewhere, and prove why it is safe |
+| [ci-fixer](process.md#ci-fixer) | CI fixer: reproduce a red check locally, fix the cause in the card's files, never weaken the check |
 | [correct](process.md#correct) | Make a repeated agent mistake impossible with a check, not a sentence |
 | [deslop](process.md#deslop) | Clean a diff before review: debug output, dead code, noisy comments |
+| [developer](process.md#developer) | Developer: one card in one worktree, test first, verify on the head, push and open the PR |
+| [documenter](process.md#documenter) | Documenter: update docs true to the code, check every command and path, open the PR |
 | [formal-verify](process.md#formal-verify) | Check state machines, races and retries across every case in a bounded scope |
 | [github](process.md#github) | Branch, commit, PR, issue, review and merge the one way, with a check after each step |
 | [how](process.md#how) | Explain how a part of the codebase works, with file:line evidence |
+| [intake](process.md#intake) | Intake: turn chat feedback into one clear goal per project, deduped and risk-classified |
+| [integrator](process.md#integrator) | Integrator: rebase a PR on main, resolve conflicts only in its own files, re-verify, re-review |
 | [interrogate](process.md#interrogate) | Adversarial review where only findings proven by a run survive |
 | [ketchup](process.md#ketchup) | Plain-words catch-up on what changed and what waits on you |
+| [manager](process.md#manager) | Manager: pick the workflow for a request, start it, watch it, handle approvals, report |
+| [planner](process.md#planner) | Planner: split a goal into PR-sized cards with disjoint files, risks and tiers, as a JSON plan |
 | [principles](process.md#principles) | 22 engineering principles; the router opens the ones that apply (money-path, idempotency, ...) |
 | [project](process.md#project) | Run a project's docs, GitHub repo setup, backlog and status |
 | [reflect](process.md#reflect) | Turn a long task's lessons into approved skill edits or new checks |
 | [replay-test](process.md#replay-test) | Prove money-path code on a recorded day, with duplicate and redelivery runs |
+| [reviewer](process.md#reviewer) | Reviewer: read-only verdict on one SHA, only findings proven by a run, PASS or FAIL |
 | [tdd](process.md#tdd) | Failing test first, then the smallest change that makes it pass |
+| [verifier](process.md#verifier) | Verifier: run the real app against the feature map, file regressions, list findings; edits nothing |
 | [verify-create](process.md#verify-create) | Give a project make verify and a verify skill that drives it like a user |
 | [verify-maintain](process.md#verify-maintain) | Keep the verify skill and its feature map true as the app changes |
 | [why](process.md#why) | Find the history and reasons behind code before changing or removing it |
@@ -118,6 +127,6 @@ when to use it, what to say, what happens, what you get, and its files.
 ## Conventions every skill follows
 
 - A short `SKILL.md` router, one topic per file in `references/`, tested files in `assets/` and `scripts/`.
-- A skill names a *tier* (`top`, `mid`, `low`), never a model; model ids live in `fleet/models.yaml`.
+- A skill names a *tier* (`top`, `mid`, `low`), never a model; model ids live in `cli/models.yaml`.
 - A claim carries its evidence or a label (measured, inferred, guess); "done" means `make verify` passed.
 - Anything a skill ships that runs has a test (a `--self-test`, a Go test, or a case in `tests/`).

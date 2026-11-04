@@ -67,31 +67,31 @@ closed. Say `/swe:github open the PR for this branch` and it writes the body, li
 checks the result. A good submit is one feature function, at most about 400 changed lines, simple
 code, only the files the task allows, and the project's `ARCHITECTURE.md` respected.
 
-## With the fleet (several projects, unattended)
+## With a project of agents (unattended)
 
-You talk to the project's **orchestrator**: any CLI agent started with `fleet orchestrate <project>` in the project
-directory (with Hermes on, the root profile routes a chat message to the project's manager instead). It turns the goal
-into GitHub issues and briefs; it starts Claude Code, Codex or oh-my-pi in a session and worktree per card
-(`fleet delegate`, see [delegation.md](delegation.md)); the **gate** merges.
+A project is a directory. In it, `swe-cli init` writes `AGENTS.md` (the orchestrator's instructions), the
+workflows, `roles.yaml`, `models.yaml` and `project.yaml`, and asks for git URLs until you are done. You talk to
+the **orchestrator**, any CLI agent started with `swe-cli orchestrate <project>` in that directory. It picks a
+workflow and runs it; every node is one agent; the **gate** merges. See [workflows.md](workflows.md).
 
 ```text
 you → orchestrator: "add cancel-order and a Cancel button"
-orchestrator:    issues #41, #42; two delegated sessions with risk, tier, files, evidence
-sessions:        PRs "feat(orders): cancel an open order" (Closes #41) ...
-you → orchestrator: "merge 41"      (money-path always waits for you)
+orchestrator:    swe-cli flow run orders feature --goal "..."
+workflow:        plan → two cards in parallel (build → checks → review by another family) → report
+orchestrator:    reads the report: "2 PRs ready"; you say "merge"; it runs flow merge, then flow clean
+you → orchestrator: "add github.com/acme/billing-api to this project"     (it runs swe-cli project add)
 ```
 
 Your commands:
 
 ```bash
-fleet project add <name> --dir <path> --repo api=<owner/repo> [--repo web=<owner/repo2>] --description "..."
-fleet orchestrate <name>                 # start the project's orchestrator (any CLI) in its directory
-fleet models show | check | apply        # who runs on which model
-fleet context show | apply               # context limits per tool
-fleet sync                               # Hermes only (or /sync): log in once on default, share with every profile
-fleet delegate status <project>          # live cards: state, outcome, behind main
-tmux attach -t <project>-<card>          # watch or take over a session (or open it in Orca)
-fleet merge <pr> --repo <owner/repo> --risk <r> --sha <verified sha> --approved   # or ask the orchestrator
+swe-cli init [dir] [--repo <git url>]...   # make a directory a project, add repos
+swe-cli project add <git url>              # another repo in this project (project.yaml + clone)
+swe-cli orchestrate <name>                 # start the project's orchestrator (any CLI) in its directory
+swe-cli flow run|status|retry|merge|clean|stop ...   # what the orchestrator runs; you can too
+swe-cli models show | check | apply        # who runs on which model
+swe-cli delegate status <project>          # live cards: state, outcome, behind main
+tmux attach -t <project>-<card>            # watch or take over a session (or open it in Orca)
 ```
 
 Risk classes decide what waits for you: `money-path` always; `standard` until you turn on
