@@ -2,7 +2,7 @@
 
 - **One container per pipeline**, built from `assets/template/Dockerfile` (non-root, state volume at `/var/lib/pw-state`).
 - **Swarm**: one replica, `restart_policy: on-failure`, the state directory on a named volume, Kafka credentials as secrets
-  (`KAFKA_PASSWORD_FILE`), `stop_grace_period` long enough to flush (30 s). Compose and Traefik conventions:
+  (`KAFKA_SASL_PASSWORD_FILE`), `stop_grace_period` long enough to flush (30 s). Compose and Traefik conventions:
   the `deployment-setup` skill. A streaming job has no HTTP port; if the platform wants a health check, expose none and rely
   on `stream_pipeline_running` and the last-message-age alert instead.
 - **Scaling**: Pathway scales with threads/processes (`PATHWAY_THREADS`, `PATHWAY_PROCESSES`) before replicas. Two replicas in

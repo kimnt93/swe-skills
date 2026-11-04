@@ -406,7 +406,9 @@ def run_agent(run: Run, wf: dict, ctx: dict, name: str, node: dict, attempt: int
     branch = None
     if workspace == "new":
         kind = spec.get("branch_type", "feat")
-        branch = spec.get("branch") or f"{kind}/{run.id}-{slug(ctx['prefix'] + name)}"[:60].rstrip("-")
+        issue_no = str(spec.get("issue") or ctx.get("item", {}).get("issue") or "").lstrip("#")
+        number = issue_no if issue_no.isdigit() else (re.sub(r"\D", "", run.id) or "0")   # pr_lint: <type>/<issue>-<slug>
+        branch = spec.get("branch") or f"{kind}/{number}-{run.id}-{slug(ctx['prefix'] + name)}"[:60].rstrip("-")
     risk = str(spec.get("risk") or ctx["inputs"].get("risk") or "standard")
     goal = str(spec.get("goal") or ctx["inputs"].get("goal") or "")
     if extra and extra.get("failure"):
@@ -519,6 +521,14 @@ def poll(run: Run, key: str, record: dict, timeout: int) -> dict:
 # ------------------------------------------------------------------------------------------------ other node types
 
 
+def no_workflows(github: str) -> bool:
+    """True when the GitHub repo has no Actions workflows at all, so no check will ever be reported."""
+    if not github:
+        return False
+    result = subprocess.run(["gh", "api", f"repos/{github}/actions/workflows", "--jq", ".total_count"], capture_output=True, text=True)
+    return result.returncode == 0 and result.stdout.strip() == "0"
+
+
 def run_checks(run: Run, ctx: dict, name: str, node: dict) -> dict:
     key = ctx["prefix"] + name
     build = run.node(ctx["prefix"] + node.get("pr_from", "build"))
@@ -547,7 +557,7 @@ def run_checks(run: Run, ctx: dict, name: str, node: dict) -> dict:
                 raise NodeFail("checks are red: " + ", ".join(red), "failed", fixable=True)
             if not pending:
                 return {"checks": len(checks)}
-        elif not checks and time.time() > grace:
+        elif not checks and (time.time() > grace or no_workflows(github)):
             # a repo with no CI reports no checks at all: do not wait out the timeout; the merge gate still refuses it
             return {"checks": 0, "note": "the repo reports no checks"}
         time.sleep(max(POLL, 1))
@@ -565,7 +575,7 @@ def run_shell(run: Run, ctx: dict, name: str, node: dict) -> dict:
 def run_report(run: Run, wf: dict, ctx: dict, name: str, node: dict) -> dict:
     """The run's last node: the report the manager reads, and the list of PRs that are ready to merge."""
     data = run.data
-    ready, attention = [], []
+    ready, attention, opened = [], [], []
     base, rev = node.get("build", "build"), node.get("review", "review")
     for key, state in sorted(data["nodes"].items()):
         outputs = state.get("outputs", {})
@@ -578,7 +588,10 @@ def run_report(run: Run, wf: dict, ctx: dict, name: str, node: dict) -> dict:
         entry = {"node": key, "repo": record.get("repo"), "github": record.get("github"), "pr": outputs["pr"],
                  "pr_url": outputs.get("pr_url"), "sha": review.get("outputs", {}).get("sha") or outputs.get("sha"),
                  "risk": record.get("risk", "standard"), "card": state["card"], "verdict": verdict}
-        (ready if verdict == "PASS" and review.get("status") == "done" else attention).append(entry)
+        if prefix + rev not in data["nodes"]:
+            opened.append(entry)   # a workflow without a review node (developer mode): the human reviews
+        else:
+            (ready if verdict == "PASS" and review.get("status") == "done" else attention).append(entry)
     failed = {k: v for k, v in data["nodes"].items() if v.get("status") in ("failed", "blocked")}
     lines = [f"# Run {run.id}: {wf['name']} ({run.project})", "", f"goal: {data['inputs'].get('goal', '')}", ""]
     lines += ["| node | status | agent | outcome |", "|---|---|---|---|"]
@@ -586,7 +599,11 @@ def run_report(run: Run, wf: dict, ctx: dict, name: str, node: dict) -> dict:
         outputs = state.get("outputs", {})
         result = outputs.get("pr_url") or outputs.get("verdict") or outputs.get("summary") or state.get("reason", "")
         lines.append(f"| {key} | {state.get('status')} | {state.get('agent', '')} ({state.get('cli', '')} {state.get('model', '')}) | {str(result)[:80]} |")
-    lines += ["", f"ready to merge ({len(ready)}):"] + [f"- #{e['pr']} {e['pr_url']} at {str(e['sha'])[:12]} risk {e['risk']}" for e in ready]
+    if opened:
+        lines += ["", f"open PRs for you to review and merge ({len(opened)}, no review agent in this workflow):"]
+        lines += [f"- #{e['pr']} {e['pr_url']} at {str(e['sha'])[:12]} risk {e['risk']}" for e in opened]
+    else:
+        lines += ["", f"ready to merge ({len(ready)}):"] + [f"- #{e['pr']} {e['pr_url']} at {str(e['sha'])[:12]} risk {e['risk']}" for e in ready]
     if attention:
         lines += ["", "needs attention (no PASS verdict):"] + [f"- #{e['pr']} {e['pr_url']} verdict {e['verdict']}" for e in attention]
     if failed:

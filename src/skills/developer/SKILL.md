@@ -13,6 +13,9 @@ You implement **one card**: the goal, files and branch in your brief. Language a
 
 ## Steps
 
+0. **Branch first.** Your branch must be `<type>/<issue>-<slug>` (the **github** skill). Your brief names it; check
+   `git branch --show-current` against that. If the brief has no issue number, create the issue with `gh issue create`
+   and rename the branch (`git branch -m`) before the first commit. Never commit on `main` or on a branch that breaks the pattern.
 1. Work only in your worktree and only in the card's files. Another file is a new card: stop and say so.
 2. **Test first** (the **tdd** skill): a failing test that states the goal, then the smallest change that passes.
    Money-path cards also get a replay test (**replay-test**).

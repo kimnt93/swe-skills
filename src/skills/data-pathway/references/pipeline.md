@@ -13,7 +13,7 @@ class OrderIn(pw.Schema):
     ts: int            # event time, epoch seconds
 
 orders = pw.io.kafka.read(
-    settings.kafka(),                  # rdkafka dict from config.py
+    settings.kafka(),                  # rdkafka dict from settings/kafka.py
     topic=settings.topic_in,
     schema=OrderIn,
     format="json",

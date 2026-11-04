@@ -42,7 +42,7 @@ make cli                # link the swe-cli command into ~/.local/bin
 ```bash
 mkdir orders && cd orders
 swe-cli project create orders          # asks: project manager (pm) or developer (dev); --mode pm|dev skips the question
-cd orders && swe-cli project orders add <git url>   # add repos one at a time; `swe-cli project init` makes the current directory a project
+cd orders && swe-cli project orders add <git url>   # add repos one at a time; `swe-cli project init` makes the current directory a project (AGENTS.md, PROJECT.md, config.yaml, workflows/)
 swe-cli orchestrate orders    # start the manager (any harness) in this directory, then ask it for work
 swe-cli update                # later: pull main, reinstall everywhere; `swe-cli project update` refreshes this project
 ```

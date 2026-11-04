@@ -5,16 +5,29 @@ description = "Realtime Pathway pipeline: Kafka in, transform, Kafka out."
 requires-python = ">=3.11"
 dependencies = [
     "pathway>=0.26",
+    "msgspec>=0.19",                  # settings conversion
+    "jlogger",                        # unified JSON logs (service-logging skill)
+    "opentelemetry-api>=1.30",
     "opentelemetry-sdk>=1.30",
     "opentelemetry-exporter-otlp-proto-http>=1.30",
+    "sentry-sdk>=2.0",                # error tracking (service-errors skill)
 ]
 
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.8", "pandas>=2"]
 
+[tool.uv.sources]
+jlogger = { git = "https://github.com/kimnt93/jlogger.git" }
+
 [tool.ruff]
 line-length = 79
 src = ["src"]
+# vendored from the service-logging, service-tracing and service-errors skills: update them there
+extend-exclude = [
+    "src/pipeline/observability/service_logging.py",
+    "src/pipeline/observability/service_tracing.py",
+    "src/pipeline/observability/errors.py",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]

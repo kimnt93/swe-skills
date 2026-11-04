@@ -16,7 +16,6 @@ Partition keys, run ids and error text are never labels.
 
 from __future__ import annotations
 
-import os
 import socket
 import threading
 import time
@@ -135,16 +134,18 @@ def set_metrics(metrics: DagsterMetrics | None) -> None:
 def get_metrics() -> DagsterMetrics | None:
     """Built once from the environment; None (a no-op) without an endpoint."""
     global _metrics
-    endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+    from dag.settings import get_settings
+
+    settings = get_settings()
+    endpoint = settings.otel_endpoint
     if _metrics is None and endpoint:
-        service = os.environ.get("SERVICE_NAME", "dagster")
         provider = build_provider(
             endpoint,
-            os.environ.get("OTEL_EXPORTER_OTLP_TOKEN", ""),
-            service,
-            os.environ.get("ENV_NAME", "local"),
+            settings.otel_auth_token.get_secret_value(),
+            settings.service_name,
+            settings.env_name,
         )
-        _metrics = DagsterMetrics(provider, service)
+        _metrics = DagsterMetrics(provider, settings.service_name)
     return _metrics
 
 

@@ -3,7 +3,7 @@ the module named in pyproject.toml's [tool.dagster]."""
 
 from __future__ import annotations
 
-import os
+import atexit
 
 from dagster import (
     AssetSelection,
@@ -16,7 +16,13 @@ from dagster import (
 
 from dag import assets
 from dag.metrics import metrics_sensor
+from dag.observability import setup
 from dag.resources import PostgresOrders
+from dag.settings import get_settings
+
+settings = get_settings()
+# logs, traces and error tracking for the code location; flushed at exit
+atexit.register(setup(settings, component="dagster"))
 
 all_assets = load_assets_from_modules([assets])
 all_checks = load_asset_checks_from_modules([assets])
@@ -39,11 +45,6 @@ defs = Definitions(
     schedules=[daily_schedule],
     sensors=[metrics_sensor],
     resources={
-        "orders": PostgresOrders(
-            host=os.environ.get("POSTGRES_HOST", "127.0.0.1"),
-            port=int(os.environ.get("POSTGRES_PORT", "5432")),
-            database=os.environ.get("POSTGRES_DB", "example"),
-            user=os.environ.get("POSTGRES_USER", "example"),
-        )
+        "orders": PostgresOrders(conninfo=settings.postgres_conninfo),
     },
 )

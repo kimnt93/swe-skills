@@ -58,7 +58,7 @@ Dashboards tolerate absent series. Counters restart from zero with the daemon; `
 ## Transport and auth
 
 OTLP over HTTP to `{OTEL_EXPORTER_OTLP_ENDPOINT}/v1/metrics`; an empty endpoint makes the sensor skip (a no-op). Optional bearer token
-from `OTEL_EXPORTER_OTLP_TOKEN`; never logged.
+from `OTEL_AUTH_TOKEN(_FILE)`; never logged.
 
 ## Extending the contract
 

@@ -9,8 +9,12 @@ dependencies = [
     "dagster-postgres>=0.26",
     "polars>=1.0",
     "psycopg[binary]>=3.2",
+    "msgspec>=0.19",                  # settings conversion
+    "jlogger",                        # unified JSON logs (service-logging skill)
+    "opentelemetry-api>=1.30",
     "opentelemetry-sdk>=1.30",
     "opentelemetry-exporter-otlp-proto-http>=1.30",
+    "sentry-sdk>=2.0",                # error tracking (service-errors skill)
 ]
 
 [dependency-groups]
@@ -20,9 +24,18 @@ dev = ["pytest>=8", "ruff>=0.8"]
 module_name = "dag.definitions"
 code_location_name = "orders"
 
+[tool.uv.sources]
+jlogger = { git = "https://github.com/kimnt93/jlogger.git" }
+
 [tool.ruff]
 line-length = 79
 src = ["src"]
+# vendored from the service-logging, service-tracing and service-errors skills: update them there
+extend-exclude = [
+    "src/dag/observability/service_logging.py",
+    "src/dag/observability/service_tracing.py",
+    "src/dag/observability/errors.py",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]

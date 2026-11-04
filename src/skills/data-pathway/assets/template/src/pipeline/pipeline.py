@@ -2,7 +2,8 @@
 
 Two outputs from one input: every valid order, cleaned (`topic_out`), and a
 per-symbol tumbling-window aggregate (`topic_out` + ".agg"). Metrics follow
-the shared stream_pipeline_* contract (data-pathway skill, references/metric-contract.md).
+the shared stream_pipeline_* contract (data-pathway skill,
+references/metric-contract.md).
 """
 
 from __future__ import annotations
@@ -12,8 +13,8 @@ import time
 import pathway as pw
 
 from pipeline import transform
-from pipeline.config import Settings
 from pipeline.pipeline_metrics import PipelineMetrics
+from pipeline.settings import Settings
 
 
 class OrderIn(pw.Schema):
@@ -98,13 +99,13 @@ def run(settings: Settings) -> None:
     metrics = PipelineMetrics(
         settings.service_name,
         environment=settings.env_name,
-        endpoint=settings.otlp_endpoint,
-        token=settings.otlp_token,
+        endpoint=settings.otel_endpoint,
+        token=settings.otel_auth_token.get_secret_value(),
     )
     metrics.set_kafka_healthy(True)
     orders = pw.io.kafka.read(
-        settings.kafka(),
-        topic=settings.topic_in,
+        settings.pathway_kafka(),
+        topic=settings.kafka_topic_in,
         schema=OrderIn,
         format="json",
         autocommit_duration_ms=100,
@@ -112,12 +113,15 @@ def run(settings: Settings) -> None:
     clean, rejected, aggregate = build(orders, settings.window_seconds)
     instrument(orders, clean, rejected, metrics)
     pw.io.kafka.write(
-        clean, settings.kafka(), topic_name=settings.topic_out, format="json"
+        clean,
+        settings.pathway_kafka(),
+        topic_name=settings.kafka_topic_out,
+        format="json",
     )
     pw.io.kafka.write(
         aggregate,
-        settings.kafka(),
-        topic_name=settings.topic_out + ".agg",
+        settings.pathway_kafka(),
+        topic_name=settings.kafka_topic_out + ".agg",
         format="json",
     )
     try:

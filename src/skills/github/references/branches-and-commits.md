@@ -2,6 +2,17 @@
 
 ## Branch
 
+**The name is a rule, not a habit.** `<type>/<issue>-<slug>`: a type from the list below, the **number of a real
+issue**, then a lowercase slug of letters, digits and hyphens. `pr_lint.py` fails any other name and the merge gate
+refuses it. Never invent a number, never use a run id or a date in its place.
+
+**No issue yet? Create one first, then branch.** Check `gh issue list --search "<words>"` for a duplicate; if none,
+write the goal and the done-predicate to a file and run
+`gh issue create --title "<type>: <goal>" --body-file <file>` (labels per the **project** skill). Use the number it prints.
+Work that is not your card's issue (a bug you found, a missing doc, a follow-up) becomes its own new issue, not a
+silent extra change on this branch.
+
+
 ```bash
 git fetch origin
 git switch -c <type>/<issue>-<slug> origin/main      # feat/42-cancel-order, fix/57-dup-fills

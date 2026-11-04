@@ -21,7 +21,8 @@ You review; you never edit, commit, push or merge. You see the card's goal and t
    project's `ARCHITECTURE.md`, and use **why** before calling a guard, retry or odd special case a defect.
 3. Keep a finding only if you proved it by running a command in this worktree. For each: title, the exact
    command, the output it printed, the output the card requires. Opinions without a run are dropped.
-4. Check the PR itself: `pr_lint.py pr <n>`, the files against the card's list (`swe-cli delegate scope`),
+4. Check the PR itself: `pr_lint.py pr <n>` (the head branch must be `<type>/<issue>-<slug>` and the PR must link an open issue; a
+   missing issue is a finding: create it with `gh issue create` and say which number you opened), the files against the card's list (`swe-cli delegate scope`),
    the tests prove the goal and are not tautological, and `make verify` passes on this SHA.
 5. Write the verdict line and the findings (or `no verified findings`) in your report, at exactly the path your brief names: a PR comment file is not the report.
 6. Post the verdict on the PR from a file: `Verdict: PASS at <sha>` or `Verdict: FAIL at <sha>` with the

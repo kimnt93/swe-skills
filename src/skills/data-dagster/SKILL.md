@@ -30,27 +30,43 @@ schedules. In this stack it is the tool for **batch, scheduled and backfilled da
    its freshness expectation. Write them down before code.
 2. **Copy the template** `assets/template/` into the repo (`pyproject.toml`, `src/dag/`, `tests/`, `Dockerfile`,
    `docker-compose.yaml`, `dagster.yaml`, `workspace.yaml`, `Makefile`, `.env.example`). Rename the package and the assets.
-3. **Assets are pure functions of their inputs and resources.** I/O goes through a `ConfigurableResource`
+3. **Settings, logs, traces, errors** come from `settings/` and `observability/` (the py-code format, [see below](#settings-logs-traces-and-errors-same-as-every-python-project)); the code location calls `setup()` once in `definitions.py`.
+4. **Assets are pure functions of their inputs and resources.** I/O goes through a `ConfigurableResource`
    (`resources.py`), never a client created inside the asset. Read [assets](references/assets.md).
-4. **Partition by the data's natural unit** (day). A failed day re-runs alone; a backfill is a partition range.
-5. **Add checks** next to the asset (`@asset_check`); make the ones that guard downstream work `blocking=True`.
-6. **Schedule** with `build_schedule_from_partitioned_job` and a delay after the day ends; use a sensor for event-driven runs.
-7. **Metrics**: the template's `metrics_sensor` exports the `dagster_*` set over OTLP, defined by the
+5. **Partition by the data's natural unit** (day). A failed day re-runs alone; a backfill is a partition range.
+6. **Add checks** next to the asset (`@asset_check`); make the ones that guard downstream work `blocking=True`.
+7. **Schedule** with `build_schedule_from_partitioned_job` and a delay after the day ends; use a sensor for event-driven runs.
+8. **Metrics**: the template's `metrics_sensor` exports the `dagster_*` set over OTLP, defined by the
    [metric contract](references/metric-contract.md); the clocks (partition, schedule, run, freshness, export, query windows) are in
    [timeframes](references/timeframes.md); the dashboard and alerts in [metrics](references/metrics.md). Import
    `assets/grafana-dashboard.json` (uid `dagster-orchestration`).
    State each asset's freshness target next to the asset.
-8. **Test** with `dagster.materialize([...], resources={...}, partition_key=...)` and a fake resource; test the sensor with
+9. **Test** with `dagster.materialize([...], resources={...}, partition_key=...)` and a fake resource; test the sensor with
    `build_sensor_context`. Read [testing](references/testing.md).
-9. **Deploy** the webserver and the daemon from one image, with PostgreSQL storage and a queued run coordinator.
+10. **Deploy** the webserver and the daemon from one image, with PostgreSQL storage and a queued run coordinator.
    Read [deploy](references/deploy.md) and the `deployment-setup` skill.
-10. **Verify**: `make verify` (ruff + pytest), `dagster definitions validate -m dag.definitions`, and
+11. **Verify**: `make verify` (ruff + pytest), `dagster definitions validate -m dag.definitions`, and
     `python3 scripts/check_dashboard.py assets/grafana-dashboard.json assets/template/src/dag/metrics.py`.
+
+## Settings, logs, traces and errors (same as every Python project)
+
+The template follows the [py-code](../py-code/SKILL.md) rules; do not invent a second format.
+
+| Concern | Where | Rule |
+|---|---|---|
+| Settings | `dag/settings/` | environment only; `PostgresSettings` for the source, `DAGSTER_PG_*` for Dagster's storage; `Secret` read from `NAME` or `NAME_FILE`, **no default**; one `SettingsError` that names every bad variable and never a value; `.env.example` lists all of it |
+| Logs | `dag/observability/service_logging.py` | jlogger JSON, the `service-logging` format; never `print` |
+| Traces | `dag/observability/service_tracing.py` | OpenTelemetry through `OTEL_*` (`OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_AUTH_TOKEN(_FILE)`); empty endpoint is a no-op |
+| Errors | `dag/observability/errors.py` | Sentry or GlitchTip through `SENTRY_DSN(_FILE)`; empty DSN sends nothing |
+
+`definitions.py` calls `observability.setup(settings, component="dagster")` once and registers the flush with `atexit`.
+The vendored files come from the `service-logging`, `service-tracing` and `service-errors` skills: update them there (ruff excludes them).
+The metrics sensor uses the same OTLP endpoint and token as the traces.
 
 ## Rules
 
 - **Idempotent assets**: re-materialising a partition gives the same result and replaces, never appends.
-- **No secrets in definitions or logs**: passwords from `NAME` or `NAME_FILE`, read at call time, never stored in resource config.
+- **No secrets in definitions or logs**: passwords from `NAME` or `NAME_FILE` through `settings/`; resources receive the built connection string, never the secret name.
 - **No I/O at import time**: definitions load in the webserver, the daemon and every run worker; building a client, reading a
   file or calling the network at import breaks all three.
 - **Bounded metric labels**: `job` and `asset` only; never partition keys, run ids or error text ([metric-contract](references/metric-contract.md)).
