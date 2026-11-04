@@ -1,0 +1,36 @@
+name: card
+description: "One card: build in its own worktree, wait for CI (a fixer repairs a red check), review by another model family (it also brings the branch up to date and resolves conflicts), with a fix round on FAIL."
+nodes:
+  build:
+    role: developer
+    goal: "${item.goal}"
+    files: "${item.files}"
+    tier: "${item.tier|mid}"
+    issue: "${item.issue}"
+    risk: "${item.risk|standard}"
+    branch_type: "${item.type|feat}"
+  checks:
+    type: checks
+    needs: [build]
+    timeout: 30
+    on_fail: {run: ci-fix, rounds: 2}
+  ci-fix:
+    role: ci-fixer
+    manual: true
+    workspace: "same:build"
+    goal: "A required check on the PR is red. Fix the cause on this branch (ci-fixer skill)."
+  review:
+    role: reviewer
+    needs: [checks]
+    reviews: build
+    workspace: "same:build"
+    goal: >-
+      Review this card's PR at its head against the goal: ${item.goal}. First make sure the branch is up to date with
+      origin/main; if it is behind or conflicts, bring it up to date as the integrator skill says (only inside this
+      card's own files), re-run make verify, push with --force-with-lease. Then give your verdict on the final head.
+    on_fail: {run: fix, rounds: 2}
+  fix:
+    role: developer
+    manual: true
+    workspace: "same:build"
+    goal: "Fix the verified review findings on this branch (developer skill). Original goal: ${item.goal}"

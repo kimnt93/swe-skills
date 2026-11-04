@@ -1,0 +1,28 @@
+name: ci-fix
+description: "A red required check on an open PR: reproduce, fix on its branch, wait for green, review."
+inputs:
+  pr: {required: true}
+  repo: {default: ""}
+  goal: {default: "Fix the failing required check on this PR."}
+nodes:
+  fix:
+    role: ci-fixer
+    workspace: pr
+    pr: "${inputs.pr}"
+    goal: "${inputs.goal}"
+  checks:
+    type: checks
+    needs: [fix]
+    pr_from: fix
+    timeout: 30
+  review:
+    role: reviewer
+    needs: [checks]
+    reviews: fix
+    workspace: "same:fix"
+    goal: "Review the fix at its head: the check must be green for the right reason, no check or test weakened."
+  report:
+    type: report
+    needs: [review]
+    build: fix
+    always: true

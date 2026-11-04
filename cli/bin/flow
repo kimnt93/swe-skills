@@ -1,0 +1,1009 @@
+#!/usr/bin/env python3
+"""swe-cli flow: run a YAML workflow, a DAG whose nodes are agents (a role, its skills, a harness, a model, an effort).
+
+    swe-cli flow list [project]                         the workflows (project ones win) and their inputs
+    swe-cli flow validate [project] [workflow]          check workflows and roles: needs, cycles, skills, tiers
+    swe-cli flow graph <workflow> [project]             the DAG as text
+    swe-cli flow run <project> <workflow> [--goal T] [--input k=v ...] [--repo R] [--harness H] [--detach] [--dry-run]
+    swe-cli flow status <project> [run]                 runs, or one run node by node
+    swe-cli flow retry <project> <run> [node]           run failed nodes again (and what depends on them)
+    swe-cli flow merge <project> <run> [--approved]     the manager merges the ready PRs through the gate
+    swe-cli flow clean <project> <run> [--force]        remove the run's sessions, worktrees, branches and tmp directory
+    swe-cli flow stop <project> <run>                   end every session of the run (worktrees stay)
+
+How a run goes: the manager starts a workflow; each node starts one agent session (tmux or Orca), which does its
+step, writes a report to the run's tmp directory and prints one outcome line; the runner reads the line and the
+report, then starts the nodes that depend on it (in parallel when independent). The last node (`report`) writes
+the run report for the manager. The manager merges the ready PRs (`swe-cli flow merge`) and cleans the run
+(`swe-cli flow clean`): sessions, worktrees, branches and the tmp directory go, nothing is left behind.
+
+Files: workflows in cli/workflows/*.yaml (a project overrides with <project dir>/workflows/), roles in
+cli/roles.yaml (a project overrides role by role in <project dir>/roles.yaml). A run lives in $SWE_TMP/swe/<project>/<run>/ (default /tmp): run.json, run.log, reports/.
+Environment: SWE_TMP, SWE_POLL (seconds between polls, default 5), SWE_NOTIFY (a command that gets the
+run report on stdin: a chat bridge), SWE_MAX_AGENTS (sessions at once, default 6).
+"""
+from __future__ import annotations
+
+import ast
+import importlib.machinery
+import importlib.util
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+import yaml
+
+HERE = Path(__file__).resolve().parent
+SWE_DIR = HERE.parent
+REPO = SWE_DIR.parent
+
+
+def _load(name: str, file: str):
+    loader = importlib.machinery.SourceFileLoader(name, str(HERE / file))
+    spec = importlib.util.spec_from_loader(name, loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+fleet = _load("climod", "main")
+delegate = _load("delegate", "delegate")
+
+TMP = Path(os.environ.get("SWE_TMP") or tempfile.gettempdir()) / "swe"
+POLL = float(os.environ.get("SWE_POLL", "5"))
+NODE_TYPES = ("agent", "checks", "map", "report", "shell")
+OUTCOMES = {
+    "card": ["CARD DONE <head sha> <pr url>", "CARD BLOCKED <one-line reason>"],
+    "review": ["REVIEW DONE <head sha> <n verified findings> PASS", "REVIEW DONE <head sha> <n verified findings> FAIL",
+               "REVIEW BLOCKED <one-line reason>"],
+    "node": ["NODE DONE <one line: what you produced>", "NODE BLOCKED <one-line reason>"],
+}
+SETTLED = ("done", "skipped", "failed", "blocked", "cancelled")
+SATISFIED = ("done", "skipped")
+
+
+class NodeFail(Exception):
+    def __init__(self, reason: str, status: str = "failed", fixable: bool = False, report: str = ""):
+        super().__init__(reason)
+        self.reason, self.status, self.fixable, self.report = reason, status, fixable, report
+
+
+def die(message: str, code: int = 2):
+    print(f"swe-cli flow: {message}", file=sys.stderr)
+    sys.exit(code)
+
+
+def slug(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", str(text).lower()).strip("-") or "x"
+
+
+# ------------------------------------------------------------------------------------------------ loading
+
+
+def project_view(name: str) -> dict:
+    projects = fleet.load_projects()
+    if name not in projects:
+        die(f"no project {name!r} in {fleet.PROJECTS}")
+    return fleet.project_view(name, projects[name])
+
+
+def workflow_dirs(project: dict | None) -> list[Path]:
+    dirs = [SWE_DIR / "workflows"]
+    if project and project.get("dir"):
+        dirs[:0] = [Path(project["dir"]) / "workflows", Path(project["dir"]) / ".swe" / "workflows"]
+    return dirs
+
+
+def find_workflow(name: str, project: dict | None) -> dict:
+    for folder in workflow_dirs(project):
+        path = folder / f"{name}.yaml"
+        if path.exists():
+            wf = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+            wf.setdefault("name", name)
+            wf["_path"] = str(path)
+            return wf
+    die(f"no workflow {name!r} (looked in {', '.join(str(d) for d in workflow_dirs(project))})")
+
+
+def load_roles(project: dict | None) -> dict:
+    roles = (yaml.safe_load((SWE_DIR / "roles.yaml").read_text(encoding="utf-8")) or {}).get("roles", {})
+    if project and project.get("dir"):
+        for extra in (Path(project["dir"]) / "roles.yaml", Path(project["dir"]) / ".swe" / "roles.yaml"):
+            if not extra.exists():
+                continue
+            for name, spec in ((yaml.safe_load(extra.read_text(encoding="utf-8")) or {}).get("roles") or {}).items():
+                roles[name] = {**roles.get(name, {}), **spec}
+    return roles
+
+
+def known_skills() -> set[str]:
+    names = {p.parent.name for p in (REPO / "src" / "skills").glob("*/SKILL.md")}
+    return names | {fleet.plugin_name()}   # the router skill takes the plugin's name
+
+
+def node_type(node: dict) -> str:
+    if node.get("type"):
+        return node["type"]
+    if "map" in node:
+        return "map"
+    return "agent"
+
+
+def topo(nodes: dict) -> list[str]:
+    order, seen, stack = [], set(), set()
+
+    def visit(name: str):
+        if name in stack:
+            raise ValueError(f"cycle through {name}")
+        if name in seen:
+            return
+        stack.add(name)
+        for dep in nodes[name].get("needs", []):
+            visit(dep)
+        stack.discard(name)
+        seen.add(name)
+        order.append(name)
+
+    for name in nodes:
+        visit(name)
+    return order
+
+
+def problems_of(wf: dict, roles: dict, cfg: dict, project: dict | None, depth: int = 0) -> list[str]:
+    where, found = wf["name"], []
+    nodes = wf.get("nodes")
+    if not isinstance(nodes, dict) or not nodes:
+        return [f"{where}: nodes must be a mapping with at least one node"]
+    skills = known_skills()
+    for name, node in nodes.items():
+        label = f"{where}.{name}"
+        kind = node_type(node)
+        if kind not in NODE_TYPES:
+            found.append(f"{label}: type must be one of {', '.join(NODE_TYPES)}")
+            continue
+        for dep in node.get("needs", []):
+            if dep not in nodes:
+                found.append(f"{label}: needs unknown node {dep!r}")
+        if kind == "agent":
+            role = roles.get(node.get("role", ""))
+            if not role:
+                found.append(f"{label}: unknown role {node.get('role')!r} (roles: {', '.join(sorted(roles))})")
+                continue
+            spec = {**role, **node}
+            for skill in spec.get("skills", []):
+                if skill not in skills:
+                    found.append(f"{label}: skill {skill!r} does not exist in src/skills")
+            if "${" not in str(spec.get("tier")) and spec.get("tier") not in fleet.TIERS:
+                found.append(f"{label}: tier must be one of {', '.join(fleet.TIERS)}")
+            harness = spec.get("harness", "project")
+            if harness not in ("project", "other") and harness not in cfg["clis"]:
+                found.append(f"{label}: harness {harness!r} is not project, other or one of {', '.join(cfg['clis'])}")
+            if harness == "other" and not node.get("reviews"):
+                found.append(f"{label}: harness other needs `reviews: <node>` (the node whose author it must differ from)")
+            ws = spec.get("workspace", "new")
+            if not (ws in ("new", "scratch", "pr") or re.match(r"^same:[\w-]+$", ws) or ws == "same"):
+                found.append(f"{label}: workspace must be new, scratch, pr or same:<node>")
+            if ws.startswith("same:") and ws[5:] not in nodes:
+                found.append(f"{label}: workspace refers to unknown node {ws[5:]!r}")
+            if spec.get("outcome") not in OUTCOMES:
+                found.append(f"{label}: outcome must be one of {', '.join(OUTCOMES)}")
+        if node.get("on_fail"):
+            target = node["on_fail"].get("run")
+            if target not in nodes or not nodes[target].get("manual"):
+                found.append(f"{label}: on_fail.run must name a node with `manual: true`")
+        if kind == "map" and depth < 3:
+            child = node.get("workflow")
+            if isinstance(child, str) and "${" not in child:
+                try:
+                    found += problems_of(find_workflow(child, project), roles, cfg, project, depth + 1)
+                except SystemExit:
+                    found.append(f"{label}: unknown workflow {child!r}")
+        if node.get("when"):
+            try:
+                ast.parse(re.sub(r"\$\{[^}]*\}", "0", node["when"]), mode="eval")
+            except SyntaxError:
+                found.append(f"{label}: when is not a valid expression")
+    try:
+        topo(nodes)
+    except ValueError as error:
+        found.append(f"{where}: {error}")
+    return found
+
+
+# ------------------------------------------------------------------------------------------------ run state
+
+
+class Run:
+    """A run on disk: run.json is the state, run.log the history, reports/ what the agents wrote."""
+
+    def __init__(self, project: str, run_id: str):
+        self.project, self.id = project, run_id
+        self.dir = TMP / project / run_id
+        self.lock = threading.RLock()
+        self.data: dict = {}
+
+    @classmethod
+    def load(cls, project: str, run_id: str) -> "Run":
+        run = cls(project, run_id)
+        path = run.dir / "run.json"
+        if not path.exists():
+            die(f"no run {run_id!r} in project {project!r} ({path} does not exist)")
+        run.data = json.loads(path.read_text(encoding="utf-8"))
+        return run
+
+    @classmethod
+    def create(cls, project: str, workflow: str, inputs: dict) -> "Run":
+        folder = TMP / project
+        folder.mkdir(parents=True, exist_ok=True)
+        numbers = [int(p.name[1:]) for p in folder.iterdir() if re.match(r"^r\d+$", p.name)]
+        run = cls(project, f"r{max(numbers, default=0) + 1}")
+        (run.dir / "reports").mkdir(parents=True)
+        run.data = {"id": run.id, "project": project, "workflow": workflow, "inputs": inputs, "status": "running",
+                    "started": int(time.time()), "nodes": {}, "ready": [], "merged": []}
+        run.save()
+        return run
+
+    def save(self) -> None:
+        with self.lock:
+            temp = self.dir / "run.json.tmp"
+            temp.write_text(json.dumps(self.data, indent=2), encoding="utf-8")
+            os.replace(temp, self.dir / "run.json")
+
+    def log(self, text: str) -> None:
+        line = f"{time.strftime('%H:%M:%S')} {text}"
+        with self.lock, (self.dir / "run.log").open("a", encoding="utf-8") as handle:
+            handle.write(line + "\n")
+        print(line, flush=True)
+
+    def node(self, key: str) -> dict:
+        with self.lock:
+            return self.data["nodes"].setdefault(key, {"status": "pending"})
+
+    def update(self, key: str, **fields) -> None:
+        with self.lock:
+            node = self.node(key)
+            if "outputs" in fields:
+                node.setdefault("outputs", {}).update(fields.pop("outputs"))
+            node.update(fields)
+            self.save()
+
+
+# ------------------------------------------------------------------------------------------------ templating
+
+
+def lookup(path: str, ctx: dict, run: Run):
+    parts = path.split(".")
+    if parts[0] == "nodes":
+        key = ctx["prefix"] + parts[1]
+        node = run.data["nodes"].get(key) or {}
+        if len(parts) == 2:
+            return node.get("status")
+        field = parts[2]
+        value = node.get("outputs", {}).get(field, node.get(field))
+        for extra in parts[3:]:
+            value = value.get(extra) if isinstance(value, dict) else None
+        return value
+    value = ctx.get(parts[0])
+    for part in parts[1:]:
+        value = value.get(part) if isinstance(value, dict) else None
+    return value
+
+
+VAR = re.compile(r"\$\{([^}|]+)(?:\|([^}]*))?\}")
+
+
+def sub(value, ctx: dict, run: Run):
+    if isinstance(value, str):
+        whole = VAR.fullmatch(value)
+        if whole:
+            found = lookup(whole.group(1).strip(), ctx, run)
+            return whole.group(2) if found in (None, "") and whole.group(2) is not None else found
+        return VAR.sub(lambda m: str(lookup(m.group(1).strip(), ctx, run) if lookup(m.group(1).strip(), ctx, run) not in (None, "")
+                                      else (m.group(2) if m.group(2) is not None else "")), value)
+    if isinstance(value, list):
+        return [sub(v, ctx, run) for v in value]
+    if isinstance(value, dict):
+        return {k: sub(v, ctx, run) for k, v in value.items()}
+    return value
+
+
+SAFE = (ast.Expression, ast.Compare, ast.BoolOp, ast.UnaryOp, ast.Constant, ast.List, ast.Tuple, ast.Load, ast.Eq, ast.NotEq,
+        ast.In, ast.NotIn, ast.And, ast.Or, ast.Not, ast.Lt, ast.Gt, ast.LtE, ast.GtE)
+
+
+def truthy(expression: str, ctx: dict, run: Run) -> bool:
+    text = VAR.sub(lambda m: repr(lookup(m.group(1).strip(), ctx, run) if lookup(m.group(1).strip(), ctx, run) is not None
+                                  else (m.group(2) or "")), expression)
+    tree = ast.parse(text, mode="eval")
+    if not all(isinstance(n, SAFE) for n in ast.walk(tree)):
+        raise NodeFail(f"when: {expression!r} uses more than comparisons", "failed")
+    return bool(eval(compile(tree, "<when>", "eval"), {"__builtins__": {}}, {}))
+
+
+# ------------------------------------------------------------------------------------------------ agent nodes
+
+SEM = threading.Semaphore(int(os.environ.get("SWE_MAX_AGENTS", "6")))
+
+
+def skill_ref(plugin: str, cli: str, skill: str) -> str:
+    if cli == "claude":
+        return f"/{plugin}" if skill == plugin else f"/{plugin}:{skill}"
+    if cli == "codex":
+        return f"${plugin}" if skill == plugin else f"${plugin}:{skill}"
+    return f"/skill:{skill}"
+
+
+def parse_outcome(line: str) -> dict:
+    words = line.split()
+    if line.startswith("CARD DONE"):
+        url = words[3] if len(words) > 3 else ""
+        number = re.search(r"/(\d+)/?$", url)
+        return {"ok": True, "sha": words[2], "pr_url": url, "pr": number.group(1) if number else url}
+    if line.startswith("REVIEW DONE"):
+        verdict = words[-1].upper() if words[-1].upper() in ("PASS", "FAIL") else ("PASS" if words[3] == "0" else "FAIL")
+        return {"ok": True, "sha": words[2], "findings": int(words[3]), "verdict": verdict}
+    if line.startswith("NODE DONE"):
+        return {"ok": True, "summary": line[len("NODE DONE "):]}
+    return {"ok": False, "reason": line.split(" ", 2)[-1] if " " in line else line}
+
+
+def resolve_harness(cfg: dict, project: dict, spec: dict, node: dict, run: Run, ctx: dict) -> str:
+    forced = run.data["inputs"].get("harness")
+    harness = spec.get("harness", "project")
+    if harness == "other":
+        author = run.node(ctx["prefix"] + node["reviews"]).get("cli") or project["cli"]
+        return cfg["reviewers"].get(author, {}).get("cli", author)
+    if forced:
+        return forced
+    return project["cli"] if harness == "project" else harness
+
+
+def run_agent(run: Run, wf: dict, ctx: dict, name: str, node: dict, attempt: int = 1, extra: dict | None = None) -> dict:
+    cfg, project = fleet.load(), project_view(run.project)
+    roles = load_roles(project)
+    spec = {**roles[node["role"]], **{k: v for k, v in node.items() if k not in ("needs",)}}
+    spec = sub(spec, {**ctx, **(extra or {})}, run)
+    key = ctx["prefix"] + name
+    label = slug(ctx["prefix"] + name) + (f"-{attempt}" if attempt > 1 else "")
+    card = f"{run.id}-{label}"
+    cli = resolve_harness(cfg, project, spec, node, run, ctx)
+    tier = spec.get("tier", "mid")
+    override = {}
+    base = fleet.worker(cfg, cli, tier)
+    if spec.get("model"):
+        override["model"] = spec["model"]
+    if spec.get("effort") and (base.get("effort") or base.get("thinking")):
+        override["effort"] = spec["effort"]
+    plugin = fleet.plugin_name()
+    skills = list(spec.get("skills", []))
+    refs = ", ".join(f"{s} ({skill_ref(plugin, cli, s)})" for s in skills)
+    report = run.dir / "reports" / f"{label}.md"
+    artifact = run.dir / "reports" / f"{label}.plan.json"
+    files = [f for f in (spec.get("files") or []) if f]
+    workspace = spec.get("workspace", "new")
+    owner = None
+    if workspace.startswith("same"):
+        owner_key = ctx["prefix"] + workspace.split(":", 1)[1] if ":" in workspace else ""
+        owner_card = run.node(owner_key).get("card") if owner_key else spec.get("card")
+        if not owner_card:
+            raise NodeFail(f"workspace {workspace}: that node has not run", "failed")
+        owner = delegate.load_record(run.project, owner_card)
+        workspace = "same"
+    upstream = [run.dir / "reports" / f"{slug(ctx['prefix'] + dep)}.md" for dep in node.get("needs", [])]
+    if owner:
+        upstream.append(Path(owner.get("report", "")) if owner.get("report") else Path())
+    if extra and extra.get("failure_report"):
+        upstream.append(Path(extra["failure_report"]))
+    upstream = [p for p in dict.fromkeys(upstream) if str(p) not in ("", ".") and p.exists()]
+    repo = spec.get("repo") or ctx.get("repo") or None
+    branch = None
+    if workspace == "new":
+        kind = spec.get("branch_type", "feat")
+        branch = spec.get("branch") or f"{kind}/{run.id}-{slug(ctx['prefix'] + name)}"[:60].rstrip("-")
+    risk = str(spec.get("risk") or ctx["inputs"].get("risk") or "standard")
+    goal = str(spec.get("goal") or ctx["inputs"].get("goal") or "")
+    if extra and extra.get("failure"):
+        goal += f"\n\nThe step before failed: {extra['failure']}\nFix exactly that, on the same branch, then push."
+    existing = delegate.record_path(run.project, card)
+    session = f"{run.project}-{card}"
+
+    def brief(record: dict) -> str:
+        scope_text = f" and only in these files: {', '.join(record['files'])}" if record["files"] and spec.get("workspace", "new") != "scratch" else ""
+        context = [f"card: {card}", f"risk: {risk}"]
+        if record.get("branch"):
+            context += [f"branch: {record['branch']}", f"base: {record['base'][:12]} (origin/main when the card started)"]
+        if record["files"]:
+            context.append(f"files you may change: {', '.join(record['files'])}")
+        if spec.get("issue") or ctx.get("item", {}).get("issue"):
+            context.append(f"issue: #{spec.get('issue') or ctx['item']['issue']}")
+        if spec.get("inputs_note"):
+            context.append(str(spec["inputs_note"]))
+        text = delegate.render("brief-node.md", role=node["role"], node=key, run=run.id, workflow=wf["name"], project=run.project,
+                               repo=record["repo"], skills=", ".join(skills), first=skill_ref(plugin, cli, skills[0]) if skills else "the task",
+                               goal=goal, context="\n".join(context) + "\n", report=report, worktree=record["worktree"], scope=scope_text,
+                               upstream=("- Read these reports from the steps before you first:\n" + "".join(f"  - {p}\n" for p in upstream)) if upstream else "",
+                               artifact=(f"- Write the plan to {artifact} (JSON, the planner skill's format).\n" if node["role"] == "planner" else ""),
+                               outcomes="\n".join(f"  {line}" for line in OUTCOMES[spec["outcome"]]))
+        return text + (f"\nSkill invocations: {refs}\n")
+
+    run.update(key, status="running", cli=cli, tier=tier, card=card, session=session, report=str(report), attempt=attempt,
+               started=int(time.time()))
+    run.log(f"{key}: {spec['role']} on {cli}/{tier}{(' ' + override.get('model', '')).rstrip()} -> {session}")
+    if not existing.exists():
+        waited = 0
+        while True:
+            try:
+                with SEM:
+                    record = delegate.start_task(run.project, card, brief=brief, cli=cli, tier=tier, repo=repo, workspace=workspace,
+                                                 owner=owner, files=files, branch=branch, override=override or None, risk=risk,
+                                                 issue=str(spec.get("issue") or "-"), goal=goal, role=node["role"],
+                                                 brief_name=f"brief-{label}.md", pr=str(spec.get("pr") or "") or None)
+                break
+            except SystemExit as error:
+                text = delegate.LAST_ERROR[0] if delegate.LAST_ERROR else ""
+                if error.code == 5 and waited < int(spec.get("lock_wait", 120)) * 60:
+                    run.update(key, status="waiting", reason="files are held by another card")
+                    time.sleep(max(POLL, 2))
+                    waited += max(POLL, 2)
+                    continue
+                raise NodeFail(f"could not start: {text or 'exit ' + str(error.code)}", "failed")
+        record["report"] = str(report)
+        delegate.save_record(record)
+    else:
+        record = delegate.load_record(run.project, card)
+    run.update(key, status="running", reason="")
+    outcome = poll(run, key, record, int(spec.get("timeout", 60)) * 60)
+    delegate.close_session(record["session"])
+    if not outcome["ok"]:
+        raise NodeFail(outcome["reason"], "blocked", report=str(report))
+    if not report.exists():
+        raise NodeFail("the agent printed its outcome but wrote no report to " + str(report), "failed")
+    if spec["outcome"] == "card":
+        record["status"] = "done"
+        delegate.save_record(record)
+    outputs = {k: v for k, v in outcome.items() if k != "ok"}
+    if outputs.get("sha"):   # the gate compares full SHAs
+        full = delegate.git(Path(record["worktree"]), "rev-parse", "--verify", "-q", outputs["sha"] + "^{commit}").stdout.strip()
+        outputs["sha"] = full or outputs["sha"]
+    outputs["report"] = str(report)
+    if node["role"] == "planner":
+        if not artifact.exists():
+            raise NodeFail(f"the planner wrote no plan to {artifact}", "failed", report=str(report))
+        try:
+            plan = json.loads(artifact.read_text(encoding="utf-8"))
+            outputs["cards"] = plan["cards"]
+        except (ValueError, KeyError):
+            raise NodeFail(f"{artifact} is not valid plan JSON with a cards list", "failed", report=str(report))
+    run.update(key, outputs=outputs)
+    if spec["outcome"] == "review" and outcome.get("verdict") != "PASS":
+        raise NodeFail(f"review FAIL at {outcome.get('sha', '')[:12]}: {outcome.get('findings', '?')} verified finding(s)", "failed",
+                       fixable=True, report=str(report))
+    return outputs
+
+
+def poll(run: Run, key: str, record: dict, timeout: int) -> dict:
+    deadline, last, still = time.time() + timeout, "", time.time()
+    while True:
+        status = delegate.card_status(record, False)
+        if status["outcome"]:
+            return parse_outcome(status["outcome"])
+        if not status["session_alive"]:
+            return {"ok": False, "reason": "the session ended without an outcome line (quota, login or crash): " + " | ".join(status["pane_tail"][-3:])[:300]}
+        tail = "\n".join(status["pane_tail"])
+        if tail != last:
+            last, still = tail, time.time()
+        if time.time() - still > int(os.environ.get("SWE_STUCK_MINUTES", "30")) * 60:
+            return {"ok": False, "reason": "stuck: the session screen did not change for 30 minutes"}
+        if time.time() > deadline:
+            return {"ok": False, "reason": f"timeout after {timeout // 60} minutes"}
+        time.sleep(POLL)
+
+
+# ------------------------------------------------------------------------------------------------ other node types
+
+
+def run_checks(run: Run, ctx: dict, name: str, node: dict) -> dict:
+    key = ctx["prefix"] + name
+    build = run.node(ctx["prefix"] + node.get("pr_from", "build"))
+    outputs = build.get("outputs", {})
+    pr, sha = sub(node.get("pr", outputs.get("pr")), ctx, run), outputs.get("sha")
+    github = delegate.load_record(run.project, build["card"])["github"] if build.get("card") else ctx.get("github", "")
+    target = ["--repo", github] if github else []
+    deadline = time.time() + int(node.get("timeout", 30)) * 60
+    run.update(key, status="running", started=int(time.time()))
+    while time.time() < deadline:
+        head = subprocess.run(["gh", "pr", "view", str(pr), *target, "--json", "headRefOid"], capture_output=True, text=True)
+        try:
+            current = json.loads(head.stdout).get("headRefOid") if head.returncode == 0 else None
+        except ValueError:
+            current = None
+        result = subprocess.run(["gh", "pr", "checks", str(pr), *target, "--json", "name,bucket"], capture_output=True, text=True)
+        try:
+            checks = json.loads(result.stdout or "[]")
+        except ValueError:
+            checks = []
+        if (not sha or not current or current.startswith(sha) or sha.startswith(current)) and checks:
+            pending = [c for c in checks if c.get("bucket") in ("pending", None)]
+            red = [f"{c['name']} ({c.get('bucket')})" for c in checks if c.get("bucket") in ("fail", "cancel")]
+            if red:
+                raise NodeFail("checks are red: " + ", ".join(red), "failed", fixable=True)
+            if not pending:
+                return {"checks": len(checks)}
+        time.sleep(max(POLL, 1))
+    raise NodeFail("checks did not finish in time", "failed")
+
+
+def run_shell(run: Run, ctx: dict, name: str, node: dict) -> dict:
+    cwd = sub(node.get("cwd"), ctx, run) or project_view(run.project)["dir"]
+    result = subprocess.run(sub(node["run"], ctx, run), shell=True, cwd=cwd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise NodeFail(f"command failed ({result.returncode}): {(result.stderr or result.stdout).strip()[-300:]}", "failed")
+    return {"stdout": result.stdout.strip()[-500:]}
+
+
+def run_report(run: Run, wf: dict, ctx: dict, name: str, node: dict) -> dict:
+    """The run's last node: the report the manager reads, and the list of PRs that are ready to merge."""
+    data = run.data
+    ready, attention = [], []
+    base, rev = node.get("build", "build"), node.get("review", "review")
+    for key, state in sorted(data["nodes"].items()):
+        outputs = state.get("outputs", {})
+        if key.split("/")[-1] != base or state.get("status") != "done" or not outputs.get("pr"):
+            continue
+        prefix = key[: len(key) - len(base)]
+        review = data["nodes"].get(prefix + rev, {})
+        verdict = review.get("outputs", {}).get("verdict")
+        record = delegate.load_record(run.project, state["card"]) if delegate.record_path(run.project, state["card"]).exists() else {}
+        entry = {"node": key, "repo": record.get("repo"), "github": record.get("github"), "pr": outputs["pr"],
+                 "pr_url": outputs.get("pr_url"), "sha": review.get("outputs", {}).get("sha") or outputs.get("sha"),
+                 "risk": record.get("risk", "standard"), "card": state["card"], "verdict": verdict}
+        (ready if verdict == "PASS" and review.get("status") == "done" else attention).append(entry)
+    failed = {k: v for k, v in data["nodes"].items() if v.get("status") in ("failed", "blocked")}
+    lines = [f"# Run {run.id}: {wf['name']} ({run.project})", "", f"goal: {data['inputs'].get('goal', '')}", ""]
+    lines += ["| node | status | harness | outcome |", "|---|---|---|---|"]
+    for key, state in sorted(data["nodes"].items()):
+        outputs = state.get("outputs", {})
+        result = outputs.get("pr_url") or outputs.get("verdict") or outputs.get("summary") or state.get("reason", "")
+        lines.append(f"| {key} | {state.get('status')} | {state.get('cli', '')}/{state.get('tier', '')} | {str(result)[:80]} |")
+    lines += ["", f"ready to merge ({len(ready)}):"] + [f"- #{e['pr']} {e['pr_url']} at {str(e['sha'])[:12]} risk {e['risk']}" for e in ready]
+    if attention:
+        lines += ["", "needs attention (no PASS verdict):"] + [f"- #{e['pr']} {e['pr_url']} verdict {e['verdict']}" for e in attention]
+    if failed:
+        lines += ["", "failed:"] + [f"- {k}: {v.get('reason', '')} (report {v.get('report', '-')})" for k, v in failed.items()]
+    lines += ["", f"next: swe-cli flow merge {run.project} {run.id} [--approved], then swe-cli flow clean {run.project} {run.id}"]
+    text = "\n".join(lines) + "\n"
+    (run.dir / "report.md").write_text(text, encoding="utf-8")
+    with run.lock:
+        data["ready"] = ready
+        data["attention"] = attention
+        run.save()
+    notify = os.environ.get("SWE_NOTIFY")
+    if notify:
+        subprocess.run(notify, shell=True, input=text, text=True)
+    return {"ready": len(ready), "attention": len(attention), "failed": len(failed), "report": str(run.dir / "report.md")}
+
+
+# ------------------------------------------------------------------------------------------------ scheduler
+
+
+POOL = ThreadPoolExecutor(max_workers=64)
+
+
+def run_node(run: Run, wf: dict, ctx: dict, name: str) -> None:
+    node, key = wf["nodes"][name], ctx["prefix"] + name
+    kind = node_type(node)
+    attempt, rounds = 1, 0
+    while True:
+        try:
+            if kind == "agent":
+                outputs = run_agent(run, wf, ctx, name, node, attempt)
+            elif kind == "checks":
+                outputs = run_checks(run, ctx, name, node)
+            elif kind == "shell":
+                outputs = run_shell(run, ctx, name, node)
+            elif kind == "report":
+                outputs = run_report(run, wf, ctx, name, node)
+            else:
+                outputs = run_map(run, ctx, name, node)
+            run.update(key, status="done", finished=int(time.time()), outputs=outputs)
+            return
+        except NodeFail as error:
+            fix = (node.get("on_fail") or {})
+            if error.fixable and rounds < int(fix.get("rounds", 0)):
+                rounds += 1
+                run.log(f"{key}: {error.reason}; fix round {rounds}/{fix['rounds']} with {fix['run']}")
+                run.update(key, status="running", reason=error.reason, rounds=rounds)
+                try:
+                    fixed = run_agent(run, wf, ctx, fix["run"], wf["nodes"][fix["run"]], rounds,
+                                      {"failure": error.reason, "failure_report": error.report})
+                except NodeFail as inner:
+                    run.update(key, status=inner.status, reason=f"fix {fix['run']} failed: {inner.reason}", finished=int(time.time()))
+                    return
+                run.update(ctx["prefix"] + fix["run"], status="done", finished=int(time.time()), outputs=fixed)
+                owner = (wf["nodes"][fix["run"]].get("workspace") or "").split(":", 1)
+                if len(owner) == 2 and fixed.get("sha"):
+                    run.update(ctx["prefix"] + owner[1], outputs={"sha": fixed["sha"]})
+                attempt += 1
+                continue
+            run.update(key, status=error.status, reason=error.reason, finished=int(time.time()))
+            run.log(f"{key}: {error.status}: {error.reason}")
+            return
+        except Exception as error:  # a bug must fail the node, not hang the run
+            run.update(key, status="failed", reason=f"{type(error).__name__}: {error}", finished=int(time.time()))
+            run.log(f"{key}: failed: {type(error).__name__}: {error}")
+            return
+
+
+def run_map(run: Run, ctx: dict, name: str, node: dict) -> dict:
+    items = sub(node["map"], ctx, run) or []
+    if not isinstance(items, list):
+        raise NodeFail(f"map {node['map']!r} is not a list", "failed")
+    ids = [slug(i.get("id", n)) if isinstance(i, dict) else slug(i) for n, i in enumerate(items, 1)]
+    results: dict[str, str] = {}
+    futures = {}
+    waiting = list(zip(ids, items))
+    started = set()
+    while waiting or futures:
+        for item_id, item in list(waiting):
+            deps = [slug(d) for d in (item.get("after", []) if isinstance(item, dict) else [])]
+            if any(results.get(d) in ("failed", "blocked", "cancelled") for d in deps):
+                results[item_id] = "cancelled"
+                waiting.remove((item_id, item))
+            elif all(results.get(d) == "done" for d in deps):
+                waiting.remove((item_id, item))
+                child_name = sub(node["workflow"], {**ctx, "item": item}, run)
+                child = find_workflow(child_name, project_view(run.project))
+                child_ctx = {"prefix": f"{ctx['prefix']}{item_id}/", "inputs": {**ctx["inputs"], **(item if isinstance(item, dict) else {})},
+                             "item": item if isinstance(item, dict) else {"value": item}, "repo": (item.get("repo") if isinstance(item, dict) else None) or ctx.get("repo"),
+                             "run": ctx["run"], "project": ctx["project"]}
+                futures[item_id] = POOL.submit(exec_scope, run, child, child_ctx)
+                started.add(item_id)
+        for item_id, future in list(futures.items()):
+            if future.done():
+                results[item_id] = future.result()
+                del futures[item_id]
+        time.sleep(0.3)
+    failed = [i for i, s in results.items() if s != "done"]
+    if failed and len(failed) == len(results):
+        raise NodeFail(f"every item failed: {', '.join(failed)}", "failed")
+    return {"items": results, "failed": failed}
+
+
+def exec_scope(run: Run, wf: dict, ctx: dict) -> str:
+    """Run one workflow's DAG; returns done, failed or partial."""
+    nodes = wf["nodes"]
+    for name in nodes:
+        run.node(ctx["prefix"] + name)
+    futures: dict[str, object] = {}
+    while True:
+        states = {n: run.node(ctx["prefix"] + n)["status"] for n in nodes}
+        pending = [n for n, s in states.items() if s == "pending" and n not in futures and not nodes[n].get("manual")]
+        for name in pending:
+            deps = [states[d] for d in nodes[name].get("needs", [])]
+            always = nodes[name].get("always")
+            if not all(d in SETTLED for d in deps):
+                continue
+            if not always and not all(d in SATISFIED for d in deps):
+                run.update(ctx["prefix"] + name, status="cancelled", reason="a node it needs did not finish")
+                continue
+            if nodes[name].get("when") and not truthy(nodes[name]["when"], ctx, run):
+                run.update(ctx["prefix"] + name, status="skipped")
+                continue
+            run.update(ctx["prefix"] + name, status="running")
+            futures[name] = POOL.submit(run_node, run, wf, ctx, name)
+        for name, future in list(futures.items()):
+            if future.done():
+                del futures[name]
+        states = {n: run.node(ctx["prefix"] + n)["status"] for n in nodes if not nodes[n].get("manual")}
+        if all(s in SETTLED for s in states.values()) and not futures:
+            break
+        time.sleep(0.3)
+    bad = [n for n, s in states.items() if s in ("failed", "blocked", "cancelled")]
+    return "done" if not bad else ("partial" if any(s == "done" for s in states.values()) else "failed")
+
+
+def inputs_of(wf: dict, given: dict) -> dict:
+    values = {}
+    for name, spec in (wf.get("inputs") or {}).items():
+        spec = spec if isinstance(spec, dict) else {"default": spec}
+        if name in given:
+            values[name] = given[name]
+        elif "default" in spec:
+            values[name] = spec["default"]
+        elif spec.get("required"):
+            die(f"workflow {wf['name']} needs --input {name}=... (or --{name} for goal)")
+    return {**values, **{k: v for k, v in given.items() if k not in values}}
+
+
+def execute(run: Run) -> int:
+    project = project_view(run.project)
+    wf = find_workflow(run.data["workflow"], project)
+    ctx = {"prefix": "", "inputs": run.data["inputs"], "item": {}, "repo": run.data["inputs"].get("repo"),
+           "run": {"id": run.id, "dir": str(run.dir)}, "project": run.project}
+    run.log(f"run {run.id}: {wf['name']} for {run.project}")
+    status = exec_scope(run, wf, ctx)
+    run.data["status"] = "ready" if status == "done" else "attention"
+    run.data["finished"] = int(time.time())
+    run.save()
+    print(f"run {run.id}: {run.data['status']}; report {run.dir / 'report.md'}")
+    return 0 if status == "done" else 1
+
+
+# ------------------------------------------------------------------------------------------------ commands
+
+
+def parse(args: list[str], switches: set[str]) -> tuple[list[str], dict, set]:
+    pos, flags, on = [], {}, set()
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a in switches:
+            on.add(a)
+        elif a.startswith("--"):
+            if i + 1 >= len(args):
+                die(f"{a} needs a value")
+            if a == "--input":
+                key, _, value = args[i + 1].partition("=")
+                flags.setdefault("inputs", {})[key] = value
+            else:
+                flags[a[2:]] = args[i + 1]
+            i += 1
+        else:
+            pos.append(a)
+        i += 1
+    return pos, flags, on
+
+
+def here_project() -> list[str]:
+    """The project whose directory holds the current one, as a leading argument (empty outside a project)."""
+    if fleet.WORKSPACE and (fleet.WORKSPACE / "project.yaml").is_file():
+        return [fleet.workspace_entry(fleet.WORKSPACE)[0]]
+    return []
+
+
+def cmd_list(args: list[str]) -> int:
+    args = args or here_project()
+    project = project_view(args[0]) if args else None
+    seen = set()
+    for folder in workflow_dirs(project):
+        for path in sorted(folder.glob("*.yaml")):
+            if path.stem in seen:
+                continue
+            seen.add(path.stem)
+            wf = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+            inputs = ", ".join(f"{k}{'*' if (v or {}).get('required') else ''}" for k, v in (wf.get("inputs") or {}).items())
+            print(f"{path.stem:<14}{inputs:<34}{wf.get('description', '')}")
+    return 0
+
+
+def cmd_validate(args: list[str]) -> int:
+    cfg = fleet.load()
+    args = args or here_project()
+    project = project_view(args[0]) if args else None
+    roles = load_roles(project)
+    names = [args[1]] if len(args) > 1 else sorted({p.stem for d in workflow_dirs(project) for p in d.glob("*.yaml")})
+    problems = []
+    for name in names:
+        problems += problems_of(find_workflow(name, project), roles, cfg, project)
+    for role, spec in roles.items():
+        for skill in spec.get("skills", []):
+            if skill not in known_skills():
+                problems.append(f"role {role}: skill {skill!r} does not exist in src/skills")
+        if spec.get("tier") not in fleet.TIERS:
+            problems.append(f"role {role}: bad tier {spec.get('tier')!r}")
+    for message in problems:
+        print("PROBLEM", message)
+    print(f"{len(names)} workflow(s) checked, {len(problems)} problem(s)")
+    return 1 if problems else 0
+
+
+def cmd_graph(args: list[str]) -> int:
+    if not args:
+        die("usage: swe-cli flow graph <workflow> [project]")
+    project = project_view(args[1]) if len(args) > 1 else None
+    roles, wf = load_roles(project), find_workflow(args[0], project)
+    cfg = fleet.load()
+    for name in topo(wf["nodes"]):
+        node = wf["nodes"][name]
+        kind = node_type(node)
+        detail = kind
+        if kind == "agent":
+            spec = {**roles.get(node.get("role"), {}), **node}
+            detail = f"{node['role']} [{spec.get('harness', 'project')}/{spec.get('tier')}/{spec.get('effort', '-')}] skills {','.join(spec.get('skills', []))}"
+        if kind == "map":
+            detail = f"map {node['map']} -> workflow {node['workflow']}"
+        extras = ("  (manual: runs on failure)" if node.get("manual") else "") + (f"  fix: {node['on_fail']['run']} x{node['on_fail']['rounds']}" if node.get("on_fail") else "")
+        print(f"{name:<12}{('<- ' + ', '.join(node.get('needs', []))) if node.get('needs') else '':<22}{detail}{extras}")
+    return 0
+
+
+def cmd_run(args: list[str]) -> int:
+    pos, flags, on = parse(args, {"--dry-run", "--detach", "--foreground"})
+    if len(pos) != 2:
+        die("usage: swe-cli flow run <project> <workflow> [--goal T] [--input k=v] [--repo R] [--harness H] [--detach] [--dry-run]")
+    name, workflow = pos
+    cfg, project = fleet.load(), project_view(name)
+    wf = find_workflow(workflow, project)
+    problems = problems_of(wf, load_roles(project), cfg, project)
+    if problems:
+        print("\n".join("PROBLEM " + p for p in problems))
+        return 1
+    given = dict(flags.get("inputs", {}))
+    for key in ("goal", "repo", "harness", "risk"):
+        if key in flags:
+            given[key] = flags[key]
+    inputs = inputs_of(wf, given)
+    if "--dry-run" in on:
+        print(f"workflow {workflow} for {name}, inputs {inputs}")
+        cmd_graph([workflow, name])
+        return 0
+    problems = fleet.project_problems(name, fleet.load_projects()[name])
+    if problems:
+        print("\n".join("PROBLEM " + p for p in problems))
+        return 1
+    if "--foreground" in on and "run-id" in flags:
+        return execute(Run.load(name, flags["run-id"]))
+    run = Run.create(name, workflow, inputs)
+    if "--detach" in on:
+        log = (run.dir / "runner.log").open("ab")
+        subprocess.Popen([sys.executable, str(HERE / "flow"), "run", name, workflow, "--foreground", "--run-id", run.id],
+                         stdout=log, stderr=log, start_new_session=True, env=os.environ)
+        print(f"started {run.id}: swe-cli flow status {name} {run.id}")
+        return 0
+    return execute(run)
+
+
+def cmd_status(args: list[str]) -> int:
+    if not args:
+        die("usage: swe-cli flow status <project> [run]")
+    if len(args) == 1:
+        folder = TMP / args[0]
+        runs = sorted((p for p in folder.glob("r*/run.json")), key=lambda p: int(p.parent.name[1:])) if folder.is_dir() else []
+        print(f"{'run':<6}{'workflow':<12}{'status':<11}goal")
+        for path in runs:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            print(f"{data['id']:<6}{data['workflow']:<12}{data['status']:<11}{str(data['inputs'].get('goal', ''))[:60]}")
+        print(f"{len(runs)} run(s) in {args[0]}")
+        return 0
+    run = Run.load(args[0], args[1])
+    print(f"run {run.id}: {run.data['workflow']} {run.data['status']}  ({run.dir})")
+    print(f"{'node':<22}{'status':<11}{'harness':<16}outcome")
+    for key, state in sorted(run.data["nodes"].items()):
+        out = state.get("outputs", {})
+        result = out.get("pr_url") or out.get("verdict") or out.get("summary") or state.get("reason", "")
+        print(f"{key:<22}{state.get('status', ''):<11}{(state.get('cli', '') + '/' + state.get('tier', '')).strip('/'):<16}{str(result)[:70]}")
+    if run.data.get("ready"):
+        print("ready to merge: " + ", ".join(f"#{e['pr']}" for e in run.data["ready"]))
+    return 0
+
+
+def cmd_retry(args: list[str]) -> int:
+    if len(args) < 2:
+        die("usage: swe-cli flow retry <project> <run> [node]")
+    run = Run.load(args[0], args[1])
+    wanted = args[2] if len(args) > 2 else None
+    with run.lock:
+        for key, state in run.data["nodes"].items():
+            if state.get("status") in ("failed", "blocked", "cancelled") and (not wanted or key.endswith(wanted)):
+                state.update(status="pending", reason="")
+                state.pop("outputs", None)
+        run.data["status"] = "running"
+        run.save()
+    return execute(run)
+
+
+def merge_one(run: Run, entry: dict, approved: bool) -> tuple[bool, str]:
+    command = [sys.executable, str(HERE / "main"), "merge", str(entry["pr"]), "--repo", entry["github"], "--risk", entry["risk"],
+               "--sha", entry["sha"]] + (["--approved"] if approved else [])
+    result = subprocess.run(command, capture_output=True, text=True)
+    return result.returncode == 0, (result.stdout + result.stderr).strip()
+
+
+def update_branch(run: Run, entry: dict) -> bool:
+    """The branch is behind main or conflicts: the reviewer agent brings it up to date, resolves, re-verifies, re-reviews."""
+    wf = {"name": "update", "nodes": {"update": {"role": "reviewer", "workspace": "same", "card": entry["card"],
+                                                 "reviews": "update", "harness": "other", "goal":
+                                                 "The PR is behind main or conflicts with it. Bring it up to date as the integrator skill says "
+                                                 "(rebase, resolve only inside this card's own files, make verify), push your fix with "
+                                                 "--force-with-lease, then review the result at the new head and give your verdict."}}}
+    ctx = {"prefix": f"u{entry['card']}/", "inputs": run.data["inputs"], "item": {}, "repo": entry["repo"], "run": {"id": run.id}, "project": run.project}
+    record = delegate.load_record(run.project, entry["card"])
+    run.update(ctx["prefix"] + "update", cli=record["cli"])
+    try:
+        out = run_agent(run, wf, ctx, "update", wf["nodes"]["update"])
+    except NodeFail as error:
+        run.log(f"update of #{entry['pr']} failed: {error.reason}")
+        return False
+    entry["sha"] = out["sha"]
+    return out.get("verdict") == "PASS"
+
+
+def cmd_merge(args: list[str]) -> int:
+    pos, _, on = parse(args, {"--approved"})
+    if len(pos) != 2:
+        die("usage: swe-cli flow merge <project> <run> [--approved]")
+    run = Run.load(*pos)
+    approved = "--approved" in on
+    code = 0
+    for entry in run.data.get("ready", []):
+        if entry["pr"] in [m["pr"] for m in run.data["merged"]]:
+            continue
+        ok, text = merge_one(run, entry, approved)
+        if not ok and ("behind" in text or "dirty" in text):
+            print(f"#{entry['pr']}: {text.splitlines()[0] if text else 'behind main'}; the reviewer updates the branch")
+            if update_branch(run, entry):
+                run.save()
+                ok, text = merge_one(run, entry, approved)
+        print(f"#{entry['pr']}: {'merged' if ok else 'NOT merged'}: {text.splitlines()[-1] if text else ''}")
+        if ok:
+            run.data["merged"].append({"pr": entry["pr"], "sha": entry["sha"]})
+            run.save()
+        else:
+            code = 3
+    if code == 0:
+        run.data["status"] = "merged"
+        run.save()
+        print(f"all merged. next: swe-cli flow clean {pos[0]} {pos[1]}")
+    return code
+
+
+def cmd_clean(args: list[str]) -> int:
+    pos, _, on = parse(args, {"--force"})
+    if len(pos) != 2:
+        die("usage: swe-cli flow clean <project> <run> [--force]")
+    run = Run.load(*pos)
+    force = ["--force"] if "--force" in on else []
+    records = [r for r in delegate.records(pos[0]) if r["card"].startswith(run.id + "-")]
+    failures = 0
+    # owners last: a `same` record goes before the card that owns the worktree
+    for record in sorted(records, key=lambda r: bool(r.get("owner", True))):
+        try:
+            delegate.cmd_cleanup([pos[0], record["card"], *force])
+        except SystemExit as error:
+            failures += 1
+            print(f"not cleaned: {record['card']} (exit {error.code}); use --force to drop unmerged work")
+    if failures:
+        return 3
+    shutil.rmtree(run.dir, ignore_errors=True)
+    print(f"cleaned run {run.id}: sessions, worktrees, branches and {run.dir} removed")
+    return 0
+
+
+def cmd_stop(args: list[str]) -> int:
+    if len(args) != 2:
+        die("usage: swe-cli flow stop <project> <run>")
+    run = Run.load(*args)
+    for state in run.data["nodes"].values():
+        if state.get("session"):
+            delegate.close_session(state["session"])
+            if state.get("status") == "running":
+                state["status"] = "failed"
+                state["reason"] = "stopped"
+    run.data["status"] = "stopped"
+    run.save()
+    print(f"stopped run {run.id}")
+    return 0
+
+
+COMMANDS = {"list": cmd_list, "validate": cmd_validate, "graph": cmd_graph, "run": cmd_run, "status": cmd_status,
+            "retry": cmd_retry, "merge": cmd_merge, "clean": cmd_clean, "stop": cmd_stop}
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    if not args or args[0] in ("-h", "--help") or args[0] not in COMMANDS:
+        print(__doc__)
+        return 0 if not args or args[0] in ("-h", "--help") else 2
+    return COMMANDS[args[0]](args[1:])
+
+
+if __name__ == "__main__":
+    sys.exit(main())

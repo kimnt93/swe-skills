@@ -1,0 +1,20 @@
+name: docs
+description: "Documentation changes on small models: plan, write, check every command, review; the report lists the PRs."
+inputs:
+  goal: {required: true}
+  repo: {default: ""}
+  risk: {default: low}
+nodes:
+  plan:
+    role: planner
+    tier: low
+    effort: low
+    goal: "Plan these documentation changes as cards, every card with \"workflow\": \"docs-card\" and \"type\": \"docs\". Goal: ${inputs.goal}"
+  cards:
+    needs: [plan]
+    map: "${nodes.plan.cards}"
+    workflow: docs-card
+  report:
+    type: report
+    needs: [cards]
+    always: true

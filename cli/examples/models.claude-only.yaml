@@ -1,0 +1,99 @@
+# Setup A: Claude Code is the only coding agent, on your Claude subscription (claude auth login).
+# One CLI, so no second model family reviews: the reviewer is Claude at tier top (Opus), in a fresh
+# session that sees only the diff and the card. The orchestrator is Claude Code itself (swe-cli orchestrate <project>).
+# Use it with: SWE_MODELS=cli/examples/models.claude-only.yaml swe-cli bootstrap
+# Hermes is off (board.enabled: false); set it true to also run Hermes managers (on Gemini, never Claude).
+orchestrator:
+  cli: claude
+  tier: mid
+launcher: tmux
+board:
+  enabled: false
+  root:
+    profile: default
+    brain:
+      provider: gemini
+      model: gemini-3.8-flash
+    tools:
+      enable:
+      - kanban
+      - terminal
+      - memory
+      disable:
+      - file
+      - code_execution
+      - browser
+      - delegation
+    skills:
+    - intake
+    - github
+    description: Root. Manages projects and profiles, routes each request to its project's manager, reports across
+      projects. Never edits repositories.
+  manager:
+    brain:
+      provider: gemini
+      model: gemini-3.8-flash
+    tools:
+      enable:
+      - kanban
+      - terminal
+      - memory
+      disable:
+      - file
+      - code_execution
+      - web
+      - browser
+      - delegation
+    skills:
+    - manager
+    - project
+    - github
+    description: 'Manager of project {project} only ({description}). Orchestrates: issues, cards, docs and repo
+      upkeep through cards, merges only when the human approves. Never edits code.'
+clis:
+  claude:
+    permission_mode: bypassPermissions
+    ready: "\u276F"
+    busy: esc to interrupt
+workers:
+  claude:
+    top:
+      model: opus
+      effort: xhigh
+    mid:
+      model: sonnet
+      effort: high
+    low:
+      model: haiku
+reviewers:
+  claude:
+    cli: claude
+    tier: top
+subagents:
+  worker:
+    tier: mid
+  adversary:
+    tier: top
+omp_roles:
+  default: google-antigravity/gemini-3.8-flash
+  smol: google-antigravity/gemini-3.8-flash
+  slow: openai-codex/gpt-6-sol
+context:
+  default:
+    window: 272000
+    compact_at: 245000
+  families:
+    claude:
+      window: 400000
+      compact_at: 350000
+  models: {}
+kanban:
+  dispatch_in_gateway: true
+  review_dispatch: true
+  failure_limit: 2
+  max_in_progress: 6
+  max_in_progress_per_profile: 2
+  auto_decompose: false
+  orchestrator_profile: ''
+autopilot:
+  auto_merge: []

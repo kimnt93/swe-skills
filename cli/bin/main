@@ -1,0 +1,1192 @@
+#!/usr/bin/env python3
+"""swe-cli: run the plugin's agents on Hermes Kanban. Agents and models come from cli/models.yaml,
+projects from the project directory's project.yaml (see init).
+
+    swe-cli models show                     every agent, its level and its model
+    swe-cli models check                    models exist where they run, providers are logged in, projects are sound
+    swe-cli models apply [--dry-run]        push the models to every Hermes profile and to omp
+    swe-cli models cmd <cli> <tier>         the CLI argv for a card (headless), one argument per line
+    swe-cli models reviewer <cli>           "<cli> <tier>" that reviews work written with <cli>
+    swe-cli models subagent <name>          the Claude Code model for a plugin subagent (used by the build)
+    swe-cli init [dir] [--repo <git url>]...   make the directory a project: AGENTS.md (orchestrator), workflows/, roles.yaml,
+                                          models.yaml, project.yaml; asks for git URLs until you are done
+    swe-cli project add <git url|owner/repo> [--name N] [--dir sub]   add a repo to this project directory's project.yaml, clone it
+    swe-cli project add <name> --dir <path> --repo <name>=<owner/repo|url> [--repo ...] [--description "..."]
+                      [--cli claude|codex|omp] [--orchestrator <cli>[:<tier>]] [--dry-run]
+    swe-cli project list
+    swe-cli project sync <name> [--dry-run] make the directory, clone the repos, register them in Orca
+    swe-cli orchestrate <project> [--cli X] [--tier T]   start the project's manager agent (any CLI) in its directory
+    swe-cli flow run <project> <workflow> [--goal ..] [--input k=v] ...   run a YAML workflow (a DAG of agent nodes)
+    swe-cli flow list|validate|status|retry|merge|clean|stop|graph ...      see cli/bin/flow
+    swe-cli bootstrap [--dry-run]           apply models and context; with board.enabled also the Hermes profiles and boards
+    swe-cli sync [--dry-run]                Hermes: share the root login and API keys with every profile, apply models,
+                                          context limits and skills; also the Hermes slash command /sync
+    swe-cli context show                    context window and compaction point per tool and per Hermes profile
+    swe-cli context apply [--dry-run]       write them into Claude Code, Codex and oh-my-pi
+    swe-cli context env <cli> <tier>        KEY=value lines exported before a CLI runs
+    swe-cli delegate ...                    start coding CLIs in tmux worktrees and read their results (see delegate)
+    swe-cli doctor [project]                git credentials, tmux, CLIs, gh, repos: what would stop a delegation
+    swe-cli lane run|review ...             headless one-shot: one card through a CLI with -p (see lane)
+    swe-cli merge <pr> --risk R --sha S [--repo owner/repo] [--approved] [--dry-run]
+                                          the merge gate, then gh pr merge --squash --auto
+    swe-cli name                            the plugin name ($PLUGIN_NAME, else plugin.env, default swe)
+
+Environment: SWE_MODELS, SWE_PROJECTS, OMP_CONFIG, CLAUDE_SETTINGS, CODEX_CONFIG (file paths), HERMES_HOME.
+"""
+
+from __future__ import annotations
+
+import json
+import math
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+import yaml
+
+FLEET = Path(__file__).resolve().parents[1]
+REPO = FLEET.parent
+
+
+def find_workspace() -> Path | None:
+    """The project directory: $SWE_WORKSPACE, else the nearest parent of the current directory with a project.yaml."""
+    if os.environ.get("SWE_WORKSPACE"):
+        return Path(os.environ["SWE_WORKSPACE"]).expanduser().resolve()
+    here = Path.cwd().resolve()
+    for folder in (here, *here.parents):
+        if (folder / "project.yaml").is_file():
+            return folder
+    return None
+
+
+WORKSPACE = None if os.environ.get("SWE_PROJECTS") else find_workspace()
+MODELS = Path(os.environ.get("SWE_MODELS") or (WORKSPACE / "models.yaml" if WORKSPACE and (WORKSPACE / "models.yaml").is_file()
+                                              else FLEET / "models.yaml"))
+PROJECTS = Path(os.environ.get("SWE_PROJECTS", FLEET / "projects.yaml"))
+HOME_DIR = Path(os.environ.get("SWE_HOME", Path.home() / ".swe"))
+REGISTRY = HOME_DIR / "workspaces.yaml"
+OMP_CONFIG = Path(os.environ.get("OMP_CONFIG", Path.home() / ".omp/agent/config.yml"))
+CLAUDE_SETTINGS = Path(os.environ.get("CLAUDE_SETTINGS", Path.home() / ".claude/settings.json"))
+CODEX_CONFIG = Path(os.environ.get("CODEX_CONFIG", Path.home() / ".codex/config.toml"))
+CLAUDE_ALIASES = {"opus", "sonnet", "haiku", "fable"}
+CLI_NAMES = ("claude", "codex", "omp")
+LAUNCHERS = ("tmux", "orca")
+TIERS = ("top", "mid", "low")
+LEVELS = ("board", "clis", "workers", "reviewers", "subagents", "omp_roles", "context", "kanban", "autopilot")
+NEVER_AUTO_MERGE = {"money-path"}
+NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+GITHUB_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+# Root .env variables a profile receives on sync: provider API keys and base URLs, never messaging
+# credentials (each bot token belongs to one gateway; Hermes strips the same set when it clones).
+SHARED_ENV_SUFFIXES = ("_API_KEY", "_API_KEYS", "_BASE_URL")
+CHANNEL_PREFIXES = ("TELEGRAM_", "DISCORD_", "SLACK_", "WHATSAPP_", "MATRIX_", "MATTERMOST_", "SIGNAL_", "WECOM_",
+                    "FEISHU_", "DINGTALK_", "LINE_", "BLUEBUBBLES_", "SMS_", "TWILIO_", "EMAIL_", "HASS_", "QQ_",
+                    "GATEWAY_", "API_SERVER_", "WEBHOOK_")
+
+
+# ------------------------------------------------------------------------------------------------ config
+
+
+def load() -> dict:
+    cfg = yaml.safe_load(MODELS.read_text(encoding="utf-8")) or {}
+    missing = [level for level in LEVELS if level not in cfg]
+    if missing:
+        sys.exit(f"swe-cli: {MODELS} is missing: {', '.join(missing)}")
+    cfg.setdefault("orchestrator", {"cli": "claude", "tier": "mid"})
+    cfg.setdefault("launcher", "tmux")
+    cfg["board"].setdefault("enabled", False)
+    return cfg
+
+
+def hermes_on(cfg: dict) -> bool:
+    return bool(cfg["board"].get("enabled"))
+
+
+def workspace_entry(root: Path) -> tuple[str, dict]:
+    """A project directory's project.yaml as a project: name, dir (the directory itself), repos, cli, orchestrator."""
+    data = yaml.safe_load((root / "project.yaml").read_text(encoding="utf-8")) or {}
+    name = data.get("name") or root.name
+    entry = {k: v for k, v in data.items() if k != "name"}
+    entry["dir"] = str(root)
+    entry.setdefault("repos", {})
+    return name, entry
+
+
+def registered_workspaces() -> dict[str, str]:
+    if not REGISTRY.exists():
+        return {}
+    return (yaml.safe_load(REGISTRY.read_text(encoding="utf-8")) or {}).get("workspaces") or {}
+
+
+def load_projects() -> dict[str, dict]:
+    """Projects: project directories (the one around the current directory, and those `init` registered), or, when
+    $SWE_PROJECTS names a registry file, only that file."""
+    if os.environ.get("SWE_PROJECTS"):
+        if not PROJECTS.exists():
+            return {}
+        return (yaml.safe_load(PROJECTS.read_text(encoding="utf-8")) or {}).get("projects") or {}
+    projects: dict[str, dict] = {}
+    roots = [Path(d) for d in registered_workspaces().values()] + ([WORKSPACE] if WORKSPACE else [])
+    for root in roots:
+        if (root / "project.yaml").is_file():
+            name, entry = workspace_entry(root)
+            projects[name] = entry
+    if not projects and PROJECTS.exists():
+        projects = (yaml.safe_load(PROJECTS.read_text(encoding="utf-8")) or {}).get("projects") or {}
+    return projects
+
+
+def save_workspace(name: str, entry: dict) -> None:
+    root = Path(entry["dir"])
+    data = {"name": name, **{k: v for k, v in entry.items() if k != "dir"}}
+    header = "# Project directory of {0}: written by `swe-cli init` / `swe-cli project add`; edit freely.\n".format(name)
+    (root / "project.yaml").write_text(header + yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+
+def register_workspace(name: str, root: Path) -> None:
+    HOME_DIR.mkdir(parents=True, exist_ok=True)
+    known = registered_workspaces()
+    known[name] = str(root)
+    REGISTRY.write_text("# project directories made by `swe-cli init`: name -> directory\n"
+                        + yaml.safe_dump({"workspaces": dict(sorted(known.items()))}), encoding="utf-8")
+
+
+def save_projects(projects: dict[str, dict]) -> None:
+    header = []
+    if PROJECTS.exists():
+        for line in PROJECTS.read_text(encoding="utf-8").splitlines():
+            if line.startswith("projects:"):
+                break
+            header.append(line)
+    body = yaml.safe_dump({"projects": dict(sorted(projects.items()))}, sort_keys=False, allow_unicode=True)
+    PROJECTS.write_text("\n".join(header) + ("\n" if header else "") + body, encoding="utf-8")
+
+
+def plugin_name() -> str:
+    if os.environ.get("PLUGIN_NAME"):
+        return os.environ["PLUGIN_NAME"]
+    for env_file in (REPO / "plugin.local.env", REPO / "plugin.env"):
+        if env_file.exists():
+            for line in env_file.read_text(encoding="utf-8").splitlines():
+                match = re.match(r"^\s*PLUGIN_NAME\s*\??=\s*(\S+)", line)
+                if match:
+                    return match.group(1)
+    return "swe"
+
+
+def manager_profile(project: str) -> str:
+    return f"pm-{project}"
+
+
+def worker(cfg: dict, lane: str, tier: str) -> dict:
+    try:
+        return cfg["workers"][lane][tier]
+    except KeyError:
+        sys.exit(f"swe-cli: no worker for lane {lane!r} tier {tier!r} in {MODELS}")
+
+
+def argv(cfg: dict, cli: str, tier: str, interactive: bool = False, override: dict | None = None) -> list[str]:
+    """The command a CLI runs for a card: headless for `swe-cli lane`, interactive for a terminal session.
+    `override` (a workflow node's model / effort) replaces the tier's values."""
+    spec = dict(worker(cfg, cli, tier))
+    for key in ("model", "effort"):
+        if (override or {}).get(key):
+            spec[key] = override[key]
+            if key == "effort" and cli == "omp":
+                spec["thinking"] = override[key]
+    settings = cfg["clis"].get(cli) or {}
+    if cli == "claude":
+        args = ["claude"] + ([] if interactive else ["-p"]) + ["--model", spec["model"]]
+        if spec.get("effort"):
+            args += ["--effort", spec["effort"]]
+        return args + ["--permission-mode", settings.get("permission_mode", "bypassPermissions")]
+    if cli == "codex":
+        args = ["codex"] + ([] if interactive else ["exec"]) + ["--model", spec["model"]]
+        if spec.get("effort"):
+            args += ["-c", f"model_reasoning_effort={spec['effort']}"]
+        if interactive:
+            return args + ["--ask-for-approval", settings.get("approval_policy", "never"),
+                           "--sandbox", settings.get("sandbox", "danger-full-access")]
+        return args + ["--dangerously-bypass-approvals-and-sandbox"]
+    if cli == "omp":
+        args = ["omp"] + ([] if interactive else ["-p"]) + ["--model", spec["model"]]
+        if spec.get("thinking"):
+            args += ["--thinking", spec["thinking"]]
+        args += ["--approval-mode", settings.get("approval_mode", "yolo")]
+        return args if interactive else args + ["--max-time", "45m"]
+    sys.exit(f"swe-cli: unknown cli {cli!r} ({', '.join(CLI_NAMES)})")
+
+
+def profiles(cfg: dict, projects: dict[str, dict]) -> dict[str, dict]:
+    """Every Hermes profile: name -> spec with level, role, brain, tools, skills, description."""
+    result: dict[str, dict] = {}
+    if not hermes_on(cfg):
+        return result
+    root = cfg["board"]["root"]
+    result[root["profile"]] = {**root, "level": "board", "role": "root"}
+    template = cfg["board"]["manager"]
+    for name, project in projects.items():
+        if (project.get("orchestrator") or {}).get("cli", "hermes") != "hermes":
+            continue   # this project is run by a CLI agent, not a Hermes manager
+        description = template["description"].format(project=name, description=project.get("description", ""))
+        result[manager_profile(name)] = {**template, "description": description, "level": "board",
+                                         "role": "manager", "project": name}
+    return result
+
+
+# ------------------------------------------------------------------------------------------------ hermes
+
+
+def run(args: list[str], timeout: int = 180) -> subprocess.CompletedProcess:
+    return subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+
+
+def hermes(profile: str, *args: str) -> list[str]:
+    return (["hermes"] if profile == "default" else ["hermes", "-p", profile]) + list(args)
+
+
+def hermes_profiles() -> set[str]:
+    names = set()
+    for line in run(["hermes", "profile", "list"]).stdout.splitlines():
+        first = line.strip().lstrip("◆").split()
+        if first:
+            names.add(first[0])
+    return names
+
+
+def execute(commands: list[list[str]], dry: bool) -> int:
+    for command in commands:
+        print(("would run: " if dry else "run: ") + " ".join(command))
+        if dry:
+            continue
+        result = run(command)
+        if result.returncode != 0:
+            print(result.stdout + result.stderr, file=sys.stderr)
+            return 1
+    return 0
+
+
+def listed(output: str, name: str) -> bool:
+    return re.search(rf"(^|\s){re.escape(name)}(\s|$)", output, re.M) is not None
+
+
+# ------------------------------------------------------------------------------------------------ models
+
+
+def subagent_model(cfg: dict, name: str) -> str:
+    spec = cfg["subagents"].get(name)
+    if not spec:
+        return "inherit"
+    return worker(cfg, "claude", spec["tier"])["model"]
+
+
+def models_show(cfg: dict, projects: dict[str, dict]) -> int:
+    rows = []
+    for name, spec in profiles(cfg, projects).items():
+        if spec["level"] == "board":
+            agent = "root" if spec["role"] == "root" else f"manager {spec['project']}"
+            rows.append(("board", agent, name, spec["brain"]["model"], spec["brain"]["provider"]))
+    orch = cfg["orchestrator"]
+    rows.append(("orchestr", "default orchestrator", orch["cli"], worker(cfg, orch["cli"], orch["tier"])["model"] if orch["cli"] in cfg["workers"] else "", orch["tier"]))
+    if hermes_on(cfg) and not projects:
+        template = cfg["board"]["manager"]["brain"]
+        rows.append(("board", "manager (template)", "pm-<project>", template["model"], template["provider"]))
+    for lane, tiers in cfg["workers"].items():
+        for tier in TIERS:
+            spec = tiers[tier]
+            rows.append(("worker", f"{lane} {tier}", lane, spec["model"], spec.get("effort") or spec.get("thinking") or ""))
+    for author, spec in cfg["reviewers"].items():
+        rows.append(("reviewer", f"of {author}", spec["cli"], worker(cfg, spec["cli"], spec["tier"])["model"], spec["tier"]))
+    for name, spec in cfg["subagents"].items():
+        rows.append(("subagent", f"{plugin_name()}:{name}", "claude code", subagent_model(cfg, name), spec["tier"]))
+    for role, model in cfg["omp_roles"].items():
+        rows.append(("omp role", role, "omp", model, ""))
+    print(f"{'level':<10}{'agent':<24}{'runs as':<16}{'model':<40}extra")
+    for row in rows:
+        print(f"{row[0]:<10}{row[1]:<24}{row[2]:<16}{row[3]:<40}{row[4]}")
+    print(f"launcher: {cfg['launcher']}; hermes: {'on' if hermes_on(cfg) else 'off'}")
+    print(f"projects: {', '.join(sorted(projects)) or 'none (swe-cli project add)'}")
+    print(f"autopilot auto_merge: {cfg['autopilot'].get('auto_merge') or 'off'}")
+    return 0
+
+
+def omp_models() -> set[str]:
+    out = run(["omp", "models", "ls", "--json"]).stdout if shutil.which("omp") else ""
+    data = json.loads(out or "[]")
+    items = data if isinstance(data, list) else data.get("models", [])
+    return {f"{m.get('provider')}/{m.get('id')}" for m in items if isinstance(m, dict)}
+
+
+def project_view(name: str, project: dict) -> dict:
+    """A project as the commands use it: its directory and its repos, each with a clone path."""
+    base = Path(os.path.expanduser(project.get("dir", ""))).resolve() if project.get("dir") else Path()
+    repos = {}
+    for repo, spec in (project.get("repos") or {}).items():
+        spec = dict(spec or {})
+        sub = spec.get("path") or spec.get("dir")
+        spec["path"] = str((base / os.path.expanduser(sub)).resolve()) if sub else str(base / repo)
+        spec["hotspots"] = list(spec.get("hotspots") or [])
+        repos[repo] = spec
+    return {"name": name, "dir": str(base), "repos": repos, "cli": project.get("cli", "claude"),
+            "description": project.get("description", ""), "orchestrator": project.get("orchestrator") or {}}
+
+
+def project_problems(name: str, project: dict, clones: bool = True) -> list[str]:
+    problems = []
+    if not NAME_RE.match(name):
+        problems.append(f"project {name!r}: name must match {NAME_RE.pattern}")
+    if not project.get("dir"):
+        problems.append(f"project {name}: dir is required (the project directory that holds its repos)")
+    repos = project.get("repos")
+    if not isinstance(repos, dict) or not repos:
+        problems.append(f"project {name}: repos must list at least one repo (name: {{github: owner/repo}})")
+        return problems
+    view = project_view(name, project)
+    for repo, spec in repos.items():
+        spec = spec or {}
+        if not NAME_RE.match(repo):
+            problems.append(f"project {name}: repo name {repo!r} must match {NAME_RE.pattern}")
+        if not (spec.get("github") or spec.get("url")):
+            problems.append(f"project {name}: repo {repo} needs github (owner/repo) or url")
+        if spec.get("github") and not GITHUB_RE.match(spec["github"]):
+            problems.append(f"project {name}: repo {repo}: github must be owner/repo, got {spec['github']!r}")
+        hotspots = spec.get("hotspots", [])
+        if not isinstance(hotspots, list) or not all(isinstance(h, str) and h and not h.startswith("/") for h in hotspots):
+            problems.append(f"project {name}: repo {repo}: hotspots must be a list of repo-relative paths")
+        if clones and not (Path(view["repos"][repo]["path"]) / ".git").exists():
+            problems.append(f"project {name}: {view['repos'][repo]['path']} is not a git clone (swe-cli project sync {name})")
+    if project.get("cli", "claude") not in CLI_NAMES:
+        problems.append(f"project {name}: cli must be one of {', '.join(CLI_NAMES)}, got {project.get('cli')!r}")
+    orch = project.get("orchestrator") or {}
+    if orch.get("cli") and orch["cli"] not in CLI_NAMES + ("hermes",):
+        problems.append(f"project {name}: orchestrator.cli must be one of {', '.join(CLI_NAMES)} or hermes")
+    if orch.get("tier") and orch["tier"] not in TIERS:
+        problems.append(f"project {name}: orchestrator.tier must be one of {', '.join(TIERS)}")
+    return problems
+
+
+def doctor(cfg: dict, projects: dict[str, dict], only: str) -> int:
+    """What would stop a delegation: tools, logins, git credentials and the state of each central clone."""
+    problems = []
+    launcher = cfg["launcher"]
+    tools = [("git", True), ("gh", True), ("tmux", launcher == "tmux"), ("orca-ide", launcher == "orca")]
+    tools += [(cli, cli in {cfg["orchestrator"]["cli"], *(p.get("cli", "claude") for p in projects.values())}) for cli in CLI_NAMES]
+    for tool, needed in tools:
+        if not shutil.which(tool):
+            problems.append(f"{tool} is not installed" if needed else f"note: {tool} is not installed (only needed if you use it)")
+    if shutil.which("gh") and run(["gh", "auth", "status"]).returncode != 0:
+        problems.append("gh is not logged in (gh auth login)")
+    if launcher == "orca" and shutil.which("orca-ide"):
+        status = subprocess.run(["orca-ide", "status"], capture_output=True, text=True, timeout=30)
+        if "runtimeReachable: true" not in status.stdout:
+            problems.append("orca-ide cannot reach the Orca app (open Orca, or: orca-ide open)")
+    names = [only] if only else sorted(projects)
+    for name in names:
+        if name not in projects:
+            problems.append(f"no project {name!r} in {PROJECTS}")
+            continue
+        problems += project_problems(name, projects[name])
+        view = project_view(name, projects[name])
+        if not Path(view["dir"]).is_dir():
+            problems.append(f"project {name}: directory {view['dir']} does not exist (swe-cli project sync {name})")
+        for repo, spec in view["repos"].items():
+            clone = Path(spec["path"])
+            if not (clone / ".git").exists():
+                continue
+            env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+            reach = subprocess.run(["git", "-C", str(clone), "ls-remote", "--exit-code", "origin", "refs/heads/main"],
+                                   capture_output=True, text=True, timeout=60, env=env)
+            if reach.returncode != 0:
+                url = subprocess.run(["git", "-C", str(clone), "remote", "get-url", "origin"], capture_output=True, text=True).stdout.strip()
+                hint = "use an SSH remote, or run: gh auth setup-git" if url.startswith("https://") else "check the SSH key and the network"
+                problems.append(f"project {name}: {repo}: cannot reach origin {url} without a prompt, so fetch would fail ({hint})")
+                continue
+            git = lambda *a: subprocess.run(["git", "-C", str(clone), *a], capture_output=True, text=True).stdout.strip()
+            branch = git("branch", "--show-current")
+            if branch != "main":
+                problems.append(f"project {name}: {repo}: the central clone is on {branch or 'a detached head'}, not main (agents work in worktrees)")
+            if git("status", "--porcelain"):
+                problems.append(f"project {name}: {repo}: the central clone has uncommitted changes (agents work in worktrees)")
+    for message in problems:
+        print("PROBLEM" if not message.startswith("note:") else "NOTE   ", message.removeprefix("note: "))
+    real = [p for p in problems if not p.startswith("note:")]
+    print(f"{len(real)} problem(s)")
+    return 1 if real else 0
+
+
+def models_check(cfg: dict, projects: dict[str, dict]) -> int:
+    problems = []
+    for author, spec in cfg["reviewers"].items():
+        if spec["cli"] == author and len(cfg["clis"]) > 1:
+            problems.append(f"reviewers.{author} must be the other CLI, not {author} (two CLIs are configured)")
+        worker(cfg, spec["cli"], spec["tier"])
+    for cli in cfg["clis"]:
+        if cli not in cfg["workers"]:
+            problems.append(f"cli {cli} has no workers")
+        if cli not in CLI_NAMES:
+            problems.append(f"clis.{cli}: unknown cli ({', '.join(CLI_NAMES)})")
+        if cli == "claude":
+            for tier, w in cfg["workers"][cli].items():
+                if w["model"] not in CLAUDE_ALIASES and not w["model"].startswith("claude-"):
+                    problems.append(f"workers.{cli}.{tier}: {w['model']!r} is not a Claude model")
+    orch = cfg["orchestrator"]
+    if orch.get("cli") not in cfg["clis"] and orch.get("cli") != "hermes":
+        problems.append(f"orchestrator.cli {orch.get('cli')!r} is not in clis")
+    if orch.get("tier") not in TIERS:
+        problems.append(f"orchestrator.tier must be one of {', '.join(TIERS)}")
+    if cfg["launcher"] not in LAUNCHERS:
+        problems.append(f"launcher must be one of {', '.join(LAUNCHERS)}")
+    if hermes_on(cfg) and (cfg["board"]["manager"]["brain"]["model"].startswith("claude") or cfg["board"]["manager"]["brain"]["provider"] == "anthropic"):
+        problems.append("board.manager must not run on Claude: Claude cannot be the Hermes orchestrator, and a manager on Claude stops when Claude's quota does")
+    for name, spec in cfg["subagents"].items():
+        if spec["tier"] not in TIERS:
+            problems.append(f"subagents.{name}: tier must be one of {', '.join(TIERS)}")
+    if NEVER_AUTO_MERGE & set(cfg["autopilot"].get("auto_merge") or []):
+        problems.append("autopilot.auto_merge must never include money-path")
+    for name, project in projects.items():
+        problems += project_problems(name, project)
+    if "omp" in cfg["clis"]:
+        available = omp_models()
+        used = [w["model"] for w in cfg["workers"]["omp"].values()] + list(cfg["omp_roles"].values())
+        for model in sorted(set(used)):
+            if model not in available:
+                problems.append(f"omp has no model {model} (log in: omp login <provider>; list: omp models ls)")
+    if hermes_on(cfg):
+        existing = hermes_profiles()
+        for profile in profiles(cfg, projects):
+            if profile != "default" and profile not in existing:
+                problems.append(f"hermes profile {profile} does not exist (run: swe-cli bootstrap)")
+        for provider in sorted({spec["brain"]["provider"] for spec in profiles(cfg, projects).values()}):
+            result = run(["hermes", "auth", "status", provider])
+            status = result.stdout + result.stderr
+            if "logged in" not in status or "logged out" in status:
+                problems.append(f"hermes provider {provider} is logged out (hermes auth add {provider})")
+    if shutil.which("gh") and run(["gh", "auth", "status"]).returncode != 0:
+        problems.append("gh is not logged in (gh auth login): agents cannot push, open PRs or manage issues")
+    problems += context_problems(cfg)
+    for message in problems:
+        print("PROBLEM", message)
+    print(f"{len(problems)} problem(s)")
+    return 1 if problems else 0
+
+
+def backup_and_write(path: Path, text: str) -> None:
+    if path.exists():
+        shutil.copy2(path, path.with_name(f"{path.name}.bak-{int(time.time())}"))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def models_apply(cfg: dict, projects: dict[str, dict], dry: bool) -> int:
+    """Hermes profiles (through sync, when Hermes is on) and omp's model roles."""
+    if hermes_on(cfg) and sync(cfg, projects, dry):
+        return 1
+    data = (yaml.safe_load(OMP_CONFIG.read_text(encoding="utf-8")) if OMP_CONFIG.exists() else None) or {}
+    data.setdefault("setupVersion", 2)
+    wanted = {**(data.get("modelRoles") or {}), **cfg["omp_roles"]}
+    if data.get("modelRoles") == wanted:
+        print(f"omp model roles unchanged in {OMP_CONFIG}")
+    else:
+        data["modelRoles"] = wanted
+        print(("would write: " if dry else "write: ") + f"{OMP_CONFIG} modelRoles = {cfg['omp_roles']}")
+        if not dry:
+            backup_and_write(OMP_CONFIG, yaml.safe_dump(data, sort_keys=False))
+    print("workers and reviewers need no apply: swe-cli delegate and swe-cli lane read models.yaml on every card")
+    print("plugin subagents: rebuild and reinstall the plugin (make claude)")
+    return 0
+
+
+# ------------------------------------------------------------------------------------------------ context
+
+
+def is_claude(model: str) -> bool:
+    bare = model.lower().split("/")[-1]
+    return bare in CLAUDE_ALIASES or bare.startswith("claude")
+
+
+def context_for(cfg: dict, model: str) -> tuple[int, int]:
+    """(window, compact_at) in tokens for a model: an exact override, else its family, else the default."""
+    ctx = cfg["context"]
+    overrides = ctx.get("models") or {}
+    spec = overrides.get(model) or overrides.get(model.split("/")[-1])
+    if spec is None and is_claude(model):
+        spec = (ctx.get("families") or {}).get("claude")
+    spec = spec or ctx["default"]
+    return int(spec["window"]), int(spec["compact_at"])
+
+
+def context_problems(cfg: dict) -> list[str]:
+    ctx = cfg["context"]
+    specs = {"default": ctx.get("default")}
+    specs.update({f"families.{k}": v for k, v in (ctx.get("families") or {}).items()})
+    specs.update({f"models.{k}": v for k, v in (ctx.get("models") or {}).items()})
+    problems = []
+    for name, spec in specs.items():
+        try:
+            window, compact = int(spec["window"]), int(spec["compact_at"])
+        except (KeyError, TypeError, ValueError):
+            problems.append(f"context.{name}: needs integer window and compact_at")
+            continue
+        if not 0 < compact < window:
+            problems.append(f"context.{name}: compact_at {compact} must be above 0 and below window {window}")
+    return problems
+
+
+def hermes_threshold(window: int, compact: int) -> float:
+    """compression.threshold that lets compression.threshold_tokens decide: Hermes floors the ratio
+    at 0.75 for windows under 512K, so a higher ratio is needed to compact later than that."""
+    return math.ceil(compact / window * 100) / 100
+
+
+def top_level_toml(path: Path) -> dict:
+    import tomllib
+    return tomllib.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
+def set_toml_top_level(text: str, values: dict[str, int]) -> str:
+    """Set top-level keys (before the first [table]), leaving every table and comment as it is."""
+    lines = text.splitlines()
+    first_table = next((i for i, line in enumerate(lines) if line.lstrip().startswith("[")), len(lines))
+    for key, value in values.items():
+        pattern = re.compile(rf"^\s*{re.escape(key)}\s*=")
+        index = next((i for i in range(first_table) if pattern.match(lines[i])), None)
+        if index is None:
+            lines.insert(first_table, f"{key} = {value}")
+            first_table += 1
+        else:
+            lines[index] = f"{key} = {value}"
+    return "\n".join(lines) + "\n"
+
+
+def context_apply(cfg: dict, dry: bool) -> int:
+    """Write the policy into the user-level config of Claude Code, Codex and oh-my-pi."""
+    prefix = "would write" if dry else "write"
+    # Claude Code: autoCompactWindow is the size at which it compacts (300-400k for Claude models)
+    _, claude_compact = context_for(cfg, "claude")
+    settings = json.loads(CLAUDE_SETTINGS.read_text(encoding="utf-8")) if CLAUDE_SETTINGS.exists() else {}
+    if settings.get("autoCompactWindow") == claude_compact:
+        print(f"claude code: autoCompactWindow {claude_compact} unchanged in {CLAUDE_SETTINGS}")
+    else:
+        print(f"{prefix}: {CLAUDE_SETTINGS} autoCompactWindow = {claude_compact}")
+        settings["autoCompactWindow"] = claude_compact
+        if not dry:
+            backup_and_write(CLAUDE_SETTINGS, json.dumps(settings, indent=2, ensure_ascii=False) + "\n")
+    # Codex and every other model: the default policy
+    window, compact = int(cfg["context"]["default"]["window"]), int(cfg["context"]["default"]["compact_at"])
+    current = top_level_toml(CODEX_CONFIG)
+    wanted = {"model_context_window": window, "model_auto_compact_token_limit": compact}
+    if all(current.get(k) == v for k, v in wanted.items()):
+        print(f"codex: {window} / {compact} unchanged in {CODEX_CONFIG}")
+    else:
+        print(f"{prefix}: {CODEX_CONFIG} model_context_window = {window}, model_auto_compact_token_limit = {compact}")
+        if not dry:
+            text = CODEX_CONFIG.read_text(encoding="utf-8") if CODEX_CONFIG.exists() else ""
+            backup_and_write(CODEX_CONFIG, set_toml_top_level(text, wanted))
+    # oh-my-pi: one global threshold, the default policy (omp has no per-model override)
+    data = (yaml.safe_load(OMP_CONFIG.read_text(encoding="utf-8")) if OMP_CONFIG.exists() else None) or {}
+    if (data.get("compaction") or {}).get("thresholdTokens") == compact:
+        print(f"omp: compaction.thresholdTokens {compact} unchanged in {OMP_CONFIG}")
+    else:
+        print(f"{prefix}: {OMP_CONFIG} compaction.thresholdTokens = {compact}")
+        data.setdefault("setupVersion", 2)
+        data.setdefault("compaction", {})["thresholdTokens"] = compact
+        if not dry:
+            backup_and_write(OMP_CONFIG, yaml.safe_dump(data, sort_keys=False))
+    print("Hermes profiles: swe-cli sync")
+    return 0
+
+
+def context_show(cfg: dict, projects: dict[str, dict]) -> int:
+    window, compact = int(cfg["context"]["default"]["window"]), int(cfg["context"]["default"]["compact_at"])
+    _, claude_compact = context_for(cfg, "claude")
+    claude_window = context_for(cfg, "claude")[0]
+    rows = [("Claude Code", "autoCompactWindow", "claude", claude_window, claude_compact),
+            ("Codex", "model_context_window", "default", window, compact),
+            ("oh-my-pi", "compaction.thresholdTokens", "default", window, compact)]
+    for name, spec in profiles(cfg, projects).items():
+        w, c = context_for(cfg, spec["brain"]["model"])
+        rows.append((f"Hermes {name}", f"{spec['brain']['model']}", "claude" if is_claude(spec["brain"]["model"]) else "default", w, c))
+    print(f"{'agent':<24}{'model / key':<34}{'policy':<9}{'window':>9}{'compacts at':>13}")
+    for agent, key, policy, w, c in rows:
+        print(f"{agent:<24}{key:<34}{policy:<9}{w:>9,}{c:>13,}")
+    return 0
+
+
+def context_env(cfg: dict, lane: str, tier: str) -> int:
+    """Environment a lane exports before its CLI starts (Claude Code reads its compaction point from it)."""
+    if lane == "claude":
+        print(f"CLAUDE_CODE_AUTO_COMPACT_WINDOW={context_for(cfg, worker(cfg, lane, tier)['model'])[1]}")
+    return 0
+
+
+# ------------------------------------------------------------------------------------------------ sync
+
+
+def hermes_root() -> Path:
+    home = Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes"))
+    return home.parent.parent if home.parent.name == "profiles" else home
+
+
+def profile_dir(name: str) -> Path:
+    return hermes_root() if name == "default" else hermes_root() / "profiles" / name
+
+
+def nested(data: dict, dotted: str):
+    for part in dotted.split("."):
+        if not isinstance(data, dict) or part not in data:
+            return None
+        data = data[part]
+    return data
+
+
+def same_value(current, wanted) -> bool:
+    if isinstance(wanted, list):
+        return isinstance(current, list) and [str(x) for x in current] == [str(x) for x in wanted]
+    try:
+        return float(current) == float(wanted)
+    except (TypeError, ValueError):
+        return str(current) == str(wanted)
+
+
+def env_values(path: Path) -> dict[str, str]:
+    values = {}
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            match = re.match(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$", line)
+            if match:
+                values[match.group(1)] = match.group(2)
+    return values
+
+
+def shared_env_keys(names) -> list[str]:
+    return sorted(n for n in names if n.endswith(SHARED_ENV_SUFFIXES) and not n.startswith(CHANNEL_PREFIXES))
+
+
+def sync_env(profile: str, dry: bool) -> list[str]:
+    """Copy provider keys from the root .env into a profile's .env; returns the names added or updated."""
+    source = env_values(hermes_root() / ".env")
+    target_path = profile_dir(profile) / ".env"
+    target = env_values(target_path)
+    changed = [k for k in shared_env_keys(source) if target.get(k) != source[k]]
+    if changed and not dry:
+        lines = target_path.read_text(encoding="utf-8").splitlines() if target_path.exists() else []
+        for key in changed:
+            pattern = re.compile(rf"^\s*(?:export\s+)?{re.escape(key)}\s*=")
+            index = next((i for i, line in enumerate(lines) if pattern.match(line)), None)
+            if index is None:
+                lines.append(f"{key}={source[key]}")
+            else:
+                lines[index] = f"{key}={source[key]}"
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        target_path.chmod(0o600)
+    return changed
+
+
+def desired_settings(cfg: dict, name: str, spec: dict) -> dict[str, object]:
+    model = spec["brain"]["model"]
+    window, compact = context_for(cfg, model)
+    wanted: dict[str, object] = {
+        "model.default": model,
+        "model.provider": spec["brain"]["provider"],
+        "model.context_length": window,
+        "compression.threshold": hermes_threshold(window, compact),
+        "compression.threshold_tokens": compact,
+        "skills.external_dirs": skill_dirs(),
+    }
+    if name == "default":
+        wanted["quick_commands.sync.type"] = "exec"
+        wanted["quick_commands.sync.command"] = f"{sys.executable} {FLEET / 'bin' / 'main'} sync"
+    return wanted
+
+
+def sync(cfg: dict, projects: dict[str, dict], dry: bool) -> int:
+    """Make every Hermes profile follow the root: login, API keys, models, context limits, skills.
+
+    Logins need no copy: Hermes reads the root auth.json as a per-provider fallback in every
+    profile (and copying an OAuth token would break it, since refresh tokens are single use).
+    Fast on purpose (it is the /sync slash command, which Hermes cuts off after 30 s): it reads
+    each profile's config.yaml and runs `hermes config set` only for what differs."""
+    if not hermes_on(cfg):
+        print("hermes integration is off (board.enabled: false in models.yaml): nothing to sync")
+        return 0
+    started = time.time()
+    specs = profiles(cfg, projects)
+    present = {"default"} | ({d.name for d in (hermes_root() / "profiles").iterdir() if d.is_dir()}
+                             if (hermes_root() / "profiles").is_dir() else set())
+    failures, lines = 0, []
+    missing = [n for n in specs if n not in present and not dry]
+    # logins: report what the root has and which profiles shadow it with their own entries
+    providers = sorted({spec["brain"]["provider"] for spec in specs.values()})
+    out, shadows = [], []
+    for provider in providers:
+        status = run(["hermes", "auth", "status", provider]) if not dry else None
+        text = (status.stdout + status.stderr) if status else ""
+        out.append(f"{provider} {'logged in' if status and 'logged in' in text and 'logged out' not in text else 'not logged in on default' if status else '(dry run)'}")
+    for name in specs:
+        auth_file = profile_dir(name) / "auth.json"
+        if name != "default" and auth_file.exists():
+            try:
+                store = json.loads(auth_file.read_text(encoding="utf-8"))
+            except ValueError:
+                continue
+            own = sorted((set((store.get("providers") or {})) | set((store.get("credential_pool") or {}))) & set(providers))
+            if own:
+                shadows.append(f"{name} has its own {', '.join(own)} login (it hides the one on default)")
+    lines.append("login: " + "; ".join(out) + ("  [log in with: hermes auth add <provider>, on the default profile]" if any("not logged" in o for o in out) else ""))
+    lines += [f"warning: {s}" for s in shadows]
+    for name, spec in specs.items():
+        if name in missing:
+            lines.append(f"{name}: missing, run: swe-cli bootstrap")
+            continue
+        notes = []
+        if name != "default":
+            keys = sync_env(name, dry)
+            if keys:
+                notes.append("env " + ", ".join(f"+{k}" for k in keys))
+        config_file = profile_dir(name) / "config.yaml"
+        current = (yaml.safe_load(config_file.read_text(encoding="utf-8")) or {}) if config_file.exists() else {}
+        changed = []
+        for key, value in desired_settings(cfg, name, spec).items():
+            if same_value(nested(current, key), value):
+                continue
+            rendered = json.dumps(value) if isinstance(value, list) else str(value)
+            command = hermes(name, "config", "set", key, rendered)
+            if dry:
+                print("would run: " + " ".join(command))
+                changed.append(key)
+                continue
+            result = run(command)
+            if result.returncode != 0:
+                failures += 1
+                lines.append(f"{name}: FAILED {key}: {(result.stdout + result.stderr).strip().splitlines()[-1:]}")
+            else:
+                changed.append(key)
+        if changed:
+            notes.append(f"{len(changed)} setting(s): " + ", ".join(changed))
+        lines.append(f"{name}: " + ("; ".join(notes) if notes else "already in sync"))
+    lines.append(f"{'dry run' if dry else 'done'} in {time.time() - started:.1f}s")
+    print("\n".join(lines))
+    return 1 if failures else 0
+
+
+# ------------------------------------------------------------------------------------------------ bootstrap
+
+
+def skill_dirs() -> list[str]:
+    name = plugin_name()
+    return [str((REPO / "dist" / name / "skills").resolve())]
+
+
+def profile_commands(name: str, spec: dict, existing: set[str]) -> list[list[str]]:
+    commands = []
+    if name != "default" and name not in existing:
+        commands.append(["hermes", "profile", "create", name, "--no-alias", "--description", spec["description"]])
+    elif name != "default":
+        commands.append(["hermes", "profile", "describe", name, "--text", spec["description"]])
+    commands.append(hermes(name, "config", "set", "skills.external_dirs", json.dumps(skill_dirs())))
+    tools = spec.get("tools") or {}
+    if tools.get("enable"):
+        commands.append(hermes(name, "tools", "enable", *tools["enable"]))
+    if tools.get("disable"):
+        commands.append(hermes(name, "tools", "disable", *tools["disable"]))
+    return commands
+
+
+def build_plugin() -> int:
+    build = run([sys.executable, str(REPO / "scripts" / "build.py")], timeout=300)
+    if build.returncode != 0:
+        print(build.stdout + build.stderr, file=sys.stderr)
+    return build.returncode
+
+
+def orca_register(path: str, dry: bool) -> None:
+    """Add a directory to Orca so its worktrees and terminals show up there (best effort)."""
+    if dry or not shutil.which("orca-ide"):
+        print(f"{'would register' if dry else 'orca-ide not found, not registering'} {path} in Orca")
+        return
+    result = subprocess.run(["orca-ide", "repo", "add", "--path", path, "--json"], capture_output=True, text=True, timeout=60)
+    text = result.stdout + result.stderr
+    if result.returncode == 0 or "already" in text.lower():
+        print(f"orca: {path} registered")
+    else:
+        print(f"orca: could not register {path}: {text.strip().splitlines()[-1:] or ['?']}")
+
+
+def clone_command(spec: dict, path: str) -> list[str]:
+    if spec.get("url"):
+        return ["git", "clone", spec["url"], path]
+    if shutil.which("gh"):
+        return ["gh", "repo", "clone", spec["github"], path]
+    return ["git", "clone", f"https://github.com/{spec['github']}.git", path]
+
+
+def project_sync(cfg: dict, projects: dict[str, dict], name: str, dry: bool) -> int:
+    """The project directory exists, every repo is cloned in it, and (launcher orca) is known to Orca."""
+    if name not in projects:
+        sys.exit(f"swe-cli: no project {name!r} in {PROJECTS}")
+    problems = project_problems(name, projects[name], clones=False)
+    if problems:
+        print("\n".join("PROBLEM " + p for p in problems))
+        return 1
+    view = project_view(name, projects[name])
+    if dry:
+        print(f"would create {view['dir']}")
+    else:
+        Path(view["dir"]).mkdir(parents=True, exist_ok=True)
+    for repo, spec in view["repos"].items():
+        if (Path(spec["path"]) / ".git").exists():
+            print(f"repo {repo}: cloned at {spec['path']}")
+        elif execute([clone_command(spec, spec["path"])], dry):
+            return 1
+        if cfg["launcher"] == "orca":
+            orca_register(spec["path"], dry)
+    if hermes_on(cfg):
+        manager = manager_profile(name)
+        spec = profiles(cfg, projects).get(manager)
+        if spec:
+            existing = set() if dry else hermes_profiles()
+            commands = profile_commands(manager, spec, existing)
+            commands.append(hermes(manager, "config", "set", "model.default", spec["brain"]["model"]))
+            commands.append(hermes(manager, "config", "set", "model.provider", spec["brain"]["provider"]))
+            if execute(commands, dry):
+                return 1
+            boards = "" if dry else run(["hermes", "kanban", "boards", "list"]).stdout
+            if listed(boards, name):
+                print(f"board {name} exists")
+            elif execute([["hermes", "kanban", "boards", "create", name, "--default-workdir", view["dir"],
+                           "--description", view["description"]]], dry):
+                return 1
+            for profile in ("default", manager):
+                known = "" if dry else run(hermes(profile, "project", "list")).stdout
+                if listed(known, name):
+                    print(f"project {name} exists for {profile}")
+                    continue
+                if execute([hermes(profile, "project", "create", name, view["dir"], "--slug", name, "--board", name)], dry):
+                    return 1
+    print(f"project {name}: dir {view['dir']}, repos {', '.join(view['repos'])}, cli {view['cli']}")
+    return 0
+
+
+def parse_repo_flag(value: str) -> tuple[str, dict]:
+    if "=" not in value:
+        sys.exit("swe-cli: --repo takes <name>=<owner/repo> or <name>=<clone url>")
+    repo, source = value.split("=", 1)
+    if GITHUB_RE.match(source) and not Path(source).exists():
+        return repo, {"github": source}
+    match = re.search(r"github\.com[:/]([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(?:\.git)?/?$", source)
+    return repo, {"url": source, **({"github": match.group(1)} if match else {})}
+
+
+def project_add(cfg: dict, args: list[str], dry: bool) -> int:
+    usage = ("usage: swe-cli project add <name> --dir <path> --repo <name>=<owner/repo|url> [--repo ...] "
+             "[--description \"...\"] [--cli claude|codex|omp] [--orchestrator <cli>[:<tier>]]")
+    if not args:
+        sys.exit(usage)
+    name, rest = args[0], args[1:]
+    flags: dict[str, list[str]] = {}
+    i = 0
+    while i < len(rest):
+        if not rest[i].startswith("--") or i + 1 >= len(rest):
+            sys.exit(usage)
+        flags.setdefault(rest[i], []).append(rest[i + 1])
+        i += 2
+    if "--dir" not in flags or "--repo" not in flags:
+        sys.exit(usage)
+    entry: dict = {"dir": flags["--dir"][0], "description": (flags.get("--description") or [name])[0],
+                   "repos": dict(parse_repo_flag(r) for r in flags["--repo"])}
+    if "--cli" in flags:
+        entry["cli"] = flags["--cli"][0]
+    if "--orchestrator" in flags:
+        cli, _, tier = flags["--orchestrator"][0].partition(":")
+        entry["orchestrator"] = {"cli": cli, **({"tier": tier} if tier else {})}
+    projects = load_projects()
+    problems = project_problems(name, entry, clones=False)
+    if problems:
+        print("\n".join("PROBLEM " + p for p in problems))
+        return 1
+    projects[name] = entry
+    if dry:
+        print(f"would add project {name} to {PROJECTS}: {entry}")
+    else:
+        save_projects(projects)
+        print(f"added project {name} to {PROJECTS}")
+        if hermes_on(cfg) and build_plugin():
+            return 1
+    return project_sync(cfg, projects, name, dry)
+
+
+def repo_name_of(url: str) -> str:
+    base = re.sub(r"(\.git)?/*$", "", url.strip()).rsplit("/", 1)[-1].rsplit(":", 1)[-1]
+    return re.sub(r"[^a-z0-9]+", "-", base.lower()).strip("-")
+
+
+def repo_entry(url: str, subdir: str = "") -> tuple[str, dict]:
+    """A repo for project.yaml from a git URL or owner/repo; the folder name defaults to the repository name."""
+    _, source = parse_repo_flag("x=" + url)
+    name = repo_name_of(url)
+    if not NAME_RE.match(name):
+        sys.exit(f"swe-cli: cannot derive a repo name from {url!r}; use --name")
+    entry = dict(source)
+    entry["dir"] = subdir or name
+    return name, entry
+
+
+def add_repo_to_workspace(root: Path, url: str, name: str = "", subdir: str = "", dry: bool = False) -> int:
+    """Record the repo in the project directory's project.yaml and clone it there."""
+    project, entry = workspace_entry(root)
+    repo, spec = repo_entry(url, subdir)
+    repo = name or repo
+    if not NAME_RE.match(repo):
+        sys.exit(f"swe-cli: repo name {repo!r} must match {NAME_RE.pattern}")
+    if repo in entry["repos"]:
+        print(f"repo {repo} is already in {root / 'project.yaml'}")
+        return 0
+    for other, existing in entry["repos"].items():
+        if (existing or {}).get("dir", other) == spec["dir"]:
+            sys.exit(f"swe-cli: directory {spec['dir']!r} is already used by repo {other}")
+    entry["repos"][repo] = spec
+    if dry:
+        print(f"would add repo {repo} ({url}) to {root / 'project.yaml'} and clone it into {root / spec['dir']}")
+        return 0
+    save_workspace(project, entry)
+    target = root / spec["dir"]
+    if (target / ".git").exists():
+        print(f"repo {repo}: already cloned at {target}")
+        return 0
+    rc = execute([clone_command(spec, str(target))], False)
+    if rc:
+        print(f"repo {repo} stays in project.yaml; fix access, then: swe-cli project sync {project}")
+    else:
+        print(f"added repo {repo} at {target}")
+    return rc
+
+
+def init_workspace(args: list[str], dry: bool) -> int:
+    """Make the current (or the given) directory a project: AGENTS.md for the orchestrator, workflows, roles, models,
+    project.yaml; then ask for git URLs until the user is done. Repos can also be given with --repo."""
+    usage = "usage: swe-cli init [dir] [--name N] [--cli claude|codex|omp] [--repo <git url>]... [--yes] [--force]"
+    pos, urls, name, cli, force, yes = [], [], "", "claude", False, False
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a in ("--repo", "--name", "--cli") and i + 1 < len(args):
+            if a == "--repo":
+                urls.append(args[i + 1])
+            elif a == "--name":
+                name = args[i + 1]
+            else:
+                cli = args[i + 1]
+            i += 2
+            continue
+        if a == "--force":
+            force = True
+        elif a == "--yes":
+            yes = True
+        elif a.startswith("--"):
+            sys.exit(usage)
+        else:
+            pos.append(a)
+        i += 1
+    if len(pos) > 1:
+        sys.exit(usage)
+    root = Path(pos[0] if pos else ".").expanduser().resolve()
+    name = name or re.sub(r"[^a-z0-9]+", "-", root.name.lower()).strip("-")
+    if not NAME_RE.match(name):
+        sys.exit(f"swe-cli: project name {name!r} must match {NAME_RE.pattern}; pass --name")
+    if cli not in CLI_NAMES:
+        sys.exit(f"swe-cli: --cli must be one of {', '.join(CLI_NAMES)}")
+    if (root / "project.yaml").exists() and not force:
+        sys.exit(f"swe-cli: {root} is already a project (project.yaml exists); add repos with `swe-cli project add <url>`, or --force")
+    plugin = plugin_name()
+    files = {"AGENTS.md": (FLEET / "AGENTS.template.md", True)}
+    for rel in ("roles.yaml", "models.yaml"):
+        files[rel] = (FLEET / rel, False)
+    for wf in sorted((FLEET / "workflows").glob("*.yaml")):
+        files[f"workflows/{wf.name}"] = (wf, False)
+    if dry:
+        print(f"would make {root} the project {name}: " + ", ".join(sorted(files)) + ", project.yaml")
+        return 0
+    root.mkdir(parents=True, exist_ok=True)
+    for rel, (source, render) in files.items():
+        target = root / rel
+        if target.exists() and not force:
+            print(f"keep {rel}")
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        text = source.read_text(encoding="utf-8")
+        if render:
+            text = text.replace("{project}", name).replace("{plugin}", plugin).replace("{cli}", f"{plugin}-cli")
+        target.write_text(text, encoding="utf-8")
+        print(f"wrote {rel}")
+    save_workspace(name, {"dir": str(root), "description": name, "cli": cli, "repos": {}})
+    register_workspace(name, root)
+    print(f"project {name} at {root}")
+    for url in urls:
+        if add_repo_to_workspace(root, url):
+            return 1
+    if not urls and not yes and sys.stdin.isatty():
+        while True:
+            try:
+                url = input("Git URL of a repo to add (empty to finish): ").strip()
+            except EOFError:
+                break
+            if not url:
+                break
+            add_repo_to_workspace(root, url)
+    print(f"next: cd {root} && {plugin}-cli orchestrate {name}   (add repos any time: {plugin}-cli project add <git url>)")
+    return 0
+
+
+def bootstrap(cfg: dict, projects: dict[str, dict], dry: bool) -> int:
+    """Projects (directories and clones), then, when Hermes is on, its profiles and boards, then models and context."""
+    if hermes_on(cfg):
+        if not dry and build_plugin():
+            return 1
+        existing = set() if dry else hermes_profiles()
+        commands: list[list[str]] = []
+        for name, spec in profiles(cfg, projects).items():
+            if spec.get("role") != "manager":
+                commands += profile_commands(name, spec, existing)
+        for key, value in cfg["kanban"].items():
+            rendered = str(value).lower() if isinstance(value, bool) else str(value)
+            commands.append(["hermes", "config", "set", f"kanban.{key}", rendered])
+        if execute(commands, dry):
+            return 1
+    else:
+        print("hermes integration is off (board.enabled: false): projects, models and context only")
+    for name in sorted(projects):
+        if project_sync(cfg, projects, name, dry):
+            return 1
+    return models_apply(cfg, projects, dry) or context_apply(cfg, dry)
+
+
+# ------------------------------------------------------------------------------------------------ merge
+
+
+def merge(cfg: dict, pr: str, risk: str, sha: str, repo: str, approved: bool, dry: bool) -> int:
+    """The merge gate: an allowed risk class (or the human's approval), the verified SHA, green checks."""
+    allowed = set(cfg["autopilot"].get("auto_merge") or []) - NEVER_AUTO_MERGE
+    target = ["--repo", repo] if repo else []
+
+    def refuse(reason: str) -> int:
+        print(f"REFUSED {pr}: {reason}")
+        return 3
+
+    if not approved:
+        if risk in NEVER_AUTO_MERGE:
+            return refuse("money-path is never auto-merged: it needs the human's approval (--approved)")
+        if risk not in allowed:
+            return refuse(f"risk {risk!r} is not in autopilot.auto_merge {sorted(allowed) or '(off)'}: wait for the human")
+    view = run(["gh", "pr", "view", pr, *target, "--json", "headRefOid,state,isDraft,mergeStateStatus"])
+    if view.returncode != 0:
+        return refuse(f"gh pr view failed: {view.stderr.strip()}")
+    info = json.loads(view.stdout)
+    if info.get("state") != "OPEN" or info.get("isDraft"):
+        return refuse(f"PR is {info.get('state')}{' (draft)' if info.get('isDraft') else ''}")
+    if info.get("headRefOid") != sha:
+        return refuse(f"head {info.get('headRefOid')} is not the verified SHA {sha}: a new push needs a new review")
+    if info.get("mergeStateStatus") in ("BEHIND", "DIRTY"):
+        return refuse(f"the branch is {info['mergeStateStatus'].lower()} main: run `swe-cli delegate sync-branch` in its worktree, "
+                      "re-run make verify, push, and get a new verdict")
+    checks = run(["gh", "pr", "checks", pr, *target, "--required", "--json", "name,bucket"])
+    if checks.returncode != 0 and not checks.stdout.strip():
+        return refuse(f"gh pr checks failed: {checks.stderr.strip()}")
+    required = json.loads(checks.stdout or "[]")
+    if not required:
+        return refuse("no required checks on this PR: make `make verify` a required check first (project skill)")
+    red = [f"{c['name']} ({c.get('bucket')})" for c in required if c.get("bucket") != "pass"]
+    if red:
+        return refuse("required checks not green: " + ", ".join(red))
+    print(f"gate passed for {pr} at {sha} ({'approved by the human' if approved else 'autopilot: ' + risk})")
+    merge_command = ["gh", "pr", "merge", pr, *target, "--squash", "--auto", "--delete-branch", "--match-head-commit", sha]
+    return execute([merge_command], dry)
+
+
+# ------------------------------------------------------------------------------------------------ main
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    if not args or args[0] in ("-h", "--help"):
+        print(__doc__)
+        return 0
+    command, rest = args[0], args[1:]
+    if command == "name":
+        print(plugin_name())
+        return 0
+    if command == "init":
+        return init_workspace([a for a in rest if a != "--dry-run"], "--dry-run" in rest)
+    if command in ("lane", "delegate", "orchestrate", "flow"):
+        script = FLEET / "bin" / {"lane": "lane", "flow": "flow"}.get(command, "delegate")
+        os.execv(str(script), [str(script), *(["orchestrate"] if command == "orchestrate" else []), *rest])
+    cfg = load()
+    projects = load_projects()
+    dry = "--dry-run" in rest
+    approved = "--approved" in rest
+    rest = [a for a in rest if a not in ("--dry-run", "--approved")]
+    if command == "models":
+        action = rest[0] if rest else "show"
+        if action == "show":
+            return models_show(cfg, projects)
+        if action == "check":
+            return models_check(cfg, projects)
+        if action == "apply":
+            return models_apply(cfg, projects, dry)
+        if action == "cmd" and len(rest) == 3:
+            print("\n".join(argv(cfg, rest[1], rest[2])))
+            return 0
+        if action == "reviewer" and len(rest) == 2:
+            spec = cfg["reviewers"][rest[1]]
+            print(spec["cli"], spec["tier"])
+            return 0
+        if action == "subagent" and len(rest) == 2:
+            print(subagent_model(cfg, rest[1]))
+            return 0
+    if command == "project" and rest:
+        if rest[0] == "add" and "--repo" not in rest:
+            root = WORKSPACE
+            if not root:
+                sys.exit("swe-cli: not inside a project directory (no project.yaml above here); run `swe-cli init` first")
+            flags = dict(zip(rest[2::2], rest[3::2]))
+            if len(rest) < 2 or rest[1].startswith("--") or not set(flags) <= {"--name", "--dir"}:
+                sys.exit("usage: swe-cli project add <git url|owner/repo> [--name N] [--dir subdir]")
+            return add_repo_to_workspace(root, rest[1], flags.get("--name", ""), flags.get("--dir", ""), dry)
+        if rest[0] == "add":
+            return project_add(cfg, rest[1:], dry)
+        if rest[0] == "list":
+            for name, project in sorted(projects.items()):
+                view = project_view(name, project)
+                print(f"{name:<20}{view['cli']:<8}{','.join(view['repos']):<32}{view['dir']}")
+            return 0
+        if rest[0] == "sync" and len(rest) == 2:
+            return project_sync(cfg, projects, rest[1], dry)
+    if command == "doctor":
+        return doctor(cfg, projects, rest[0] if rest else "")
+    if command == "bootstrap":
+        return bootstrap(cfg, projects, dry)
+    if command == "sync":
+        return sync(cfg, projects, dry)
+    if command == "context" and rest:
+        if rest[0] == "show":
+            return context_show(cfg, projects)
+        if rest[0] == "apply":
+            return context_apply(cfg, dry)
+        if rest[0] == "env" and len(rest) == 3:
+            return context_env(cfg, rest[1], rest[2])
+    if command == "merge" and rest:
+        flags = dict(zip(rest[1::2], rest[2::2]))
+        if "--risk" not in flags or "--sha" not in flags:
+            sys.exit("usage: swe-cli merge <pr> --risk <low|standard|money-path> --sha <verified sha> "
+                     "[--repo owner/repo] [--approved] [--dry-run]")
+        return merge(cfg, rest[0], flags["--risk"], flags["--sha"], flags.get("--repo", ""), approved, dry)
+    print(__doc__, file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

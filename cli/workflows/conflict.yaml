@@ -1,0 +1,23 @@
+name: conflict
+description: "An open PR that is behind main or conflicts: the integrator brings it up to date, then a reviewer judges the result."
+inputs:
+  pr: {required: true}
+  repo: {default: ""}
+  goal: {default: "Bring this PR up to date with origin/main and resolve its conflicts."}
+nodes:
+  integrate:
+    role: integrator
+    workspace: pr
+    pr: "${inputs.pr}"
+    goal: "${inputs.goal}"
+  review:
+    role: reviewer
+    needs: [integrate]
+    reviews: integrate
+    workspace: "same:integrate"
+    goal: "Review the integrated branch at its head: every resolution kept both sides' intent and make verify passes."
+  report:
+    type: report
+    needs: [review]
+    build: integrate
+    always: true
