@@ -36,7 +36,7 @@ Dependencies point inward: `interfaces -> application -> domain`; `infrastructur
 4. `go mod tidy`, `cp .env.example .env`, fill the blank secrets (no defaults for passwords), then run the checks below.
 5. Add deployment files with `deployment-setup` (Dockerfile, Swarm/local Compose, CI): same variable names, the
    health gate `scripts/health.sh`, `HEALTH_DEPS`, and a `migrate` one-shot job. Add tracing with `service-tracing`
-   (`internal/telemetry`) and, for pipelines, metrics with `data-realtime-metrics`.
+   (`internal/telemetry`) and OpenTelemetry metrics.
 
 ## Checks (all must pass before the first commit)
 

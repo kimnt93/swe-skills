@@ -38,7 +38,7 @@ settings = KafkaSettings()      # SASL_* without username+password fails by name
 - Decode with a reused `msgspec.json.Decoder(Type)` (typed, validated, no dict round trip).
 - **Create the topic first:** a subscription to a missing topic is not noticed until the next metadata refresh (5 minutes by default).
 - Poison messages: after N attempts publish to `<topic>.dlq` with the error type and origin headers, commit, alert via metrics
-  (`data-realtime-metrics`).
+  (OpenTelemetry; for a Pathway job the `data-pathway` contract).
 - One consumer group per logical consumer (`KAFKA_CONSUMER_GROUP`, include the plane); scale by partitions.
 
 ## Operations

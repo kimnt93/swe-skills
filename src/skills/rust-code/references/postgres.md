@@ -10,7 +10,7 @@ one transaction per business operation (`client.transaction()`); never return dr
 log the cause where handled). TLS: swap `NoTls` for `tokio-postgres-rustls` outside local development. `ping()` is the `postgres` check of `/healthz`.
 
 Schema changes are goose SQL files (`schemas/NNNN_name.sql`, applied by a one-shot job): safe patterns and the migration linter are in the
-`db-migrations` skill. Rust services use plain SQL; the ORM skill (`db-orm`) is Go only.
+`db-migrations` skill. Rust services use plain SQL; `db-orm` covers Go and Python only.
 
 ## Example usage
 

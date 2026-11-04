@@ -29,7 +29,7 @@ replica policy; the API never imports worker-only dependencies and never runs lo
 Use `messaging/kafka.py` from the scaffold template: `Consumer` with `enable.auto.commit=False`, poll in an executor, commit after the
 handler, `close()` in `finally`. Rules: idempotent handlers (`ON CONFLICT`), one consumer group per logical consumer
 (`KAFKA_CONSUMER_GROUP`), create topics first, decode with a reused `msgspec` decoder ([data](data.md)), poison
-messages go to a `.dlq` topic after N attempts, metrics per `data-realtime-metrics`, and SIGTERM sets the stop event (finish the
+messages go to a `.dlq` topic after N attempts, metrics through OpenTelemetry, and SIGTERM sets the stop event (finish the
 current message, commit, leave the group).
 
 ## Process layout and deployment

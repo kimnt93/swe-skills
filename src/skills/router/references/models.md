@@ -1,6 +1,6 @@
 # Model tiers
 
-Skills and cards name a **tier**, never a model id. The ids live in one file, `cli/models.yaml`
+Skills and cards name a **tier**, never a model id. The ids live in one file, the project's `models.yaml`
 in the stack's repository. `swe-cli models show` prints the current mapping, and `swe-cli models cmd <cli> <tier>`
 prints the exact command a coding CLI runs. When a new model ships, only that file changes.
 

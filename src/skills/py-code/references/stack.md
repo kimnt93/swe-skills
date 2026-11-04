@@ -17,7 +17,7 @@ tested, not pins: the project's `uv.lock` decides.
 | Hot-path decode/encode | `msgspec` (typed `Struct`), `orjson` (dict JSON, rarely) | 3-12x faster than stdlib `json` ([data](data.md)) |
 | Timestamps | `ciso8601` in hot loops; `datetime.fromisoformat` elsewhere (3.11+) | UTC everywhere; never `strptime` per row |
 | DataFrames | `polars` (lazy API, expressions); `pyarrow` for interchange; `numpy` | **not pandas**: no row-wise `apply` |
-| PostgreSQL | `psycopg[binary,pool]` (v3), plain parameterised SQL | no ORM unless the repo already has one ([postgres](postgres.md)) |
+| PostgreSQL | `psycopg[binary,pool]` (v3), plain parameterised SQL | no ORM unless asked or the repo has one: SQLAlchemy 2 (`db-orm`) |
 | Migrations | `goose` SQL files in `schemas/` run as a one-shot job | immutable once released |
 | Redis | `redis` (asyncio client) | locks, caches, wake-ups ([redis](redis.md)) |
 | Kafka | `confluent-kafka` (librdkafka) | idempotent producer, manual-commit consumer ([kafka](kafka.md)) |
@@ -26,7 +26,7 @@ tested, not pins: the project's `uv.lock` decides.
 | Background jobs | `celery[redis]` | tasks carry ids and `traceparent`, not payloads ([worker](worker.md)) |
 | HTTP client | `httpx` | timeouts always |
 | Logging | `jlogger` via the `service-logging` skill | unified JSON, `trace_id`/`span_id` |
-| Tracing / metrics | OpenTelemetry via `service-tracing`, `data-realtime-metrics` | |
+| Tracing | OpenTelemetry via `service-tracing`; pipeline metrics in `data-pathway`, `data-dagster` | |
 | Streaming transforms | `pathway` (pinned) where the project already uses it | stateful pipelines with persistence |
 | Tests | `pytest`, `pytest-asyncio`, `TestClient`, `fakeredis`, `moto[s3]`, `freezegun`; `-m integration` | ([test](test.md)) |
 

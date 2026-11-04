@@ -35,7 +35,7 @@ a measured hot path to `rust-code`, web UIs to `ts-code` (which calls this servi
 | API contract: `/v1` versions, `/docs` Swagger, `/healthz`, `/internal` (service token + caller headers), port 3000, host `{service}.{env}.{host}`, refactor an API | the `api-contract` skill |
 | Postgres, SQL, query, repository, migration, goose, struct rows, transaction | [postgres](references/postgres.md) |
 | formatting, readability, long lines, clean up, review, **writing or formatting any SQL query** | [readable-code](references/readable-code.md) |
-| use the ORM (`pg.DB.Model`), "swap to an ORM" | the `db-orm` skill (go-pg v10; opt-in; **raw SQL is the default**) |
+| use an ORM (GORM), "swap to an ORM" | the `db-orm` skill (GORM; opt-in; **raw SQL is the default**) |
 | migration, schema change, new column or index, goose | the `db-migrations` skill (goose SQL files) |
 | Redis, cache, lock, TTL, idempotency key, pub/sub | [redis](references/redis.md) |
 | Kafka, topic, consumer, producer, stream, partition, offset | [kafka](references/kafka.md) |
@@ -43,7 +43,7 @@ a measured hot path to `rust-code`, web UIs to `ts-code` (which calls this servi
 | add a feature, use case, business rule, new capability end to end | [feature](references/feature.md) |
 | tests, table tests, integration test, race, benchmark, CI | [test](references/test.md) |
 | refactor, clean up, restructure, split, simplify, remove ORM or pointers | [refactor](references/refactor.md) |
-| logging, tracing, metrics, Dockerfile, Compose, CI deploy | the `service-logging`, `service-tracing`, `service-errors` (Sentry/GlitchTip), `data-realtime-metrics`, `deployment-setup` skills |
+| logging, tracing, metrics, Dockerfile, Compose, CI deploy | the `service-logging`, `service-tracing`, `service-errors` (Sentry/GlitchTip), `deployment-setup` skills |
 
 ## Rules that always apply
 

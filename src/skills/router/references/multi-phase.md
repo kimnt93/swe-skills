@@ -13,6 +13,6 @@
    4. callers moved (backend, then frontend);
    5. the old path removed (contract).
 4. Each phase is one PR through [opening-a-pr](opening-a-pr.md). A phase never depends on a later one.
-5. On the board, each phase is a card whose body carries the decisions every phase shares.
+5. In a `swe-cli` run, each phase is a card whose body carries the decisions every phase shares.
 
 **Reply:** the phase list with the PR or card per phase and its state.

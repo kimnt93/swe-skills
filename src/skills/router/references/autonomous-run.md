@@ -4,7 +4,7 @@
 
 1. Write the exit condition as a checkable predicate before the first step (tests green, the repro
    fixed, all N cards merged, p95 under target).
-2. Pick a wake mechanism from the [harness](harness.md) reference (`/loop`, a `--goal` card, `hermes cron`).
+2. Pick a wake mechanism from the [harness](harness.md) reference (`/loop`, `--max-time`, a scheduled `swe-cli flow run`).
 3. Each iteration makes the smallest change the evidence justifies, checks it against the predicate,
    commits if it advanced, reverts if it didn't (the **sequence-verifiable-units** principle).
 4. Fix what blocks the goal yourself (a flaky test, a broken script) in its own PR. Ask the human

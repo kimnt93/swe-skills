@@ -54,7 +54,7 @@ flat snake_case scalars. Full spec: [references/log-format.md](references/log-fo
    "{{.Node.Hostname}}"`; Compose with `network_mode: host`: leave it unset; Compose bridge:
    `NODE_NAME=$(hostname)`; Kubernetes: `spec.nodeName` through the downward API. `SERVICE_NAME`
    is the same value as the OpenTelemetry `service.name` of the metrics (see the
-   `data-realtime-metrics` skill), so logs, metrics and traces join on it.
+   `data-pathway` and `data-dagster` skills), so logs, metrics and traces join on it.
 
 3. **Call the setup once at process start** (`ConfigureFromEnv`, `configure_from_env`,
    `configureFromEnv`, `init_from_env`), before any other code logs. Services write to

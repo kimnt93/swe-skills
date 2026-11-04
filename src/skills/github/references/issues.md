@@ -1,6 +1,6 @@
 # Issues
 
-An issue is the unit of work everyone can see. One kanban card ↔ one issue.
+An issue is the unit of work everyone can see. One workflow card ↔ one issue.
 
 ## Create
 

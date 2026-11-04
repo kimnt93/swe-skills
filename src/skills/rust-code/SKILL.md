@@ -46,7 +46,7 @@ baseline number that justifies it (the **explain-the-number** principle); new or
 | expose a Rust function or class to Python, numpy, GIL, exceptions, stubs | [pyrust-binding](references/pyrust-binding.md) |
 | polars DataFrame in or out of Rust, pyo3-polars | [pyrust-polars](references/pyrust-polars.md) (`assets/pyrust-polars`) |
 | build wheels, CI matrix, Docker, publish, release checklist | [pyrust-release](references/pyrust-release.md) |
-| logging, tracing, metrics, Dockerfile, Compose, CI deploy | the `service-logging`, `service-tracing`, `service-errors` (Sentry/GlitchTip), `data-realtime-metrics`, `deployment-setup` skills |
+| logging, tracing, metrics, Dockerfile, Compose, CI deploy | the `service-logging`, `service-tracing`, `service-errors` (Sentry/GlitchTip), `deployment-setup` skills |
 
 ## Rules that always apply
 

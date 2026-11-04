@@ -46,11 +46,11 @@ data endpoint in process. A measured hot loop moves to Rust through PyO3 (the py
 | tests, pytest, fixtures, integration test, CI | [test](references/test.md) |
 | refactor, clean up, restructure, split a module, replace pandas | [refactor](references/refactor.md) |
 | Rust for speed, pyo3, maturin, native extension, wheels | the Rust references: [pyrust-scaffold](../rust-code/references/pyrust-scaffold.md), [pyrust-binding](../rust-code/references/pyrust-binding.md), [pyrust-polars](../rust-code/references/pyrust-polars.md), [pyrust-release](../rust-code/references/pyrust-release.md) |
-| logging, tracing, metrics, Dockerfile, Compose, CI deploy | the `service-logging`, `service-tracing`, `service-errors` (Sentry/GlitchTip), `data-realtime-metrics`, `deployment-setup` skills |
+| logging, tracing, metrics, Dockerfile, Compose, CI deploy | the `service-logging`, `service-tracing`, `service-errors` (Sentry/GlitchTip), `deployment-setup`; Pathway and Dagster pipelines: `data-pathway`, `data-dagster` skills |
 
 ## Rules that always apply
 
-- **Stack:** uv, ruff, Litestar + uvicorn, msgspec at the edges, psycopg 3 (plain SQL, no ORM), redis-py asyncio, confluent-kafka, boto3, Celery, polars
+- **Stack:** uv, ruff, Litestar + uvicorn, msgspec at the edges, psycopg 3 (plain SQL; SQLAlchemy 2 only when asked: `db-orm`), redis-py asyncio, confluent-kafka, boto3, Celery, polars
   (not pandas), msgspec / orjson / ciso8601 for hot paths ([stack](references/stack.md)).
 - **PEP 8, enforced:** 79 columns, `snake_case` / `CapWords` / `UPPER_CASE`, exception names end in `Error`, imports sorted, docstrings wrapped; `ruff format`,
   `ruff check` (`E W F I N UP B SIM ASYNC`) and `pycodestyle --max-line-length=79` must be clean.

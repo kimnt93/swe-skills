@@ -1,6 +1,6 @@
 ---
 name: project
-description: "Run one project: keep its documents (README, ARCHITECTURE.md as the contract agents must not breach, ADRs, CHANGELOG (the changelog skill), RUNBOOK), set up its GitHub repo (labels, templates, squash-only merges, protected main with the required verify check), keep the backlog of issues in step with the kanban board, and report status. Use when you are a project's manager profile, when starting or adopting a project, or when asked for project status."
+description: "Run one project: keep its documents (README, ARCHITECTURE.md as the contract agents must not breach, ADRs, CHANGELOG (the changelog skill), RUNBOOK), set up its GitHub repo (labels, templates, squash-only merges, protected main with the required verify check), keep the backlog of issues in step with the workflow cards, and report status. Use when you are a project's manager profile, when starting or adopting a project, or when asked for project status."
 metadata:
   group: process
   summary: "Run a project's docs, GitHub repo setup, backlog and status"
@@ -8,7 +8,7 @@ metadata:
 
 # Project
 
-A project is one product with its repo(s), its board and its manager. The manager orchestrates; it
+A project is one product with its repo(s), its manager. The manager orchestrates; it
 never edits product code, and it changes docs only through a PR like anyone else.
 
 | Task | Read |
@@ -29,4 +29,4 @@ repo entry before merge, the merge gate enforces it and records the merge. Follo
 2. Copy `assets/github/` into the repo's `.github/` (PR and issue templates) and
    `assets/ARCHITECTURE.md` to the repo root; fill it in with the **architect** skill.
 3. Add `make verify` (the **verify-create** skill); its CI job becomes the required check.
-4. Open one issue per first unit of work and one card per issue on the project's board.
+4. Open one issue per first unit of work and one card per issue (a `swe-cli flow run`).

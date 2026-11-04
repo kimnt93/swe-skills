@@ -33,7 +33,7 @@ Dependencies point inward: `api -> application -> domain`; `db`/`messaging` impl
 3. Rename the sample `item` aggregate or keep it as the pattern for the first feature ([feature](feature.md)).
 4. `uv sync`, `cp .env.example .env`, fill the blank secrets (no defaults for passwords), run the checks.
 5. Deployment with `deployment-setup` (Dockerfile.python, Swarm/local Compose, `health.sh`, `HEALTH_DEPS`, a `migrate`
-   one-shot job); tracing with `service-tracing`; metrics with `data-realtime-metrics` for pipelines.
+   one-shot job); tracing with `service-tracing`; pipelines with `data-pathway` or `data-dagster`.
 
 ## Checks
 

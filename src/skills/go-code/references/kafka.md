@@ -62,7 +62,7 @@ kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": s, "enable.idempotence":
   build is a hard requirement.
 - Start-up waits for the broker through `scripts/health.sh --wait kafka` (a single-node broker needs seconds before its
   transaction coordinator accepts idempotent producers).
-- Metrics: `data-realtime-metrics` contract (`received`, `dropped`, `published`, lag). Tracing: producer and consumer spans
+- Metrics: OpenTelemetry counters for received, dropped and published messages and the consumer lag, with `service_name` as the only identity (no per-topic labels). Tracing: producer and consumer spans
   with the context in message headers (`service-tracing`).
 
 ## Testing

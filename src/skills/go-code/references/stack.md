@@ -18,7 +18,7 @@ one service). Versions are those the templates were tested with, not pins: use t
 | Kafka | `github.com/confluentinc/confluent-kafka-go/v2` | idempotent producer, manual-commit consumer ([kafka](kafka.md)); needs `CGO_ENABLED=1` |
 | Logging | `github.com/rs/zerolog` via the `service-logging` skill | unified JSON fields, `trace_id`/`span_id` |
 | Tracing | OpenTelemetry via the `service-tracing` skill | dependency mode by default |
-| Metrics | OpenTelemetry via `data-realtime-metrics` for pipelines | shared metric contract |
+| Metrics | OpenTelemetry (OTLP) | `service-tracing` env contract |
 | Config | environment only (+ `joho/godotenv` locally); `NAME_FILE` for secrets | one `config` package; no defaults for passwords |
 | IDs | `github.com/google/uuid` | UUID text at the edge |
 | API docs | `swaggo/swag` + `gofiber/contrib/v3/swaggo` | regenerate after route/model changes |

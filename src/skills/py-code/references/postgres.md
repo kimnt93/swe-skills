@@ -2,7 +2,7 @@
 
 *Verified with: psycopg 3.3 and PostgreSQL 17 in the scaffold template (unit and live integration tests, ruff and pycodestyle clean).*
 
-Plain SQL, no ORM: explicit, reviewable, `EXPLAIN`-able. Reference: `assets/template/src/service/db/postgres.py` (repository),
+Plain SQL by default: explicit, reviewable, `EXPLAIN`-able. Reference: `assets/template/src/service/db/postgres.py` (repository),
 `assets/template/src/service/settings/` (environment loading), `assets/env/postgres.env.example`. The same files are tested in the scaffold template.
 Code follows PEP 8 (79 columns; `ruff` with `E W F I N`, checked by `pycodestyle`).
 
@@ -52,7 +52,7 @@ name. `conninfo` contains the password: never log it.
 
 SQL files `schemas/NNNN_name.sql` with `-- +goose Up` and a working `-- +goose Down`, applied by the goose binary as a one-shot
 job before the service rolls out (`deployment-setup`: `migration_compose_file`). **Never edit a released file**; add a version. Safe patterns (concurrent indexes, backfills, expand and contract) and the migration
-linter: the `db-migrations` skill. Python services use plain SQL; the ORM skill (`db-orm`) is Go only.
+linter: the `db-migrations` skill. Python services use plain SQL; with an ORM requested or already present, SQLAlchemy 2 (`db-orm`).
 Columns are `NOT NULL DEFAULT ...` where a default exists, so Python values are never `None` by accident.
 
 ## Checks
