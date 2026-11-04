@@ -6,6 +6,7 @@
 #   make claude omp hermes          several at once
 #   make install                    every harness found on this machine (ALL=1: every harness the tool knows)
 #   make claude REMOVE=1            remove it again (only what this tool installed)
+#   make cli                        link the command <name>-cli (default swe-cli) into BIN_DIR (~/.local/bin)
 #   make validate | docs | test | package | publish | status | list | agents | clean
 #
 # Options: SCOPE=user|project  PROJECT_DIR=.  PREFIX=<name>  SKILLS="go-code py-code"  PLUGIN=auto|yes|no  DRY_RUN=1
@@ -21,6 +22,7 @@ PREFIX      ?= $(PLUGIN_NAME)
 PLUGIN      ?= auto
 SKILLS      ?=
 DIR         ?=
+BIN_DIR     ?= $(HOME)/.local/bin
 comma       := ,
 space       := $(subst ,, )
 INSTALL      = $(PY) $(DIST)/scripts/install.py
@@ -31,13 +33,18 @@ HARNESSES   := claude codex omp devin opencode hermes universal amp gemini-cli c
                cline roo kilo droid qwen-code trae continue augment crush junie kiro-cli openhands mistral-vibe \
                antigravity qoder codebuddy iflow-cli openclaw
 
-.PHONY: help build validate docs test package publish install custom list agents status clean $(HARNESSES)
+.PHONY: help cli build validate docs test package publish install custom list agents status clean $(HARNESSES)
 
 help:
-	@sed -n '1,11p' Makefile | sed 's/^# \{0,1\}//'
+	@sed -n '1,12p' Makefile | sed 's/^# \{0,1\}//'
 
 build:
 	@$(PY) scripts/build.py
+
+cli: build
+	@mkdir -p $(BIN_DIR)
+	ln -sfn $(CURDIR)/cli/bin/main $(BIN_DIR)/$(PLUGIN_NAME)-cli
+	@echo "$(BIN_DIR)/$(PLUGIN_NAME)-cli -> $(CURDIR)/cli/bin/main (cd into a directory and run: $(PLUGIN_NAME)-cli init)"
 
 validate: build
 	@$(PY) $(DIST)/scripts/validate_skills.py
@@ -50,7 +57,9 @@ test:
 	bash tests/enforcement_test.sh
 	bash tests/harness_test.sh
 	bash tests/frontend_test.sh
-	bash fleet/tests/selftest.sh
+	bash cli/tests/selftest.sh
+	bash cli/tests/flowtest.sh
+	bash cli/tests/inittest.sh
 
 package: validate
 	cd dist && rm -f $(PLUGIN_NAME)-$(PLUGIN_VERSION).zip && zip -qr $(PLUGIN_NAME)-$(PLUGIN_VERSION).zip $(PLUGIN_NAME)

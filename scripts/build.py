@@ -7,9 +7,9 @@
 What the build does:
   * copies src/skills into dist/<name>/skills and renames the router skill `router` to <name>, so the
     entry command is /<name> (Claude Code), $<name>:<name> (Codex), /skill:<name> (omp), <name> (Hermes, ...)
-  * fills @PLUGIN@, @DOMAIN@, @OWNER@ and @HOMEPAGE@ in every text file of the skills, the agents and
-    fleet/skills, and @SKILL_INDEX@ (grouped by metadata.group) in the router
-  * sets each Claude Code subagent's `model:` from fleet/models.yaml (`fleet models subagent <name>`)
+  * fills @PLUGIN@, @DOMAIN@, @OWNER@ and @HOMEPAGE@ in every text file of the skills and the agents,
+    and @SKILL_INDEX@ (grouped by metadata.group) in the router
+  * sets each Claude Code subagent's `model:` from cli/models.yaml (`swe-cli models subagent <name>`)
   * renders the plugin manifests from src/manifests, dropping fields left empty
   * copies the installer, the validator, LICENSES and CHANGELOG.md, and writes build.json,
     LICENSE and README.md
@@ -72,7 +72,7 @@ def drop_empty(value):
 
 
 def subagent_model(name: str) -> str:
-    fleet = ROOT / "fleet" / "bin" / "fleet"
+    fleet = ROOT / "cli" / "bin" / "main"
     if not fleet.exists():
         return "inherit"
     result = subprocess.run([sys.executable, str(fleet), "models", "subagent", name], capture_output=True, text=True)
@@ -256,13 +256,6 @@ def main() -> int:
             text = re.sub(r"^model:.*\n", "", text, flags=re.M)
             text = re.sub(r"^(name:.*\n)", rf"\1model: {model}\n", text, count=1, flags=re.M)
             path.write_text(text, encoding="utf-8")
-
-    fleet_skills = ROOT / "fleet" / "skills"
-    if fleet_skills.is_dir():
-        shutil.copytree(fleet_skills, dist / "fleet" / "skills", ignore=IGNORED)
-        for path in (dist / "fleet" / "skills").rglob("*"):
-            if path.is_file():
-                substitute(path, mapping)
 
     (dist / "scripts").mkdir()
     for script in ("install.py", "validate_skills.py"):

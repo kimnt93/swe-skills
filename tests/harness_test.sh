@@ -14,7 +14,7 @@ pass() { echo "PASS $1"; }
 fail() { echo "FAIL $1"; exit 1; }
 
 python3 scripts/build.py >/dev/null
-name="$(fleet/bin/fleet name)"
+name="$(cli/bin/main name)"
 dist="dist/$name"
 installer="$dist/scripts/install.py"
 expected="$(python3 -c "import json; print(len(json.load(open('$dist/build.json'))['skills']))")"
