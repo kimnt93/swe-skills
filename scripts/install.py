@@ -91,6 +91,30 @@ AGENTS: dict[str, Agent] = {
     "codebuddy": Agent("CodeBuddy", "~/.codebuddy/skills", ".codebuddy/skills", (), ("~/.codebuddy",)),
     "iflow-cli": Agent("iFlow CLI", "~/.iflow/skills", ".iflow/skills", ("iflow",), ("~/.iflow",)),
     "openclaw": Agent("OpenClaw", "~/.openclaw/skills", "skills", ("openclaw",), ("~/.openclaw",)),
+    "pi": Agent("Pi", "~/.agents/skills", ".agents/skills", (), ("~/.pi",)),
+    "warp": Agent("Warp", "~/.agents/skills", ".agents/skills", (), ("~/.warp",)),
+    "zed": Agent("Zed", "~/.agents/skills", ".agents/skills", ("zed",), ("~/.config/zed",)),
+    "kimi-code-cli": Agent("Kimi Code CLI", "~/.agents/skills", ".agents/skills", ("kimi",), ("~/.kimi",)),
+    "antigravity-cli": Agent("Antigravity CLI", "~/.gemini/antigravity-cli/skills", ".agents/skills", (), ("~/.gemini/antigravity-cli",)),
+    "bob": Agent("IBM Bob", "~/.bob/skills", ".bob/skills", ("bob",), ("~/.bob",)),
+    "cortex": Agent("Cortex Code (Snowflake)", "~/.snowflake/cortex/skills", ".cortex/skills", (), ("~/.snowflake/cortex",)),
+    "forgecode": Agent("ForgeCode", "~/.forge/skills", ".forge/skills", ("forge",), ("~/.forge",)),
+    "grok": Agent("Grok Build", "~/.grok/skills", ".grok/skills", ("grok",), ("~/.grok",)),
+    "tabnine-cli": Agent("Tabnine CLI", "~/.tabnine/agent/skills", ".tabnine/agent/skills", ("tabnine",), ("~/.tabnine",)),
+    "rovodev": Agent("Rovo Dev (Atlassian)", "~/.rovodev/skills", ".rovodev/skills", (), ("~/.rovodev",)),
+    "zencoder": Agent("Zencoder", "~/.zencoder/skills", ".zencoder/skills", (), ("~/.zencoder",)),
+    "command-code": Agent("Command Code", "~/.commandcode/skills", ".commandcode/skills", ("cmd",), ("~/.commandcode",)),
+    "lingma": Agent("Lingma (Alibaba)", "~/.lingma/skills", ".lingma/skills", (), ("~/.lingma",)),
+    "deepagents": Agent("Deep Agents", "~/.deepagents/agent/skills", ".agents/skills", ("deepagents",), ("~/.deepagents",)),
+    "neovate": Agent("Neovate", "~/.neovate/skills", ".neovate/skills", ("neovate",), ("~/.neovate",)),
+    "pochi": Agent("Pochi", "~/.pochi/skills", ".pochi/skills", ("pochi",), ("~/.pochi",)),
+    "mux": Agent("Mux", "~/.mux/skills", ".mux/skills", ("mux",), ("~/.mux",)),
+    "aider-desk": Agent("AiderDesk", "~/.aider-desk/skills", ".aider-desk/skills", (), ("~/.aider-desk",)),
+    "trae-cn": Agent("Trae CN", "~/.trae-cn/skills", ".trae/skills", (), ("~/.trae-cn",)),
+    "qoder-cn": Agent("Qoder CN", "~/.qoder-cn/skills", ".qoder/skills", (), ("~/.qoder-cn",)),
+    "firebender": Agent("Firebender", "~/.firebender/skills", ".agents/skills", (), ("~/.firebender",)),
+    "kimchi": Agent("Kimchi", "~/.config/kimchi/harness/skills", ".kimchi/skills", (), ("~/.config/kimchi",)),
+    "adal": Agent("AdaL", "~/.adal/skills", ".adal/skills", (), ("~/.adal",)),
 }
 
 
@@ -107,7 +131,7 @@ def skill_names(only: list[str] | None) -> list[str]:
     if only:
         unknown = sorted(set(only) - set(names))
         if unknown:
-            sys.exit(f"unknown skill(s): {', '.join(unknown)} (see: make list)")
+            sys.exit(f"unknown skill(s): {', '.join(unknown)} (see: make skills)")
         names = [n for n in names if n in only]
     return names
 
@@ -278,7 +302,7 @@ def select_agents(args: argparse.Namespace) -> list[str]:
         chosen = [c for c in chosen if c != "universal" or not args.detected]
     unknown = sorted(set(chosen) - set(AGENTS))
     if unknown:
-        sys.exit(f"unknown agent(s): {', '.join(unknown)} (see: make agents)")
+        sys.exit(f"unknown agent(s): {', '.join(unknown)} (see: make harness)")
     seen: list[str] = []
     for key in chosen:
         if key not in seen:
@@ -290,7 +314,7 @@ def select_agents(args: argparse.Namespace) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("command", choices=["install", "uninstall", "status", "agents"])
-    parser.add_argument("--agent", action="append", help="harness name or comma list (see `agents`); repeatable")
+    parser.add_argument("--agent", action="append", help="harness name or comma list (see `make harness`); repeatable")
     parser.add_argument("--all", action="store_true", help="every known harness")
     parser.add_argument("--detected", action="store_true", help="every harness found on this machine (default when no --agent)")
     parser.add_argument("--scope", choices=["user", "project"], default="user", help="user = global, project = ./<agent>/skills")
@@ -322,7 +346,7 @@ def main() -> int:
 
     agents = select_agents(args)
     if not agents:
-        print("no harness detected: pass --agent <name> (see `agents`) or --all")
+        print("no harness detected: pass --agent <name> (see `make harness`) or --all")
         return 1
     names = skill_names(only)
     exit_code = 0

@@ -2,12 +2,14 @@
 #
 #   make build                      render dist/$(PLUGIN_NAME)/ from src/ (default name: swe, see plugin.env)
 #   PLUGIN_NAME=acme make claude    build as "acme", install into Claude Code -> /acme, /acme:go-code
-#   make claude | codex | omp | hermes | opencode | ...   build, validate, install (make agents lists all)
+#   make claude | codex | omp | hermes | opencode | ...   build, validate, install (make harness lists all)
 #   make claude omp hermes          several at once
-#   make install                    every harness found on this machine (ALL=1: every harness the tool knows)
+#   make install                    build and install into every harness detected on this machine (ALL=1: all known)
+#   make harness | list             list every supported harness, detected ones marked
+#   make skills                     list the skills
 #   make claude REMOVE=1            remove it again (only what this tool installed)
 #   make cli                        link the command <name>-cli (default swe-cli) into BIN_DIR (~/.local/bin)
-#   make validate | docs | test | package | publish | status | list | agents | clean
+#   make validate | docs | test | package | publish | status | clean
 #
 # Options: SCOPE=user|project  PROJECT_DIR=.  PREFIX=<name>  SKILLS="go-code py-code"  PLUGIN=auto|yes|no  DRY_RUN=1
 -include plugin.local.env
@@ -31,9 +33,11 @@ FLAGS        = --scope $(SCOPE) --project-dir $(PROJECT_DIR) --prefix "$(PREFIX)
                $(if $(SKILLS),--skill "$(subst $(space),$(comma),$(strip $(SKILLS)))") $(if $(DRY_RUN),--dry-run)
 HARNESSES   := claude codex omp devin opencode hermes universal amp gemini-cli cursor github-copilot windsurf goose \
                cline roo kilo droid qwen-code trae continue augment crush junie kiro-cli openhands mistral-vibe \
-               antigravity qoder codebuddy iflow-cli openclaw
+               antigravity qoder codebuddy iflow-cli openclaw \
+               pi warp zed kimi-code-cli antigravity-cli bob cortex forgecode grok tabnine-cli rovodev zencoder \
+               command-code lingma deepagents neovate pochi mux aider-desk trae-cn qoder-cn firebender kimchi adal
 
-.PHONY: help cli build validate docs test package publish install custom list agents status clean $(HARNESSES)
+.PHONY: help cli build validate docs test package publish install custom skills list harness harnesses agents status clean $(HARNESSES)
 
 help:
 	@sed -n '1,12p' Makefile | sed 's/^# \{0,1\}//'
@@ -75,11 +79,11 @@ custom: validate
 	@test -n "$(DIR)" || { echo "usage: make custom DIR=<the harness's skills directory>"; exit 2; }
 	$(INSTALL) $(ACTION) --dir "$(DIR)" $(FLAGS)
 
-list: build
+skills: build
 	@ls $(DIST)/skills
 
-agents: build
-	$(INSTALL) agents
+list harness harnesses agents: build
+	@$(INSTALL) agents
 
 status: build
 	$(INSTALL) status --detected $(FLAGS)

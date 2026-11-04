@@ -11,7 +11,7 @@ What the build does:
     and @SKILL_INDEX@ (grouped by metadata.group) in the router
   * sets each Claude Code subagent's `model:` from cli/models.yaml (`swe-cli models subagent <name>`)
   * renders the plugin manifests from src/manifests, dropping fields left empty
-  * copies the installer, the validator, LICENSES and CHANGELOG.md, and writes build.json,
+  * copies the installer, the validator and CHANGELOG.md, and writes build.json,
     LICENSE and README.md
   * fails when a placeholder is left, or the name is not a valid skill name or collides with a skill
 """
@@ -153,8 +153,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
 OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-Some of the process ideas follow pstack (MIT, (c) 2026 Lauren Tan): see LICENSES/pstack-MIT.txt.
 """
 
 README = """# {title} plugin (`{name}`)
@@ -260,7 +258,7 @@ def main() -> int:
     (dist / "scripts").mkdir()
     for script in ("install.py", "validate_skills.py"):
         shutil.copy2(ROOT / "scripts" / script, dist / "scripts" / script)
-    for extra in ("LICENSES", "CHANGELOG.md"):
+    for extra in ("CHANGELOG.md",):
         source = ROOT / extra
         if source.is_dir():
             shutil.copytree(source, dist / extra)
