@@ -536,6 +536,7 @@ def run_checks(run: Run, ctx: dict, name: str, node: dict) -> dict:
     target = ["--repo", github] if github else []
     deadline = time.time() + int(node.get("timeout", 30)) * 60
     run.update(key, status="running", started=int(time.time()))
+    grace = time.time() + int(node.get("no_checks_grace", 180))
     while time.time() < deadline:
         head = subprocess.run(["gh", "pr", "view", str(pr), *target, "--json", "headRefOid"], capture_output=True, text=True)
         try:
@@ -554,6 +555,9 @@ def run_checks(run: Run, ctx: dict, name: str, node: dict) -> dict:
                 raise NodeFail("checks are red: " + ", ".join(red), "failed", fixable=True)
             if not pending:
                 return {"checks": len(checks)}
+        elif not checks and time.time() > grace:
+            # a repo with no CI reports no checks at all: do not wait out the timeout; the merge gate still refuses it
+            return {"checks": 0, "note": "the repo reports no checks"}
         time.sleep(max(POLL, 1))
     raise NodeFail("checks did not finish in time", "failed")
 
