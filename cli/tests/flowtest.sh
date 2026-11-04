@@ -160,7 +160,7 @@ pass "flow docs: the documenter runs on the low tier (haiku, no effort flag); it
 # 4. the manager merges (a branch that is behind gets the reviewer to update it), then cleans: nothing is left
 touch "$FAKE_STATE/behind-2" "$FAKE_STATE/nolog-1"
 "$fleet" flow merge ft r1 --approved >"$tmp/nolog.txt" 2>&1 && fail "a PR without a changelog entry was merged"
-grep -q "CHANGELOG.md is missing" "$tmp/nolog.txt" && grep -q "flow run ft changelog" "$tmp/nolog.txt" || { cat "$tmp/nolog.txt"; fail "missing changelog not reported"; }
+grep -q "CHANGELOG.md is missing" "$tmp/nolog.txt" && grep -q "flow run ft changelog.*--input repo=app" "$tmp/nolog.txt" || { cat "$tmp/nolog.txt"; fail "missing changelog not reported"; }
 rm -f "$FAKE_STATE/nolog-1"
 "$fleet" flow merge ft r1 --approved >"$tmp/merge.txt" 2>&1 || { cat "$tmp/merge.txt"; fail "flow merge"; }
 [ "$(grep -c '^MERGED pr merge' "$FAKE_STATE/gh.log")" = 2 ] || { cat "$FAKE_STATE/gh.log"; fail "both PRs were not merged"; }
@@ -198,7 +198,7 @@ pass "flow review FAIL: two fix rounds then the node fails, the run needs attent
 # 6. the changelog workflow works on an existing PR branch (workspace pr), runs its checks on that PR and a review
 git -C "$tmp/proj/app" push -q origin main:refs/heads/feat/existing
 echo feat/existing >"$FAKE_STATE/prbranch-9"; echo 0000 >"$FAKE_STATE/head-9"
-"$fleet" flow run ft changelog --input pr=9 --input repo=acme/app >"$tmp/run4.txt" 2>&1 || { tail -30 "$tmp/run4.txt"; fail "changelog run"; }
+"$fleet" flow run ft changelog --input pr=9 --input repo=app >"$tmp/run4.txt" 2>&1 || { tail -30 "$tmp/run4.txt"; fail "changelog run"; }
 r4="$(sed -n 's/^run \(r[0-9]*\):.*/\1/p' "$tmp/run4.txt" | tail -1)"
 python3 - "$SWE_TMP/swe/ft/$r4/run.json" <<'PY' || { tail -20 "$tmp/run4.txt"; fail "changelog state"; }
 import json, sys

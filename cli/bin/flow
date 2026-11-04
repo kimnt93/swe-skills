@@ -963,13 +963,16 @@ def cmd_merge(args: list[str]) -> int:
     run = Run.load(*pos)
     approved = "--approved" in on
     code = 0
+    if not run.data.get("ready"):
+        print(f"run {run.id} has nothing ready to merge (status {run.data.get('status')}); see swe-cli flow status {run.project} {run.id}")
+        return 3
     for entry in run.data.get("ready", []):
         if entry["pr"] in [m["pr"] for m in run.data["merged"]]:
             continue
         ok, text = merge_one(run, entry, approved)
         if not ok and "CHANGELOG.md is missing" in text:
             print(f"#{entry['pr']}: the PR has no change log entry; run: swe-cli flow run {run.project} changelog "
-                  f"--input pr={entry['pr']} --input repo={entry['github']}")
+                  f"--input pr={entry['pr']} --input repo={entry.get('repo') or entry['github']}")
         if not ok and ("behind" in text or "dirty" in text):
             print(f"#{entry['pr']}: {text.splitlines()[0] if text else 'behind main'}; the reviewer updates the branch")
             if update_branch(run, entry):
@@ -983,7 +986,7 @@ def cmd_merge(args: list[str]) -> int:
         else:
             code = 3
     if code == 0:
-        run.data["status"] = "merged"
+        run.data["status"] = "merged" if run.data.get("status") == "ready" else run.data.get("status")
         run.save()
         print(f"all merged. next: swe-cli flow clean {pos[0]} {pos[1]}")
     return code
