@@ -6,7 +6,7 @@ Read this file fully, then `docs/README.md` (and `docs/runbooks.md` for operatio
 
 The source of a software-engineering plugin. `scripts/build.py` renders it into
 `dist/<PLUGIN_NAME>/` (default name `swe`): a complete plugin for Claude Code, Codex and omp, and
-plain skills for every other harness. `cli/` is the `<name>-cli` command (`swe-cli`): `swe-cli project init` (here) or `swe-cli project create <name>` (a new directory) makes a project (AGENTS.md as the orchestrator, `workflows/*.yaml`, `roles.yaml`, `project.yaml` listing the repo clones); the orchestrator is any CLI agent that runs YAML workflows (`cli/bin/flow`), one agent per node, in worktrees (tmux or Orca); every agent and model is set in the project's `models.yaml`.
+plain skills for every other harness. `cli/` is the `<name>-cli` command (`swe-cli`): `swe-cli project init` (here) or `swe-cli project create <name>` (a new directory) makes a project (AGENTS.md as the orchestrator, `workflows/*.yaml`, the `roles:` block of `config.yaml`, `project.yaml` listing the repo clones); the orchestrator is any CLI agent that runs YAML workflows (`cli/bin/flow`), one agent per node, in worktrees (tmux or Orca); every agent and model is set in the project's `config.yaml`.
 
 ## Rules
 
@@ -22,9 +22,9 @@ plain skills for every other harness. `cli/` is the `<name>-cli` command (`swe-c
    `src/skills/router/` and is renamed to the plugin's name at build.
 4. **Every skill has `metadata.group`:** `start`, `process`, `language`, `data`, `platform` or
    `observability`. The router index and the plugin README group by it.
-5. **Harness-neutral text.** Say "start a subagent as agent A" (a name in `models.yaml`), never a tool name or a model slug.
+5. **Harness-neutral text.** Say "start a subagent as agent A" (a name in `config.yaml`), never a tool name or a model slug.
    The how-to lives in `src/skills/router/references/harness.md`. Model ids live only in
-   the project's `models.yaml`.
+   the project's `config.yaml`.
 6. **Skills describe this stack only:** no repository, project or tool-specific names (the validator
    flags them), a `metadata.summary` of one line (it becomes the skill's row in the docs tables), and
    no `**x** skill` or `**x** principle` reference without a file, broken link, missing group or

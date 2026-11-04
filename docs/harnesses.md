@@ -92,7 +92,7 @@ Claude Code, Codex and omp), `DRY_RUN=1` (show what would happen). A harness tha
 
 The other harnesses use the same skills by hand; workflows drive the four coding CLIs above.
 A new coding CLI needs a branch in `cli/bin/main` (`argv`) and an entry under `clis:` and
-`agents:` in the project's `models.yaml`.
+`agents:` in the project's `config.yaml`.
 
 ## Check an install
 

@@ -9,7 +9,7 @@ What the build does:
     entry command is /<name> (Claude Code), $<name>:<name> (Codex), /skill:<name> (omp), <name> (Hermes, ...)
   * fills @PLUGIN@, @DOMAIN@, @OWNER@ and @HOMEPAGE@ in every text file of the skills and the agents,
     and @SKILL_INDEX@ (grouped by metadata.group) in the router
-  * sets each Claude Code subagent's `model:` from the models.yaml template (`swe-cli models subagent <name>`)
+  * sets each Claude Code subagent's `model:` from the config.yaml template (`swe-cli models subagent <name>`)
   * renders the plugin manifests from src/manifests, dropping fields left empty
   * copies the installer, the validator and CHANGELOG.md, and writes build.json,
     LICENSE and README.md

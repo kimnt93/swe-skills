@@ -79,11 +79,11 @@ proof), `correct` (a repeated mistake becomes a check), `reflect` (capture what 
 
 ## Subagents
 
-- **Pick an agent, never a model:** `developer-strong`, `developer`, `documenter` ([models](references/models.md));
+- **Pick an agent, never a model:** `developer-senior`, `developer-junior`, `documenter` ([models](references/models.md));
   [harness](references/harness.md) says how in this harness.
-- `developer` is the default for code. `developer-strong` for money-path, cross-service design, concurrency, a bug
+- `developer-junior` is the default for code. `developer-senior` for money-path, cross-service design, concurrency, a bug
   with no repro. `documenter` only for mechanical work with a deterministic check.
-- **A second opinion is the same brief on another model family** (a cross-family review).
+- **A second opinion is the same brief on another agent** (a `reviewer-senior` review).
 - **You own every subagent's work.** Read its diff; write your own summary.
 - **Fresh subagents by default**, with the original brief, every later directive and the prior
   report. Reuse one only for state that lives in it (an uncommitted checkout, a running process).

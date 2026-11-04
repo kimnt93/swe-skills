@@ -1,0 +1,32 @@
+name: task
+description: "Developer mode: one task from the issue to an open PR: read or create the issue, code in a worktree, open the PR, wait for checks (a fixer repairs a red check). No review, no merge: you review and merge."
+inputs:
+  goal: {required: true}
+  issue: {default: ""}
+  repo: {default: ""}
+  files: {default: ""}
+  agent: {default: developer-junior}
+  risk: {default: standard}
+  type: {default: feat}
+nodes:
+  build:
+    role: developer
+    goal: "${inputs.goal}"
+    issue: "${inputs.issue}"
+    agent: "${inputs.agent}"
+    risk: "${inputs.risk}"
+    branch_type: "${inputs.type}"
+  checks:
+    type: checks
+    needs: [build]
+    timeout: 30
+    on_fail: {run: ci-fix, rounds: 2}
+  ci-fix:
+    role: ci-fixer
+    manual: true
+    workspace: "same:build"
+    goal: "A required check on the PR is red. Fix the cause on this branch (ci-fixer skill)."
+  report:
+    type: report
+    needs: [checks]
+    always: true

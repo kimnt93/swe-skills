@@ -19,6 +19,6 @@
 | [workflows.md](workflows.md) | project directory, YAML workflows, roles, reports, merge and clean |
 | [skills/](skills/README.md) | **each skill in detail**: what it is, when to use it, what to say, what happens, what you get, its files; the router's 18 playbooks; the 22 principles; which skill for which situation |
 | [skills.md](skills.md) | the quick reference for every skill (generated from the skills) |
-| `../cli/README.md` | the `swe-cli` command and `models.yaml` |
+| `../cli/README.md` | the `swe-cli` command and `config.yaml` |
 | [development.md](development.md) | make targets, build settings, repo layout, enforced rules (for contributors) |
 | `../AGENTS.md` | rules for agents (and people) changing this repository |

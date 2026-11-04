@@ -29,12 +29,12 @@ cd ~/code/orders && claude
 ```
 
 - The router picks the agent for subagents: `swe:worker` runs the `developer` agent (Sonnet),
-  `swe:adversary` (the reviewer in `/swe:interrogate`) the `developer-strong` agent (Opus). Both come from
-  `subagents` in the project's `models.yaml`; rebuild with `make claude` after changing them.
+  `swe:adversary` (the reviewer in `/swe:interrogate`) the `developer-senior` agent (Opus). Both come from
+  `subagents` in the project's `config.yaml`; rebuild with `make claude` after changing them.
 - Switch the main session's model with `/model`. Use Opus for money-path or hard design work, Sonnet
   for most code, Haiku for mechanical edits.
 - `claude update` moves the aliases `opus`, `sonnet`, `haiku` to the newest models; pin full ids in
-  `models.yaml` when you want upgrades to be explicit.
+  `config.yaml` when you want upgrades to be explicit.
 
 ## 4. Run it unattended (the manager starts it in a worktree)
 
@@ -45,14 +45,14 @@ limits with your interactive sessions.
 
 ```bash
 claude auth login                                           # the CLI uses your Claude login
-export SWE_MODELS=cli/examples/models.claude-only.yaml  # one CLI: claude
+export SWE_MODELS=cli/examples/config.claude-only.yaml  # one CLI: claude
 swe-cli models check
 swe-cli project add orders --dir ~/work/orders --repo api=acme/orders-api
 swe-cli doctor orders
 swe-cli orchestrate orders                                    # Claude Code as the manager, in ~/work/orders
 ```
 
-`cli/examples/models.claude-only.yaml` differs from the default file in three ways:
+`cli/examples/config.claude-only.yaml` differs from the default file in three ways:
 
 | Setting | Claude-only |
 |---|---|
@@ -74,12 +74,12 @@ swe-cli context apply      # adds "autoCompactWindow": 350000 to ~/.claude/setti
 
 `swe-cli delegate` also sets `CLAUDE_CODE_AUTO_COMPACT_WINDOW=350000` for each card, and one-off
 sessions can use `CLAUDE_CODE_AUTO_COMPACT_WINDOW=300000 claude`. Change the number under
-`context.families.claude` in the project's `models.yaml`. Details: [context.md](context.md).
+`context.families.claude` in the project's `config.yaml`. Details: [context.md](context.md).
 
 ## 6. Protect your quota
 
 - Keep about five sessions running at once; each is a full Claude Code session on the same subscription.
-- Default cards to the `developer` agent; reserve `developer-strong` for money-path, concurrency and designs.
+- Default cards to the `developer` agent; reserve `developer-senior` for money-path, concurrency and designs.
 - Put docs, lint and rename cards on the `documenter` agent.
 - When Claude Code reports a usage limit, `swe-cli delegate status` shows the stuck session. The manager runs on a
   non-Claude model, so it still answers: it tells you and asks whether to wait or restart the card with `--cli omp`.

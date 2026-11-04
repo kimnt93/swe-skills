@@ -20,7 +20,8 @@ Node `{node}` of workflow run `{run}` (`{workflow}`), project `{project}`, repo 
 {context}
 # Report
 
-- Write your report to `{report}` before your last line: what you did, the commands you ran and what they
+- Write your report to exactly this path, `{report}`, before your last line (any other file, such as a PR verdict or comment
+  file, does not count; for a review put the verdict line and the findings in this file too): what you did, the commands you ran and what they
   printed, the commit SHA and PR when there are any, and anything the next step must know.
 - End the report with a `## Learned` section: at most five bullets, each a durable fact about this project
   (a command that works, a convention, a dependency, a gotcha), not details of this task. Leave it out if

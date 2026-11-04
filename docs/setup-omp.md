@@ -35,7 +35,7 @@ cd ~/code/orders && omp
 Useful flags: `--model <provider/id>`, `--thinking low|medium|high`, `-p` (print mode),
 `--max-time 45m`, `--approval-mode yolo` (only in a disposable worktree).
 The model roles omp uses for its own subagents (`default`, `smol`, `slow`) are written by
-`swe-cli models apply` from `omp_roles` in the project's `models.yaml`.
+`swe-cli models apply` from an optional `omp_roles` block in the project's `config.yaml`.
 
 ## 4. Run it unattended (the manager starts it in a worktree)
 
@@ -44,8 +44,8 @@ A project's manager runs `swe-cli flow run` (or `swe-cli delegate start --agent 
 ([delegation.md](delegation.md)). `swe-cli lane` keeps the headless one-shot form (`omp -p ... --max-time 45m`).
 
 ```bash
-export SWE_MODELS=cli/examples/models.omp-only.yaml    # one CLI: omp
-swe-cli models check          # every id must exist in `omp models ls`; fix models.yaml if not
+export SWE_MODELS=cli/examples/config.omp-only.yaml    # one CLI: omp
+swe-cli models check          # every id must exist in `omp models ls`; fix config.yaml if not
 swe-cli project add orders --dir ~/work/orders --repo api=acme/orders-api
 swe-cli doctor orders
 swe-cli orchestrate orders              # the manager agent is omp too
@@ -55,13 +55,13 @@ Agents in the default file:
 
 | Agent | Model | Use |
 |---|---|---|
-| `planner`, `developer-strong`, `reviewer` | `openai-codex/gpt-6-sol`, thinking high | money-path, hard design, the reviewer |
+| `planner`, `developer-senior`, `reviewer` | `openai-codex/gpt-6-sol`, thinking high | money-path, hard design, the reviewer |
 | `developer`, `ci-fixer`, `integrator` | `openai-codex/gpt-6-sol`, thinking medium | most cards |
 | `documenter`, `scribe`, `verifier` | `google-antigravity/gemini-3.8-flash`, thinking low | mechanical cards, docs, scouting |
 
 **The reviewer's family:** with one CLI, the reviewer is the `reviewer` agent on omp. Make it a
 different model from the one that wrote the card: write `mid` and `low` cards with Gemini or GPT
-and review with the other, by editing `agents` in `models.yaml` (for example `mid` on
+and review with the other, by editing `agents` in `config.yaml` (for example `mid` on
 `google-antigravity/gemini-3.8-flash` high and `top` on `openai-codex/gpt-6-sol`). Run `swe-cli models
 show` to see the result.
 
@@ -75,7 +75,7 @@ swe-cli context apply      # writes compaction.thresholdTokens into ~/.omp/agent
 omp config get compaction.thresholdTokens
 ```
 
-Change it under `context.default` in the project's `models.yaml`. Details: [context.md](context.md).
+Change it under `context.default` in the project's `config.yaml`. Details: [context.md](context.md).
 
 ## 6. Plugin skills for omp's own agents
 

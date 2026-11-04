@@ -14,7 +14,7 @@ opencode loads them with its skill tool: ask for the `swe` skill, or `swe-how`, 
 ## 2. Pick the agents
 
 ```bash
-cp cli/examples/models.opencode-only.yaml models.yaml      # every agent on opencode; edit the models
+cp cli/examples/config.opencode-only.yaml config.yaml      # every agent on opencode; edit the models
 swe-cli models set developer --cli opencode --model anthropic/claude-sonnet-5 --reasoning medium
 swe-cli models check                                       # every opencode model must be in `opencode models`
 ```
@@ -33,5 +33,5 @@ Headless one-shots (`swe-cli lane`) use `opencode run --model <id> --auto`.
 
 ## 4. Reviews
 
-`reviewers.opencode` names the agent that reviews opencode-written work (by default `reviewer-claude`). With opencode as
-the only harness, the reviewer is a fresh opencode session on a different model than the author's.
+Reviews are a role, not another vendor: `reviewer-junior` and `reviewer-senior` in `config.yaml` run on whatever harness you set.
+

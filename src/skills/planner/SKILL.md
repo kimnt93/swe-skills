@@ -23,7 +23,7 @@ You plan; you do not edit tracked files, commit or open PRs. You work in a read-
    acceptance command, every shared decision: names, schema, message format, API shape), `files` (a file,
    a `directory/` or a glob it may touch), `risk` (`low`, `standard`, `money-path`: anything touching
    orders, fills, positions, balances, risk limits or P&L is money-path), `agent` (`documenter` mechanical,
-   `developer` default, `developer-strong` for money-path, races, design; the names are in `models.yaml`), `workflow` (`card` by default, `docs-card` for
+   `developer-junior` for a clear description, `developer-senior` for medium or complex work, money-path, races, design; the names are in `config.yaml`), `reviewer` (`reviewer-junior` by default; `reviewer-senior` for complex or money-path cards or code the human did not write), `workflow` (`card` by default, `docs-card` for
    documentation-only), `type` (`feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`, `ci`: the branch prefix), `repo` when the project has several, and `after`.
 4. **Decide every shared choice once** and put it in each dependent card's goal. Never leave two cards to
    invent the same name.

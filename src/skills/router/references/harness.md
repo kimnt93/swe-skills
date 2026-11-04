@@ -6,7 +6,7 @@ each harness. If a row has no way to do it, say so in your reply and continue.
 | The skill says | Claude Code | omp | Codex |
 |---|---|---|---|
 | start a subagent as agent A | the `Agent` tool with `subagent_type: "@PLUGIN@:worker"`; `model` and `effort` from `swe-cli models cmd <A>` | the `task` tool; agents map to omp roles (`@slow`, `@task`, `@smol`) | its subagent tool, or `codex exec` in a separate worktree |
-| a cross-family review or a multi-model panel | not possible in-harness: have the project's manager run `swe-cli delegate review <project> <card>` | not possible in-harness: `swe-cli delegate review <project> <card>` | same as omp |
+| a review or a multi-model panel | not possible in-harness: have the project's manager run `swe-cli delegate review <project> <card>` | not possible in-harness: `swe-cli delegate review <project> <card>` | same as omp |
 | a read-only subagent | `Agent` with `subagent_type: "@PLUGIN@:adversary"` to break a change, or `"Explore"` to map code; say "do not edit files" in the brief | the `scout` agent | a brief that says read-only; check `git status` after |
 | a separate worktree | `Agent` with `isolation: "worktree"` | `task.isolation.enabled` in omp config | `git worktree add` |
 | ask the human | `AskUserQuestion` (plain text in `-p` mode) | ask in plain text | ask in plain text |

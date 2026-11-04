@@ -1,22 +1,22 @@
 # Agents and skills: the recommended setup
 
 Which agent has which skills and tools, and why. `swe-cli bootstrap` and `swe-cli project add` apply
-the project directories from the project's `models.yaml`; this page is the reference behind it.
+the project directories from the project's `config.yaml`; this page is the reference behind it.
 
 ## Roles and their skills
 
 Every role is one agent session started by a workflow node (or by the manager). The role names its skills in
-`roles.yaml`; the brief tells the agent to use only those. Skills name agents, never models; the cli, model and reasoning
-come from the project's `models.yaml` (the one place agents are defined).
+the `roles:` block of `config.yaml`; the brief tells the agent to use only those. Skills name agents, never models; the cli, model and reasoning
+come from the project's `config.yaml` (the one place agents are defined).
 
 | Role | Agent | Skills it enables | Edits code? | Merges? |
 |---|---|---|---|---|
 | Manager (one per project) | the `manager` agent, any CLI; started in the project directory with its `AGENTS.md` | `manager`, `project`, `github`, `ketchup` | no | through the gate (`flow merge`), with approval where required |
 | Intake (chat to goals) | any harness, a light agent | `intake`, `github` | no | no |
 | Planner | the `planner` agent, read-only | `planner`, `architect`, `how`, `project`, `github` | no | no |
-| Developer | the `developer` agent (a card may name `developer-strong`), own worktree | `developer`, `swe`, `tdd`, `deslop`, `github` | yes, its files | no |
+| Developer | the `developer` agent (a card may name `developer-senior`), own worktree | `developer`, `swe`, `tdd`, `deslop`, `github` | yes, its files | no |
 | Documenter | the `documenter` agent (Haiku), no reasoning flag | `documenter`, `deslop`, `github` | docs only | no |
-| Reviewer | `reviewers` names the agent: another model family, the author's worktree | `reviewer`, `interrogate`, `why`, `integrator`, `github` | conflict files of its card | no |
+| Reviewer | the `reviewer-junior` agent (a card may name `reviewer-senior`), the author's worktree | `reviewer`, `interrogate`, `why`, `integrator`, `github` | conflict files of its card | no |
 | CI fixer | the `ci-fixer` agent | `ci-fixer`, `tdd`, `github`, `blast-radius` | its card's files | no |
 | Integrator | project CLI, `mid` | `integrator`, `github`, `why`, `tdd` | conflict files of its card | no |
 | Verifier (nightly) | project CLI, `low`, read-only | `verifier`, `verify-maintain`, `correct`, `github` | no (files issues) | no |
@@ -31,14 +31,14 @@ Not built yet: a supervisor daemon (the runner has timeouts and stuck detection 
 Every project has one manager: any CLI agent (Claude Code, Codex, oh-my-pi, opencode) started in the project directory
 by `swe-cli orchestrate <project>`, running the `manager`, `project` and `github` skills. It creates issues, starts
 the coding sessions and merges through the gate; it never edits code. It answers questions itself with the read-only skills. The
-default is `manager:` in `models.yaml`; a project overrides it with `manager:` in `project.yaml`.
+default is `manager:` in `config.yaml`; a project overrides it with `manager:` in `project.yaml`.
 
 ## Coding CLIs (started by the manager in worktrees)
 
 | CLI | Plugin | Skills used most | Subagents |
 |---|---|---|---|
 | Claude Code | `swe@swe-skills` (`make claude`) | `/swe` (the router), the language skills, `tdd`, `architect`, `interrogate`, `deslop`, `github` | `swe:worker`, `swe:adversary` |
-| oh-my-pi | `swe@swe-skills` (`make omp`) | `/skill:swe` and the same skills | omp's own roles (`omp_roles` in `models.yaml`) |
+| oh-my-pi | `swe@swe-skills` (`make omp`) | `/skill:swe` and the same skills | omp's own roles (optional `omp_roles` in `config.yaml`) |
 | Codex | `swe@swe-skills` (`make codex`) | `$swe:swe` and the same skills | — |
 
 Inside a card, the CLI follows the router: language by the job (Go/Fiber APIs, Python ML, Rust

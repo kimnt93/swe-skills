@@ -17,5 +17,5 @@ wrong answer there is a loss, not a bug report.
 - **Model the order lifecycle as a state machine** with named states and allowed transitions, not
   scattered booleans (the **model-the-domain** principle). An illegal transition is an error, logged
   and counted.
-- **No auto-merge.** A money-path PR needs a human approval after the cross-family review.
+- **No auto-merge.** A money-path PR needs a human approval after the review.
 - **Say what you did not test.** Every money-path PR lists the scenarios it did not replay.

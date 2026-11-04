@@ -12,42 +12,43 @@ pass() { echo "PASS $1"; }
 fail() { echo "FAIL $1"; exit 1; }
 plugin="$("$fleet" name)"
 
-# 1. every level resolves from models.yaml
+# 1. every level resolves from config.yaml
 "$fleet" models show >"$tmp/show.txt" || fail "show"
-for level in manager agent reviewer subagent "omp role"; do
+for level in manager agent subagent; do
   grep -q "^$level " "$tmp/show.txt" || fail "show has no $level rows"
 done
-mapfile -t cmd < <("$fleet" models cmd developer)
-[ "${cmd[*]}" = "claude -p --model sonnet --effort medium --permission-mode bypassPermissions" ] || fail "cmd developer: ${cmd[*]}"
+mapfile -t cmd < <("$fleet" models cmd developer-junior)
+[ "${cmd[*]}" = "claude -p --model claude-haiku-5-5 --effort high --permission-mode bypassPermissions" ] || fail "cmd developer-junior: ${cmd[*]}"
+mapfile -t cmd < <("$fleet" models cmd developer-senior)
+[ "${cmd[*]}" = "claude -p --model claude-sonnet-5-5 --effort high --permission-mode bypassPermissions" ] || fail "cmd developer-senior: ${cmd[*]}"
 mapfile -t cmd < <("$fleet" models cmd documenter)
-[ "${cmd[*]}" = "claude -p --model haiku --permission-mode bypassPermissions" ] || fail "cmd documenter (no reasoning): ${cmd[*]}"
-mapfile -t cmd < <("$fleet" models cmd reviewer)
-[ "${cmd[0]} ${cmd[3]} ${cmd[5]}" = "omp openai-codex/gpt-6-sol high" ] || fail "cmd reviewer: ${cmd[*]}"
-[ "$("$fleet" models reviewer claude)" = "reviewer" ] || fail "reviewer of claude"
-[ "$("$fleet" models reviewer omp)" = "reviewer-claude" ] || fail "reviewer of omp"
-[ "$("$fleet" models subagent worker)" = "sonnet" ] || fail "subagent worker"
-[ "$("$fleet" models subagent adversary)" = "opus" ] || fail "subagent adversary"
-! grep -q "^lane " "$tmp/show.txt" || fail "show still lists lane profiles"
-pass "models: agents (cli, model, reasoning), reviewers, subagents, omp roles; a model without reasoning gets no flag"
+[ "${cmd[*]}" = "omp -p --model google-antigravity/gemini-3.8-flash --thinking medium --approval-mode yolo --max-time 45m" ] || fail "cmd documenter: ${cmd[*]}"
+mapfile -t cmd < <("$fleet" models cmd reviewer-senior)
+[ "${cmd[*]}" = "claude -p --model claude-sonnet-5-5 --effort medium --permission-mode bypassPermissions" ] || fail "cmd reviewer-senior: ${cmd[*]}"
+[ "$("$fleet" models reviewer claude)" = "reviewer-junior" ] || fail "default reviewer"
+[ "$("$fleet" models subagent worker)" = "claude-sonnet-5-5" ] || fail "subagent worker"
+[ "$("$fleet" models subagent adversary)" = "claude-sonnet-5-5" ] || fail "subagent adversary"
+! grep -q "^lane \|^reviewer \|^omp role" "$tmp/show.txt" || fail "show lists removed levels"
+pass "models: agents (cli, model, reasoning); junior and senior developers and reviewers; no reviewer map, no omp roles"
 
-# 2. one edit in models.yaml reaches every agent that uses it
-sed 's/developer-strong: {cli: claude, model: opus,/developer-strong: {cli: claude, model: claude-opus-6,/' "$here/templates/models.yaml" >"$tmp/models.yaml"
-[ "$(SWE_MODELS="$tmp/models.yaml" "$fleet" models cmd developer-strong | sed -n 4p)" = "claude-opus-6" ] || fail "agent swap"
-[ "$(SWE_MODELS="$tmp/models.yaml" "$fleet" models subagent adversary)" = "claude-opus-6" ] || fail "subagent swap"
-pass "swap: a new model in an agent reaches the next card and the plugin's adversary subagent"
+# 2. one edit in config.yaml reaches every agent that uses it
+sed 's/developer-senior: {cli: claude, model: claude-sonnet-5-5,/developer-senior: {cli: claude, model: claude-opus-6,/' "$here/templates/config.yaml" >"$tmp/config.yaml"
+[ "$(SWE_MODELS="$tmp/config.yaml" "$fleet" models cmd developer-senior | sed -n 4p)" = "claude-opus-6" ] || fail "agent swap"
+[ "$(SWE_MODELS="$tmp/config.yaml" "$fleet" models subagent worker)" = "claude-opus-6" ] || fail "subagent swap"
+pass "swap: a new model in an agent reaches the next card and the plugin's worker subagent"
 
 # 2b. models set: one agent changes, comments and the other agents stay; all four harnesses build their commands
-cp "$here/templates/models.yaml" "$tmp/set.yaml"
-SWE_MODELS="$tmp/set.yaml" "$fleet" models set developer --cli codex --model gpt-6-sol --reasoning medium >/dev/null || fail "models set"
-grep -q '^  developer: {cli: codex, model: gpt-6-sol, reasoning: medium}$' "$tmp/set.yaml" || fail "models set line: $(grep '^  developer:' "$tmp/set.yaml")"
-grep -q '^# models.yaml: the ONE place' "$tmp/set.yaml" && grep -q '^  documenter: {cli: claude, model: haiku}' "$tmp/set.yaml" || fail "models set damaged the file"
+cp "$here/templates/config.yaml" "$tmp/set.yaml"
+SWE_MODELS="$tmp/set.yaml" "$fleet" models set developer-junior --cli codex --model gpt-6-sol --reasoning medium >/dev/null || fail "models set"
+grep -q '^  developer-junior: {cli: codex, model: gpt-6-sol, reasoning: medium}$' "$tmp/set.yaml" || fail "models set line: $(grep '^  developer-junior:' "$tmp/set.yaml")"
+grep -q '^# config.yaml: the ONE file' "$tmp/set.yaml" && grep -q '^  scribe: ' "$tmp/set.yaml" || fail "models set damaged the file"
 SWE_MODELS="$tmp/set.yaml" "$fleet" models set scribe-opencode --cli opencode --model opencode/claude-sonnet-5 --reasoning high >/dev/null || fail "models set new agent"
-SWE_MODELS="$tmp/set.yaml" "$fleet" models set developer --reasoning "" >/dev/null || fail "models set drops reasoning"
-mapfile -t cmd < <(SWE_MODELS="$tmp/set.yaml" "$fleet" models cmd developer)
+SWE_MODELS="$tmp/set.yaml" "$fleet" models set developer-junior --reasoning "" >/dev/null || fail "models set drops reasoning"
+mapfile -t cmd < <(SWE_MODELS="$tmp/set.yaml" "$fleet" models cmd developer-junior)
 [ "${cmd[*]}" = "codex exec --model gpt-6-sol --dangerously-bypass-approvals-and-sandbox" ] || fail "codex without reasoning: ${cmd[*]}"
 mapfile -t cmd < <(SWE_MODELS="$tmp/set.yaml" "$fleet" models cmd scribe-opencode)
 [ "${cmd[*]}" = "opencode run --model opencode/claude-sonnet-5 --variant high --auto" ] || fail "opencode headless: ${cmd[*]}"
-SWE_MODELS="$tmp/set.yaml" "$fleet" models set developer --cli nonsense --model x >/dev/null 2>&1 && fail "models set accepted a bad cli"
+SWE_MODELS="$tmp/set.yaml" "$fleet" models set developer-junior --cli nonsense --model x >/dev/null 2>&1 && fail "models set accepted a bad cli"
 python3 - "$fleet" "$tmp/set.yaml" <<'PY' || fail "interactive argv of the four harnesses"
 import importlib.machinery, importlib.util, sys, yaml
 loader = importlib.machinery.SourceFileLoader("fleet", sys.argv[1])
@@ -55,7 +56,7 @@ spec = importlib.util.spec_from_loader("fleet", loader); fleet = importlib.util.
 import os; os.environ["SWE_MODELS"] = sys.argv[2]; loader.exec_module(fleet)
 cfg = fleet.load()
 want = {
- "claude": ["claude", "--model", "sonnet", "--effort", "high", "--permission-mode", "bypassPermissions"],
+ "claude": ["claude", "--model", "claude-sonnet-5-5", "--effort", "high", "--permission-mode", "bypassPermissions"],
  "codex": ["codex", "--model", "gpt-6-sol", "-c", "model_reasoning_effort=high", "--ask-for-approval", "never", "--sandbox", "danger-full-access"],
  "omp": ["omp", "--model", "openai-codex/gpt-6-sol", "--thinking", "high", "--approval-mode", "yolo"],
  "opencode": ["opencode", "--model", "opencode/claude-sonnet-5", "--auto"],
@@ -65,7 +66,7 @@ for cli, expected in want.items():
     got = fleet.argv(cfg, spec, interactive=True)
     assert got == expected, (cli, got)
 # switching an agent to another cli without a model takes that cli's default model
-alt = fleet.agent_spec(cfg, "documenter", cli="omp")
+alt = fleet.agent_spec(cfg, "scribe", cli="omp")
 assert alt["cli"] == "omp" and alt["model"] == cfg["clis"]["omp"]["model"] and alt["reasoning"] == "", alt
 PY
 pass "models set: edits one agent in place (comments kept, reasoning removable); claude, codex, omp and opencode build their interactive and headless commands"
@@ -87,19 +88,18 @@ grep -q "repo api: cloned at $tmp/demo-dir/api" "$tmp/boot-off.txt" || fail "boo
 grep -q "name must match" "$tmp/bad.txt" || fail "bad name message"
 "$fleet" project add other --dir "$tmp/x" --repo Bad_Name=acme/x --dry-run >"$tmp/bad.txt" && fail "bad repo accepted"
 grep -q "PROBLEM" "$tmp/bad.txt" || fail "bad repo message"
-"$fleet" project add fresh --dir "$tmp/fresh-dir" --repo api="$tmp/demo-src" --repo docs="$tmp/demo-src" --manager developer --dry-run >"$tmp/add-dry.txt" || { cat "$tmp/add-dry.txt"; fail "project add dry-run"; }
+"$fleet" project add fresh --dir "$tmp/fresh-dir" --repo api="$tmp/demo-src" --repo docs="$tmp/demo-src" --manager developer-junior --dry-run >"$tmp/add-dry.txt" || { cat "$tmp/add-dry.txt"; fail "project add dry-run"; }
 grep -q "would create $tmp/fresh-dir" "$tmp/add-dry.txt" && grep -q "git clone $tmp/demo-src $tmp/fresh-dir/docs" "$tmp/add-dry.txt" || fail "project add does not plan the directory and the clones"
-"$fleet" project add fresh --dir "$tmp/fresh-dir" --repo api="$tmp/demo-src" --repo docs="$tmp/demo-src" --manager developer >"$tmp/add.txt" 2>&1 || { cat "$tmp/add.txt"; fail "project add"; }
+"$fleet" project add fresh --dir "$tmp/fresh-dir" --repo api="$tmp/demo-src" --repo docs="$tmp/demo-src" --manager developer-junior >"$tmp/add.txt" 2>&1 || { cat "$tmp/add.txt"; fail "project add"; }
 [ -d "$tmp/fresh-dir/api/.git" ] && [ -d "$tmp/fresh-dir/docs/.git" ] || fail "project add did not clone both repos"
 pass "projects: a directory with several repos, add clones, bad input refused"
 
 # 3b. the example setups (Claude-only, oh-my-pi-only) are consistent
 for example in claude-only codex-only omp-only opencode-only; do
-  file="$here/examples/models.$example.yaml"
+  file="$here/examples/config.$example.yaml"
   SWE_MODELS="$file" "$fleet" models show >"$tmp/ex.txt" || fail "$example: show"
-  clis="$(SWE_MODELS="$file" python3 -c "import yaml,sys; print(' '.join(yaml.safe_load(open(sys.argv[1]))['clis']))" "$file")"
+  clis="$(SWE_MODELS="$file" python3 -c "import yaml,sys; print(' '.join(sorted({a['cli'] for a in yaml.safe_load(open(sys.argv[1]))['agents'].values()})))" "$file")"
   [ "$(wc -w <<<"$clis")" = 1 ] || fail "$example: expected one cli, got: $clis"
-  [ "$(SWE_MODELS="$file" "$fleet" models reviewer "$clis")" = reviewer ] || fail "$example: reviewer"
   for agent in $(python3 -c "import yaml,sys; print(' '.join(yaml.safe_load(open(sys.argv[1]))['agents']))" "$file"); do
     mapfile -t cmd < <(SWE_MODELS="$file" "$fleet" models cmd "$agent") || fail "$example: cmd $agent"
     [ "${cmd[0]}" != "${clis}" ] && [ "$clis" != opencode ] || true
@@ -149,15 +149,15 @@ ls "$tmp"/claude/settings.json.bak-* "$tmp"/codex/config.toml.bak-* >/dev/null 2
 "$fleet" context show >"$tmp/ctx3.txt"
 grep -qE "^Claude Code .* 400,000 +350,000" "$tmp/ctx3.txt" && grep -qE "^Codex .* 272,000 +245,000" "$tmp/ctx3.txt" \
   && grep -qE "^oh-my-pi .* 272,000 +245,000" "$tmp/ctx3.txt" || { cat "$tmp/ctx3.txt"; fail "context show"; }
-[ "$("$fleet" context env developer)" = "CLAUDE_CODE_AUTO_COMPACT_WINDOW=350000" ] || fail "context env claude"
-[ -z "$("$fleet" context env reviewer)" ] || fail "context env omp must be empty"
-oc="$(SWE_MODELS="$here/examples/models.opencode-only.yaml" "$fleet" context env developer)"
-[ "$oc" = 'OPENCODE_CONFIG_CONTENT={"agent":{"build":{"model":"opencode/claude-sonnet-5","variant":"medium"}}}' ] || fail "opencode reasoning variant env: $oc"
-sed 's/compact_at: 245000/compact_at: 300000/' "$here/templates/models.yaml" >"$tmp/ctx-bad.yaml"
+[ "$("$fleet" context env developer-junior)" = "CLAUDE_CODE_AUTO_COMPACT_WINDOW=350000" ] || fail "context env claude"
+[ -z "$("$fleet" context env documenter)" ] || fail "context env omp must be empty"
+oc="$(SWE_MODELS="$here/examples/config.opencode-only.yaml" "$fleet" context env developer-junior)"
+[ "$oc" = 'OPENCODE_CONFIG_CONTENT={"agent":{"build":{"model":"opencode/claude-sonnet-5","variant":"high"}}}' ] || fail "opencode reasoning variant env: $oc"
+sed 's/compact_at: 245000/compact_at: 300000/' "$here/templates/config.yaml" >"$tmp/ctx-bad.yaml"
 SWE_MODELS="$tmp/ctx-bad.yaml" "$fleet" models check >"$tmp/ctx-check.txt" 2>&1 || true
 grep -q "context.default: compact_at 300000 must be above 0 and below window 272000" "$tmp/ctx-check.txt" || fail "check rejects compact_at >= window"
 for example in claude-only codex-only omp-only; do
-  python3 - "$here/templates/models.yaml" "$here/examples/models.$example.yaml" <<'PY' || fail "$example: context differs from models.yaml"
+  python3 - "$here/templates/config.yaml" "$here/examples/config.$example.yaml" <<'PY' || fail "$example: context differs from config.yaml"
 import sys, yaml
 base, example = (yaml.safe_load(open(p))["context"] for p in sys.argv[1:])
 assert base == example, (base, example)
@@ -187,27 +187,27 @@ printf 'verify:\n\ttest -f ok\n\ttest -z "$$(git status --porcelain)"\n' >Makefi
 git add Makefile && git commit -qm "chore: init" && git branch -M main && git push -q origin main
 git switch -qc wt/t1
 echo "goal: add ok" >"$tmp/card.md"
-SWE_WORKSPACE_DIR="$tmp/repo" "$fleet" lane run developer "$tmp/card.md" || fail "lane run exit"
+SWE_WORKSPACE_DIR="$tmp/repo" "$fleet" lane run developer-junior "$tmp/card.md" || fail "lane run exit"
 python3 - "$tmp/repo/.swe/evidence.json" <<'EOF' || fail "evidence.json"
 import json, sys
 e = json.load(open(sys.argv[1]))
 assert e["verify_exit"] == 0 and e["agent_exit"] == 0, e
 assert e["commits"] and e["changed_files"] == ["ok"] and e["uncommitted"] == [], e
-assert "--model sonnet" in e["command"], e
+assert "--model claude-haiku-5-5" in e["command"], e
 EOF
 grep -q "Start with the $plugin skill" "$tmp/repo/.swe/run-agent.log" || fail "brief names the plugin router"
 [ "$(cat "$tmp/repo/.swe/compact-window.txt")" = 350000 ] || fail "claude lane exports CLAUDE_CODE_AUTO_COMPACT_WINDOW"
 pass "lane run: agent commits, make verify passes, .swe/ is not uncommitted, brief names /$plugin, Claude Code gets its compaction point (350000)"
-SWE_WORKSPACE_DIR="$tmp/repo" "$fleet" lane review claude "$tmp/card.md" || fail "review exit"
+SWE_WORKSPACE_DIR="$tmp/repo" "$fleet" lane review claude "$tmp/card.md" documenter || fail "review exit"
 python3 - "$tmp/repo/.swe/review.json" <<'EOF' || fail "review.json"
 import json, sys
 r = json.load(open(sys.argv[1]))
-assert r["agent"] == "reviewer" and r["command"].startswith("omp ") and "openai-codex/gpt-6-sol" in r["command"], r
+assert r["agent"] == "documenter" and r["command"].startswith("omp ") and "gemini-3.8-flash" in r["command"], r
 assert r["reviewer_edited_files"] is False and "no verified findings" in r["report"], r
 EOF
-pass "lane review: the other family (the reviewer agent, omp), report captured, no edits"
+pass "lane review: a named reviewer agent (omp here), report captured, no edits"
 rm ok && git commit -qam "revert ok"
-SWE_WORKSPACE_DIR="$tmp/repo" "$fleet" lane run reviewer "$tmp/card.md" && fail "verify should fail"
+SWE_WORKSPACE_DIR="$tmp/repo" "$fleet" lane run documenter "$tmp/card.md" && fail "verify should fail"
 python3 -c "import json; assert json.load(open('$tmp/repo/.swe/evidence.json'))['verify_exit'] != 0" || fail "failing verify"
 pass "lane run: a failing make verify gives a non-zero exit and is recorded"
 cd "$here"
@@ -223,7 +223,7 @@ esac
 EOF
 chmod +x "$tmp/bin/gh"
 export GH_VIEW="$tmp/view.json" GH_CHECKS="$tmp/checks.json" GH_LOG="$tmp/gh.log"
-sed 's/auto_merge: \[\]/auto_merge: [low]/' "$here/templates/models.yaml" >"$tmp/auto.yaml"
+sed 's/auto_merge: \[\]/auto_merge: [low]/' "$here/templates/config.yaml" >"$tmp/auto.yaml"
 echo '{"headRefOid":"abc","state":"OPEN","isDraft":false}' >"$GH_VIEW"
 echo '[{"name":"verify","bucket":"pass"}]' >"$GH_CHECKS"
 expect_refused() {  # <label> <models file> <risk> <sha>
@@ -231,7 +231,7 @@ expect_refused() {  # <label> <models file> <risk> <sha>
   SWE_MODELS="$2" "$fleet" merge 7 --risk "$3" --sha "$4" >"$tmp/merge.txt" || rc=$?
   [ "$rc" = 3 ] && grep -q REFUSED "$tmp/merge.txt" || { cat "$tmp/merge.txt"; fail "merge guard: $1"; }
 }
-expect_refused "autopilot off" "$here/templates/models.yaml" low abc
+expect_refused "autopilot off" "$here/templates/config.yaml" low abc
 expect_refused "money-path" "$tmp/auto.yaml" money-path abc
 expect_refused "risk not allowed" "$tmp/auto.yaml" standard abc
 expect_refused "sha mismatch" "$tmp/auto.yaml" low def
@@ -268,7 +268,7 @@ rc=0; "$fleet" merge 7 --risk money-path --sha def --approved >"$tmp/merge.txt" 
 echo '[{"name":"verify","bucket":"fail"}]' >"$GH_CHECKS"
 rc=0; "$fleet" merge 7 --risk low --sha abc --approved >"$tmp/merge.txt" || rc=$?
 [ "$rc" = 3 ] && grep -q "not green" "$tmp/merge.txt" || fail "approval does not skip the checks"
-sed 's/auto_merge: \[\]/auto_merge: [low, money-path]/' "$here/templates/models.yaml" >"$tmp/bad.yaml"
+sed 's/auto_merge: \[\]/auto_merge: [low, money-path]/' "$here/templates/config.yaml" >"$tmp/bad.yaml"
 SWE_MODELS="$tmp/bad.yaml" "$fleet" models check >"$tmp/check.txt" 2>&1 || true
 grep -q "never include money-path" "$tmp/check.txt" || fail "check rejects money-path autopilot"
 pass "merge: refuses off / money-path / other risk / stale sha / behind or conflicting branch / red or missing checks / closed; merges low at the sha; --approved merges money-path but never skips the SHA or the checks"
@@ -312,7 +312,7 @@ s = json.load(open(sys.argv[1]))
 assert s["outcome"].startswith("CARD DONE ") and s["state"] == "idle" and s["commits"] and s["changed_files"] == ["a.txt"], s
 assert s["outside_scope"] == [] and s["behind_main"] == 0 and s["uncommitted"] == [], s
 PY
-  tmux capture-pane -p -t dd-c1 -S -200 | grep -q 'fake claude --model sonnet --effort medium --permission-mode bypassPermissions' || fail "interactive argv (no -p)"
+  tmux capture-pane -p -t dd-c1 -S -200 | grep -q 'fake claude --model claude-haiku-5-5 --effort high --permission-mode bypassPermissions' || fail "interactive argv (no -p)"
   ! tmux capture-pane -p -t dd-c1 -S -200 | grep -q 'fake claude -p' || fail "the interactive session ran headless"
   pass "delegate start: fetch, worktree from origin/main, trusted, tmux session with the brief, outcome read from the pane; central clone untouched"
 
@@ -355,8 +355,8 @@ PY
   rc=0; d scope dd c1 >"$tmp/scope.json" || rc=$?
   [ "$rc" = 8 ] && grep -q '"other.txt"' "$tmp/scope.json" || { cat "$tmp/scope.json"; fail "scope must flag files outside the list"; }
   d review dd c1 --dry-run >"$tmp/rev.txt" || fail "review dry-run"
-  grep -q "would run (tmux): dd-c1-review in .* omp --model openai-codex/gpt-6-sol --thinking high" "$tmp/rev.txt" || { cat "$tmp/rev.txt"; fail "the review runs on the other CLI"; }
-  pass "delegate: scope flags a file outside the list (exit 8); review starts the other CLI (omp top)"
+  grep -q "would run (tmux): dd-c1-review in .* claude --model claude-haiku-5-5 --effort high" "$tmp/rev.txt" || { cat "$tmp/rev.txt"; fail "the review runs as reviewer-junior"; }
+  pass "delegate: scope flags a file outside the list (exit 8); review starts the reviewer-junior agent"
 
   # two projects may clone the same GitHub repo: files and branches are kept apart
   mkdir -p "$tmp/dd2-dir" && git clone -q "$tmp/dd-origin.git" "$tmp/dd2-dir/dd" 2>/dev/null
@@ -409,10 +409,10 @@ EOF
   pass "orca launcher: a card runs in an Orca terminal (handle kept in state), its outcome is read from the screen, stop closes it"
 
   d orchestrate dd --dry-run >"$tmp/orch.txt" 2>&1 || true
-  SWE_MODELS="$here/examples/models.codex-only.yaml" SWE_PROJECTS="$tmp/dd-projects.yaml" "$fleet" orchestrate dd --dry-run >"$tmp/orch.txt" 2>&1 || { cat "$tmp/orch.txt"; fail "orchestrate dry-run"; }
+  SWE_MODELS="$here/examples/config.codex-only.yaml" SWE_PROJECTS="$tmp/dd-projects.yaml" "$fleet" orchestrate dd --dry-run >"$tmp/orch.txt" 2>&1 || { cat "$tmp/orch.txt"; fail "orchestrate dry-run"; }
   grep -q "would run (tmux): dd-orchestrator in $tmp: .*codex --model gpt-6-sol" "$tmp/orch.txt" && grep -q "brief-orchestrator.md" "$tmp/orch.txt" || { cat "$tmp/orch.txt"; fail "orchestrate plan"; }
-  mapfile -t cmd < <(SWE_MODELS="$here/examples/models.codex-only.yaml" "$fleet" models cmd developer)
-  [ "${cmd[*]}" = "codex exec --model gpt-6-sol -c model_reasoning_effort=medium --dangerously-bypass-approvals-and-sandbox" ] || fail "codex headless argv: ${cmd[*]}"
+  mapfile -t cmd < <(SWE_MODELS="$here/examples/config.codex-only.yaml" "$fleet" models cmd developer-junior)
+  [ "${cmd[*]}" = "codex exec --model gpt-6-luna -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox" ] || fail "codex headless argv: ${cmd[*]}"
   pass "orchestrate: any CLI (codex here) is started in the project directory with the orchestrator brief; codex has a headless command"
 
   echo '{"state":"OPEN"}' >"$tmp/view.json"

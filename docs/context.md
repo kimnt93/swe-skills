@@ -2,7 +2,7 @@
 
 How long a session may grow before each agent compacts it.
 
-One policy in the project's `models.yaml`, applied to every tool:
+One policy in the project's `config.yaml`, applied to every tool:
 
 ```yaml
 context:
@@ -62,7 +62,7 @@ One run only, without touching any file: `CLAUDE_CODE_AUTO_COMPACT_WINDOW=300000
   "log in and use the model": nothing else to configure per model. A Claude model used through omp
   compacts earlier than it would in Claude Code, which is the safe side.
 - **Plugin subagents** (`swe:worker`, `swe:adversary`) inherit the session's setting; they run short.
-- **To change a number**, edit `models.yaml` and run `swe-cli context apply`.
+- **To change a number**, edit `config.yaml` and run `swe-cli context apply`.
 - **Not verified:** that Claude Code starts compacting exactly at 350000 for `autoCompactWindow:
   350000`. Claude Code accepts the setting and uses it as the compaction window (checked by running
   it with the setting), but a 350k-token session is too costly to run as a test. Watch one long

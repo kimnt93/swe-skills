@@ -1,0 +1,12 @@
+name: verify
+description: "Nightly or after a burst of merges: run the real app against the feature map, file regressions, log findings. Edits nothing."
+inputs:
+  repo: {default: ""}
+nodes:
+  verify:
+    role: verifier
+    goal: "Verify main of this repo like a user would and sweep it (verifier skill). Edit no tracked file."
+  report:
+    type: report
+    needs: [verify]
+    always: true

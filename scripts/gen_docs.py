@@ -245,7 +245,7 @@ def render_harnesses() -> str:
         "",
         "The other harnesses use the same skills by hand; workflows drive the four coding CLIs above.",
         "A new coding CLI needs a branch in `cli/bin/main` (`argv`) and an entry under `clis:` and",
-        "`agents:` in the project's `models.yaml`.",
+        "`agents:` in the project's `config.yaml`.",
         "",
         "## Check an install",
         "",

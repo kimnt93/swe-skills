@@ -16,10 +16,10 @@ unset SWE_PROJECTS SWE_WORKSPACE
 
 mkdir "$tmp/acme" && cd "$tmp/acme"
 "$cli" project init --name acme >"$tmp/init.txt" 2>&1 || { cat "$tmp/init.txt"; fail "init"; }
-for f in AGENTS.md PROJECT.md skills/learn/SKILL.md project.yaml roles.yaml models.yaml workflows/feature.yaml workflows/card.yaml; do
+for f in AGENTS.md PROJECT.md skills/learn/SKILL.md project.yaml config.yaml workflows/feature.yaml workflows/card.yaml; do
     [ -e "$f" ] || fail "init did not write $f"
 done
-grep -q "^agents:" models.yaml && grep -q "developer-strong:" models.yaml && ! grep -qi "hermes\|kanban\|^board:\|^workers:\|tier" models.yaml || fail "models.yaml is the agents template (cli, model, reasoning per agent, no tiers, no Hermes)"
+grep -q "^agents:" config.yaml && grep -q "developer-senior:" config.yaml && grep -q "reviewer-junior:" config.yaml && grep -q "^roles:" config.yaml && grep -q "^mode: pm" config.yaml && [ ! -e roles.yaml ] && [ ! -e models.yaml ] && [ ! -e workflows/task.yaml ] && ! grep -q "^reviewers:\|^subagents:\|^omp_roles:\|^clis:" config.yaml && ! grep -qi "hermes\|kanban\|^board:\|^workers:\|tier" config.yaml || fail "config.yaml is the agents template (cli, model, reasoning per agent, no tiers, no Hermes)"
 grep -q "flow run acme feature" AGENTS.md || fail "AGENTS.md is not rendered for the project"
 grep -q "project acme add" AGENTS.md || fail "AGENTS.md does not tell the manager how to add repos"
 grep -q "remote-api-server" project.yaml && fail "init must not add repos"
@@ -57,17 +57,26 @@ echo "# my rule" >>AGENTS.md
 python3 - <<'PY'
 import hashlib, json, pathlib
 shipped = json.load(open(".swe/shipped.json"))
-old = pathlib.Path("roles.yaml").read_text() + "# older shipped version\n"
-pathlib.Path("roles.yaml").write_text(old)
-shipped["roles.yaml"] = hashlib.sha256(old.encode()).hexdigest()
+old = pathlib.Path("workflows/card.yaml").read_text() + "# older shipped version\n"
+pathlib.Path("workflows/card.yaml").write_text(old)
+shipped["workflows/card.yaml"] = hashlib.sha256(old.encode()).hexdigest()
 json.dump(shipped, open(".swe/shipped.json", "w"))
 PY
 "$cli" project update >"$tmp/up.txt" 2>&1 || { cat "$tmp/up.txt"; fail "project update 2"; }
 [ -f workflows/bugfix.yaml ] || fail "deleted workflow not restored"
 grep -q "my rule" AGENTS.md && [ -f AGENTS.md.new ] || fail "edited AGENTS.md must be kept with a .new"
-! grep -q "older shipped version" roles.yaml || fail "unedited roles.yaml not refreshed"
+! grep -q "older shipped version" workflows/card.yaml || fail "unedited workflows/card.yaml not refreshed"
 grep -q "1 updated, 1 added" "$tmp/up.txt" && grep -q "2 kept" "$tmp/up.txt" || { cat "$tmp/up.txt"; fail "update summary"; }
 "$cli" project update --force >/dev/null 2>&1; [ -f AGENTS.md.bak ] && ! grep -q "my rule" AGENTS.md || fail "--force replaces after a backup"
+# ---- developer mode: no review and no merge, only the task workflow
+mkdir "$tmp/devp" && cd "$tmp/devp" && "$cli" project init --name devp --mode dev >/dev/null 2>&1 || fail "init --mode dev"
+grep -q "^mode: dev" config.yaml && [ -f workflows/task.yaml ] && [ ! -e workflows/feature.yaml ] && [ ! -e workflows/card.yaml ] || fail "dev mode ships only the task (and verify) workflows"
+grep -q "No review agent, no merge" AGENTS.md && grep -q "flow run devp task" AGENTS.md || fail "dev AGENTS.md"
+"$cli" flow validate devp >"$tmp/devval.txt" 2>&1 || { cat "$tmp/devval.txt"; fail "dev workflows validate"; }
+"$cli" project update >/dev/null 2>&1 && [ ! -e workflows/feature.yaml ] || fail "project update keeps dev mode"
+"$cli" project init --name x --mode nope >/dev/null 2>&1 && fail "bad mode accepted"
+cd "$tmp/acme"
+echo "PASS dev mode: init --mode dev ships config.yaml (mode dev), the task workflow and a developer AGENTS.md; update keeps the mode"
 echo "PASS project update: refreshes what you did not edit, keeps what you edited (.new), restores what is missing, --force with .bak"
 
 # ---- swe-cli update: pulls main, rebuilds, reinstalls, relinks (a stand-in repo with a Makefile)

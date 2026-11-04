@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""swe-cli: run a project of coding agents. Agents (cli, model, reasoning) come from the project directory's models.yaml,
+"""swe-cli: run a project of coding agents. Agents (cli, model, reasoning) come from the project directory's config.yaml,
 projects from the project directory's project.yaml (see init).
 
     swe-cli models show                     every agent, its level and its model
     swe-cli models check                    models exist where they run, providers are logged in, projects are sound
     swe-cli models apply [--dry-run]        write omp's model roles
     swe-cli models cmd <agent>              the CLI argv for an agent (headless), one argument per line
-    swe-cli models set <agent> [--cli C] [--model M] [--reasoning R]   change an agent in models.yaml (the manager's way to pick harnesses)
+    swe-cli models set <agent> [--cli C] [--model M] [--reasoning R]   change an agent in config.yaml (the manager's way to pick harnesses)
     swe-cli models reviewer <cli>           the agent that reviews work written with <cli>
     swe-cli models subagent <name>          the Claude Code model for a plugin subagent (used by the build)
     swe-cli project init [dir] [--name N]   make the directory (default: here) a project: AGENTS.md (orchestrator), workflows/,
-                                          roles.yaml, models.yaml, project.yaml. Adds no repos. (`swe-cli init` is the same)
+                                          config.yaml (agents and roles), project.yaml. Adds no repos. (`swe-cli init` is the same)
     swe-cli project create <project>        make ./<project>/ and init it
     swe-cli project <project> add <git url|owner/repo> [--name N] [--dir sub]   add a repo to that project, clone it
     swe-cli project add <git url|owner/repo> [--name N] [--dir sub]   the same, for the project around the current directory
@@ -75,8 +75,16 @@ def find_workspace() -> Path | None:
 
 
 WORKSPACE = None if os.environ.get("SWE_PROJECTS") else find_workspace()
-MODELS = Path(os.environ.get("SWE_MODELS") or (WORKSPACE / "models.yaml" if WORKSPACE and (WORKSPACE / "models.yaml").is_file()
-                                              else FLEET / "templates" / "models.yaml"))
+def _config_path() -> Path:
+    if os.environ.get("SWE_CONFIG") or os.environ.get("SWE_MODELS"):
+        return Path(os.environ.get("SWE_CONFIG") or os.environ["SWE_MODELS"])
+    for name in ("config.yaml", "models.yaml"):   # models.yaml is the old name
+        if WORKSPACE and (WORKSPACE / name).is_file():
+            return WORKSPACE / name
+    return FLEET / "templates" / "config.yaml"
+
+
+MODELS = _config_path()
 PROJECTS = Path(os.environ.get("SWE_PROJECTS", FLEET / "projects.yaml"))
 HOME_DIR = Path(os.environ.get("SWE_HOME", Path.home() / ".swe"))
 REGISTRY = HOME_DIR / "workspaces.yaml"
@@ -86,7 +94,18 @@ CODEX_CONFIG = Path(os.environ.get("CODEX_CONFIG", Path.home() / ".codex/config.
 CLAUDE_ALIASES = {"opus", "sonnet", "haiku", "fable"}
 CLI_NAMES = ("claude", "codex", "omp", "opencode")
 LAUNCHERS = ("tmux", "orca")
-LEVELS = ("clis", "agents", "reviewers", "subagents", "omp_roles", "context", "autopilot")
+LEVELS = ("agents",)
+# How each harness is launched and recognised in a terminal; built in, a config.yaml `clis:` block may override it.
+CLI_DEFAULTS = {
+    "claude": {"permission_mode": "bypassPermissions", "model": "claude-sonnet-5-5", "ready": "❯", "busy": "esc to interrupt"},
+    "codex": {"approval_policy": "never", "sandbox": "danger-full-access", "model": "gpt-6-sol", "ready": "›", "busy": "esc to interrupt"},
+    "omp": {"approval_mode": "yolo", "model": "google-antigravity/gemini-3.8-flash", "ready": "π >", "busy": "⎋"},
+    "opencode": {"model": "opencode/big-pickle", "ready": "ctrl+p commands", "settle": 3, "busy": "esc interrupt"},
+}
+CONTEXT_DEFAULTS = {"default": {"window": 272000, "compact_at": 245000},
+                    "families": {"claude": {"window": 400000, "compact_at": 350000}}, "models": {}}
+SUBAGENTS = {"worker": {"agent": "developer-senior"}, "adversary": {"agent": "reviewer-senior"}}   # Claude Code plugin subagents
+REVIEWER = "reviewer-junior"
 NOTES_LIMIT = 2000
 NEVER_AUTO_MERGE = {"money-path"}
 NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
@@ -103,6 +122,13 @@ def load() -> dict:
         sys.exit(f"swe-cli: {MODELS} is missing: {', '.join(missing)}")
     cfg.setdefault("manager", "manager")
     cfg.setdefault("launcher", "tmux")
+    cfg["mode"] = cfg["mode"] if isinstance(cfg.get("mode"), str) else "pm"
+    cfg["clis"] = {name: {**defaults, **((cfg.get("clis") or {}).get(name) or {})} for name, defaults in CLI_DEFAULTS.items()}
+    cfg.setdefault("context", CONTEXT_DEFAULTS)
+    cfg.setdefault("autopilot", {"auto_merge": []})
+    cfg.setdefault("reviewers", {})
+    cfg.setdefault("subagents", SUBAGENTS)
+    cfg.setdefault("omp_roles", {})
     return cfg
 
 
@@ -179,7 +205,7 @@ def plugin_name() -> str:
 
 
 def agent_spec(cfg: dict, name: str, **override: str) -> dict:
-    """An agent from models.yaml `agents:` as {name, cli, model, reasoning}. `override` (cli, model, reasoning) wins;
+    """An agent from config.yaml `agents:` as {name, cli, model, reasoning}. `override` (cli, model, reasoning) wins;
     a different cli without a model takes that cli's default model (`clis.<cli>.model`)."""
     entry = (cfg.get("agents") or {}).get(name)
     if not isinstance(entry, dict):
@@ -337,7 +363,7 @@ def project_problems(name: str, project: dict, clones: bool = True) -> list[str]
         if clones and not (Path(view["repos"][repo]["path"]) / ".git").exists():
             problems.append(f"project {name}: {view['repos'][repo]['path']} is not a git clone (swe-cli project sync {name})")
     if project.get("manager") is not None and not isinstance(project["manager"], str):
-        problems.append(f"project {name}: manager must be the name of an agent in models.yaml")
+        problems.append(f"project {name}: manager must be the name of an agent in config.yaml")
     return problems
 
 
@@ -408,6 +434,10 @@ def models_check(cfg: dict, projects: dict[str, dict]) -> int:
             problems.append(f"agents.{name}: {entry['cli']} models are written provider/model, got {entry['model']!r}")
     if cfg["manager"] not in agents:
         problems.append(f"manager {cfg['manager']!r} is not an agent")
+    if cfg["mode"] not in ("pm", "dev"):
+        problems.append(f"mode must be pm or dev, got {cfg['mode']!r}")
+    if cfg["mode"] == "pm" and REVIEWER not in agents:
+        problems.append(f"agent {REVIEWER!r} is missing: pm mode reviews every card with it")
     for author, name in cfg["reviewers"].items():
         if name not in agents:
             problems.append(f"reviewers.{author}: {name!r} is not an agent")
@@ -446,7 +476,7 @@ def models_check(cfg: dict, projects: dict[str, dict]) -> int:
 
 
 def models_set(args: list[str]) -> int:
-    """Change one agent in models.yaml, keeping the file's comments: `agents.<name>: {cli, model, reasoning}`."""
+    """Change one agent in config.yaml, keeping the file's comments: `agents.<name>: {cli, model, reasoning}`."""
     usage = "usage: swe-cli models set <agent> [--cli C] [--model M] [--reasoning R]   (reasoning '' removes it)"
     if not args or args[0].startswith("--"):
         sys.exit(usage)
@@ -504,7 +534,7 @@ def models_apply(cfg: dict, projects: dict[str, dict], dry: bool) -> int:
         print(("would write: " if dry else "write: ") + f"{OMP_CONFIG} modelRoles = {cfg['omp_roles']}")
         if not dry:
             backup_and_write(OMP_CONFIG, yaml.safe_dump(data, sort_keys=False))
-    print("agents and reviewers need no apply: swe-cli delegate, flow and lane read models.yaml on every start")
+    print("agents and reviewers need no apply: swe-cli delegate, flow and lane read config.yaml on every start")
     print("plugin subagents: rebuild and reinstall the plugin (make claude)")
     return 0
 
@@ -763,19 +793,35 @@ def digest(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def shipped_files(name: str, with_notes: bool = False) -> dict[str, str]:
+DEV_WORKFLOWS = ("task", "verify")   # developer mode: issue, code, PR; no review, no merge
+
+
+def project_mode(root: Path | None) -> str:
+    for name in ("config.yaml", "models.yaml"):
+        if root and (root / name).is_file():
+            mode = (yaml.safe_load((root / name).read_text(encoding="utf-8")) or {}).get("mode")
+            if mode in ("pm", "dev"):
+                return mode
+    return "pm"
+
+
+def shipped_files(name: str, with_notes: bool = False, mode: str = "pm") -> dict[str, str]:
     """The files a project gets from the plugin, rendered for this project: relative path -> text."""
     plugin = plugin_name()
-    fill = lambda t: t.replace("{project}", name).replace("{plugin}", plugin).replace("{cli}", f"{plugin}-cli")
-    files = {"AGENTS.md": fill((FLEET / "AGENTS.template.md").read_text(encoding="utf-8")),
+    fill = lambda t: t.replace("{project}", name).replace("{plugin}", plugin).replace("{cli}", f"{plugin}-cli").replace("{mode}", mode)
+    template = "AGENTS.dev.template.md" if mode == "dev" else "AGENTS.template.md"
+    files = {"AGENTS.md": fill((FLEET / template).read_text(encoding="utf-8")),
              "skills/learn/SKILL.md": (FLEET / "templates" / "skills" / "learn" / "SKILL.md").read_text(encoding="utf-8")}
     if with_notes:
         files["PROJECT.md"] = fill((FLEET / "templates" / "PROJECT.md").read_text(encoding="utf-8"))
         files["changelog/project.md"] = fill("# {project} change log\n\nMerged pull requests of every repo, newest first "
                                              "(`{cli} flow merge` writes them; the manager adds cross-repo lines).\n")
-    files["roles.yaml"] = (FLEET / "roles.yaml").read_text(encoding="utf-8")
-    files["models.yaml"] = (FLEET / "templates" / "models.yaml").read_text(encoding="utf-8")
+    files["config.yaml"] = fill((FLEET / "templates" / "config.yaml").read_text(encoding="utf-8"))
     for wf in sorted((FLEET / "workflows").glob("*.yaml")):
+        if mode == "pm" and wf.stem in ("task",):
+            continue
+        if mode == "dev" and wf.stem not in DEV_WORKFLOWS:
+            continue
         files[f"workflows/{wf.name}"] = wf.read_text(encoding="utf-8")
     return files
 
@@ -800,7 +846,8 @@ def project_update(root: Path | None, dry: bool, force: bool) -> int:
     name = workspace_entry(root)[0]
     last = load_shipped(root)
     record, counts = {}, {"updated": 0, "same": 0, "kept": 0, "new": 0}
-    for rel, text in shipped_files(name).items():
+    mode = project_mode(root)
+    for rel, text in shipped_files(name, mode=mode).items():
         target = root / rel
         new = digest(text)
         if not target.exists():
@@ -868,13 +915,15 @@ def self_update(args: list[str], dry: bool) -> int:
 def init_workspace(args: list[str], dry: bool) -> int:
     """Make the current (or the given) directory a project: AGENTS.md for the manager, workflows, roles, models,
     project.yaml. It adds no repos: use `swe-cli project <project> add <git url>` afterwards."""
-    usage = "usage: swe-cli project init [dir] [--name N] [--manager <agent>] [--force]"
-    pos, name, manager, force = [], "", "", False
+    usage = "usage: swe-cli project init [dir] [--name N] [--mode pm|dev] [--manager <agent>] [--force]"
+    pos, name, manager, force, mode = [], "", "", False, ""
     i = 0
     while i < len(args):
         a = args[i]
-        if a in ("--name", "--manager") and i + 1 < len(args):
-            if a == "--name":
+        if a in ("--name", "--manager", "--mode") and i + 1 < len(args):
+            if a == "--mode":
+                mode = args[i + 1]
+            elif a == "--name":
                 name = args[i + 1]
             else:
                 manager = args[i + 1]
@@ -895,7 +944,13 @@ def init_workspace(args: list[str], dry: bool) -> int:
         sys.exit(f"swe-cli: project name {name!r} must match {NAME_RE.pattern}; pass --name")
     if (root / "project.yaml").exists() and not force:
         sys.exit(f"swe-cli: {root} is already a project (project.yaml exists); add repos with `swe-cli project {name} add <url>`, or --force")
-    files = shipped_files(name, with_notes=True)
+    if not mode and sys.stdin.isatty() and not dry:
+        answer = input("Who works here? [p]roject manager (plan, build, review, merge) or [d]eveloper (issue, code, PR only) [p]: ").strip().lower()
+        mode = "dev" if answer.startswith("d") else "pm"
+    mode = mode or "pm"
+    if mode not in ("pm", "dev"):
+        sys.exit(f"swe-cli: --mode is pm or dev, got {mode!r}")
+    files = shipped_files(name, with_notes=True, mode=mode)
     if dry:
         print(f"would make {root} the project {name}: " + ", ".join(sorted(files)) + ", project.yaml")
         return 0
@@ -913,7 +968,7 @@ def init_workspace(args: list[str], dry: bool) -> int:
     save_shipped(root, record)
     save_workspace(name, {"dir": str(root), "description": name, **({"manager": manager} if manager else {}), "repos": {}})
     register_workspace(name, root)
-    print(f"project {name} at {root}")
+    print(f"project {name} at {root} (mode {mode})")
     plugin = plugin_name()
     print(f"next: cd {root} && {plugin}-cli orchestrate {name}   (add repos: {plugin}-cli project {name} add <git url>)")
     return 0
@@ -1178,7 +1233,7 @@ def main() -> int:
         if action == "set":
             return models_set(rest[1:])
         if action == "reviewer" and len(rest) == 2:
-            print(cfg["reviewers"][rest[1]])
+            print(cfg["reviewers"].get(rest[1]) or REVIEWER)
             return 0
         if action == "subagent" and len(rest) == 2:
             print(subagent_model(cfg, rest[1]))

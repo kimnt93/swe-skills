@@ -60,12 +60,12 @@
     "description": "Mechanical: the documenter agent"
   },
   {
-    "name": "agent:developer",
+    "name": "agent:developer-junior",
     "color": "f7c6c7",
     "description": "Default"
   },
   {
-    "name": "agent:developer-strong",
+    "name": "agent:developer-senior",
     "color": "e99695",
     "description": "Hard or money-path"
   },

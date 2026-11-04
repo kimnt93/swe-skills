@@ -16,8 +16,7 @@ orders/
   skills/            the project's own skills; `learn` is created by init, the manager adds topics here
   project.yaml       name, default cli, and the repos: git url, github owner/repo, folder, hotspots
   workflows/*.yaml   this project's copy of the workflows (edit them; they override the bundled ones)
-  roles.yaml         the roles (skills, agent); a role here replaces the bundled one
-  models.yaml        the agents (cli, model, reasoning), reviewers, manager, launcher
+  config.yaml        mode (pm or dev), the agents (cli, model, reasoning), the roles (skills, agent), manager, launcher
   api/  web/         the repo clones (worktrees of running cards are under .wt/)
 ```
 
@@ -25,21 +24,23 @@ orders/
 The command finds the project from the current directory upward (`project.yaml`), or by name from anywhere
 (`~/.swe/workspaces.yaml`, written by `init`).
 
-`swe-cli project create <name>` creates the directory with these files; `swe-cli project init` inside an existing directory adds
+`swe-cli project init` asks who works here: a **project manager** (`pm`: plan, build, review, merge: every workflow) or a
+**developer** (`dev`: read or create the issue, code, open the PR; only the `task` workflow, no review, no merge). Pass
+`--mode pm|dev` to skip the question. `swe-cli project create <name>` creates the directory with these files; `swe-cli project init` inside an existing directory adds
 them and keeps what is there. `swe-cli project notes` checks `PROJECT.md` against the 2000-word limit.
 
 ## Updating
 
 `swe-cli update` pulls the plugin's `main` branch (fast-forward only; it refuses a dirty checkout or another branch),
 rebuilds, reinstalls into every detected harness (`swe-cli update claude codex` for chosen ones) and relinks the command.
-`swe-cli project update` then brings this project's `AGENTS.md`, `workflows/`, `roles.yaml`, `models.yaml` and
+`swe-cli project update` then brings this project's `AGENTS.md`, `workflows/`, the `roles:` block of `config.yaml`, `config.yaml` and
 `skills/learn` up to the new versions. A file you did not edit is replaced; one you edited is kept and the new version is
 written as `<file>.new` for you to merge (`--force` replaces it after saving `<file>.bak`). `PROJECT.md`,
 `project.yaml` and the clones are never touched. The versions it last wrote are remembered in `.swe/shipped.json`.
 
 ## Skills per node, and self-improvement
 
-A node's brief tells the agent which `swe` skills to enable (only those of its role, from `roles.yaml`) and to
+A node's brief tells the agent which `swe` skills to enable (only those of its role, from the `roles:` block of `config.yaml`) and to
 disable the other `swe` skills. Skills from the agent's system or harness stay available. Every brief says to
 read `PROJECT.md` first and lists the project's own skills.
 
@@ -69,8 +70,8 @@ nodes:
 | `type: shell` | a command, no agent |
 | `needs`, `when`, `always`, `manual` | order, a condition, run even after a failure, run only as a fix target |
 | `workspace` | `new` own worktree and branch, `same:<node>` reuse that node's worktree, `scratch` read-only, `pr` an open PR's branch |
-| `reviews: <node>` | with `cross_family: true` on the role, the agent is the one `reviewers` names for the cli that wrote that node (never the author's family) |
-| `agent`, `cli`, `model`, `reasoning` | override the role's agent per node (`agent:` picks another from `models.yaml`; the others change one field) |
+| `reviews: <node>` | marks a review node and the node it judges; the review depth follows the agent (`reviewer-junior` fast, `reviewer-senior` deep) |
+| `agent`, `cli`, `model`, `reasoning` | override the role's agent per node (`agent:` picks another from `config.yaml`; the others change one field) |
 
 Values can use `${inputs.x}`, `${item.y|default}` and `${nodes.n.field}`. Shipped: `feature`, `bugfix`, `docs`,
 `card` (build, checks, review with fix rounds), `docs-card`, `ci-fix`, `conflict`, `verify`, `changelog`.
@@ -79,9 +80,11 @@ the DAG with each node's agent, cli, model and reasoning.
 
 ## Roles: the right model for the job
 
-`roles.yaml` decides, per role, the skills and the agent. A documenter runs the `documenter` agent (Haiku on Claude,
-no reasoning flag); a developer the `developer` agent; a reviewer the agent `reviewers` names for the author's cli, so
-it is another model family than the developer. Agents are defined in `models.yaml` (`agents`, `reviewers`).
+the `roles:` block of `config.yaml` decides, per role, the skills and the agent. The default agents: `planner` (the one strong model), `developer-junior` (Haiku, clear cards),
+`developer-senior` (Sonnet, medium or complex cards), `reviewer-junior` (a fast check against the issue and the PR),
+`reviewer-senior` (a deeper check for complex cards or code the human did not write), `documenter` (omp, Gemini Flash).
+The build node runs `developer-junior` and the review node `reviewer-junior`; a planner card names `"agent"` and
+`"reviewer"` to go up. Agents are defined in `config.yaml` (`agents`). There is no reviewer map: the reviewer is a role.
 
 ## Reports, the manager, and cleaning up
 
@@ -105,7 +108,7 @@ merged, so a clash inside a run fails at once, while a clash with another run's 
 ## Agents: one place
 
 Roles and nodes name an **agent**, never a model. An agent is `{cli, model, reasoning}` with `cli` one of `claude`, `codex`,
-`omp`, `opencode`. The project's `models.yaml` (template: `cli/templates/models.yaml`, copied by `swe-cli init`, refreshed by
+`omp`, `opencode`. The project's `config.yaml` (template: `cli/templates/config.yaml`, copied by `swe-cli init`, refreshed by
 `swe-cli project update`) is the only file that defines the agents, which agent reviews which author's work, the manager, the
 launcher (tmux or Orca), the context policy and the autopilot switch. A new model is one edit there (or
 `swe-cli models set <agent> --cli C --model M --reasoning R`) plus `swe-cli models check`.

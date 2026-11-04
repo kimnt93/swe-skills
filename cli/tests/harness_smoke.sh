@@ -10,7 +10,7 @@ main="$here/bin/main"; delegate="$here/bin/delegate"
 command -v tmux >/dev/null || { echo "SKIP: tmux is not installed"; exit 0; }
 tmp="$(mktemp -d)"; trap 'tmux ls 2>/dev/null | cut -d: -f1 | grep "^smoke-" | xargs -r -n1 tmux kill-session -t; rm -rf "$tmp"' EXIT
 want=("$@"); [ ${#want[@]} -gt 0 ] || want=(claude codex omp opencode)
-cat >"$tmp/models.yaml" <<'YAML'
+cat >"$tmp/config.yaml" <<'YAML'
 manager: smoke-claude
 launcher: tmux
 clis:
@@ -33,7 +33,7 @@ mkdir -p "$tmp/proj" && git init -q --bare "$tmp/origin.git" && git clone -q "$t
 ( cd "$tmp/proj/app" && git config user.email t@t && git config user.name t && git checkout -q -b main && echo hi >a.txt \
   && printf 'verify:\n\t@echo ok\n' >Makefile && git add . && git commit -qm init && git push -q origin main )
 printf 'projects:\n  smoke:\n    dir: %s\n    repos:\n      app: {github: acme/app}\n' "$tmp/proj" >"$tmp/projects.yaml"
-export SWE_MODELS="$tmp/models.yaml" SWE_PROJECTS="$tmp/projects.yaml" SWE_STATE="$tmp/state" SWE_READY_TIMEOUT=60
+export SWE_MODELS="$tmp/config.yaml" SWE_PROJECTS="$tmp/projects.yaml" SWE_STATE="$tmp/state" SWE_READY_TIMEOUT=60
 bad=0
 for cli in "${want[@]}"; do
   command -v "$cli" >/dev/null || { echo "SKIP $cli: not installed"; continue; }

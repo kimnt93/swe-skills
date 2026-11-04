@@ -2,10 +2,10 @@
 # swe-cli lane: headless one-shot, one card through a coding CLI (-p), then prove it. Interactive sessions
 # in tmux worktrees are `swe-cli delegate`.
 #
-#   swe-cli lane run <agent> <card-file>                implement the card with that agent (models.yaml), then make verify
-#   swe-cli lane review <author-cli> <card-file>        the other family breaks the diff
+#   swe-cli lane run <agent> <card-file>                implement the card with that agent (config.yaml), then make verify
+#   swe-cli lane review <author-cli> <card-file> [agent]   the reviewer agent (default reviewer-junior) breaks the diff
 #
-# The agent (cli, model, reasoning) comes from models.yaml on every call. Evidence goes to .swe/ in the
+# The agent (cli, model, reasoning) comes from config.yaml on every call. Evidence goes to .swe/ in the
 # workspace: evidence.json (run) or review.json (review). Exit code = make verify.
 # SWE_BASE (default origin/main) and SWE_AGENT_TIMEOUT (default 90m) tune a run.
 set -euo pipefail
@@ -25,7 +25,7 @@ git fetch -q origin 2>/dev/null || { echo "swe-cli lane: cannot fetch origin: a 
 
 case "$mode" in
   run)
-    agent="${2:?agent (a name in models.yaml agents)}"
+    agent="${2:?agent (a name in config.yaml agents)}"
     card="${3:?card file}"
     brief="Start with the $plugin skill (/$plugin in Claude Code, \$$plugin in Codex, /skill:$plugin in omp, the $plugin skill in opencode).
 $(cat "$card")
@@ -36,7 +36,7 @@ Do not push to main. Done means: make verify exits 0 on the committed head."
   review)
     author="${2:?author cli}"
     card="${3:?card file}"
-    agent="$("$fleet" models reviewer "$author")"
+    agent="${4:-$("$fleet" models reviewer "$author")}"
     brief="You are reviewing, not fixing. Do not edit, commit or push.
 Use the interrogate skill of the $plugin plugin on: git diff $base...HEAD
 The change is meant to do this:

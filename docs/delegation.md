@@ -82,7 +82,7 @@ catches them.
 
 ## Viewing the sessions with Orca
 
-Set `launcher: orca` in the project's `models.yaml`. `swe-cli project sync` registers each clone in Orca (`orca-ide repo add`),
+Set `launcher: orca` in the project's `config.yaml`. `swe-cli project sync` registers each clone in Orca (`orca-ide repo add`),
 Orca then lists the worktrees, and `swe-cli delegate start` opens each card as an Orca terminal in its worktree, titled
 `<project>-<card>`, so you see the sessions beside the branches. Orca must be running on the machine (`orca-ide open`);
 the terminal handle is kept in `~/.swe/orca-handles.json`. Sessions started over SSH on a machine without a running

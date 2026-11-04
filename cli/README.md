@@ -1,25 +1,25 @@
 # swe-cli (`<plugin>-cli`)
 
 Runs the plugin's agents: a project is a directory of repo clones listed in `project.yaml`, its manager is any CLI agent
-(Claude Code, Codex, oh-my-pi, opencode). **Every agent, its harness (cli), model and reasoning level, is set in one file, the project's `models.yaml`**
-(template: `cli/templates/models.yaml`; `swe-cli init` copies it into the project). The command reads it. `make cli` links it as `<plugin>-cli`; `swe-cli init` makes a directory a project; workflows are in `workflows/`, roles in `roles.yaml` ([docs/workflows.md](../docs/workflows.md)).
+(Claude Code, Codex, oh-my-pi, opencode). **Every agent, its harness (cli), model and reasoning level, is set in one file, the project's `config.yaml`**
+(template: `cli/templates/config.yaml`; `swe-cli init` copies it into the project). The command reads it. `make cli` links it as `<plugin>-cli`; `swe-cli init` makes a directory a project; workflows are in `workflows/`, roles in the `roles:` block of `config.yaml` ([docs/workflows.md](../docs/workflows.md)).
 
-An agent is three fields: `cli` (`claude`, `codex`, `omp` or `opencode`), `model` and `reasoning`. A role in `roles.yaml` names its agent;
+An agent is three fields: `cli` (`claude`, `codex`, `omp` or `opencode`), `model` and `reasoning`. A role in the `roles:` block of `config.yaml` names its agent;
 a node or a planner card may name another or override one field.
 
 | Level | What | Default |
 |---|---|---|
-| manager | the agent you talk to in the project directory (`swe-cli orchestrate`); `manager:` in `models.yaml`, `manager:` in `project.yaml` per project | claude sonnet, high |
-| agents | `planner`, `developer`, `developer-strong`, `documenter`, `scribe`, `ci-fixer`, `integrator`, `verifier`, `reviewer`, `reviewer-claude`: `{cli, model, reasoning}` | claude opus / sonnet / haiku; reviewer on omp gpt-6-sol |
-| clis | launch settings per harness (permissions, the prompt text the runner waits for) | claude, codex, omp, opencode |
-| reviewers | the agent that reviews work written with each cli (always another family) | Claude work → omp reviewer; the rest → Claude Opus |
-| subagents | `<plugin>:worker`, `<plugin>:adversary` shipped in the Claude Code plugin, run as the model of an agent | developer / developer-strong |
-| omp roles | omp's own internal subagents | Gemini 3.8 Flash, gpt-6-sol |
+| manager | the agent you talk to in the project directory (`swe-cli orchestrate`); `manager:` in `config.yaml`, `manager:` in `project.yaml` per project | claude sonnet, high |
+| agents | `planner` (opus), `developer-junior` (haiku, high), `developer-senior` (sonnet, high), `reviewer-junior` (haiku, high), `reviewer-senior` (sonnet, medium), `documenter` (omp gemini flash), `scribe`, `ci-fixer`, `integrator`, `verifier`: `{cli, model, reasoning}` | only the planner needs the strongest model |
+| roles | `roles:` in `config.yaml`: the skills and the agent of each workflow role | planner, developer, documenter, reviewer, ci-fixer, scribe, verifier, integrator |
+| mode | `mode:` in `config.yaml`: `pm` (all workflows, review and merge) or `dev` (the `task` workflow: issue, code, PR) | pm |
+
+Harness launch settings (permissions, the prompt text the runner waits for) are built in; a `clis:` block in `config.yaml` overrides them.
 
 Reasoning is passed the harness's own way and left out when empty: `claude --effort`, `codex -c model_reasoning_effort`,
 `omp --thinking`, `opencode --variant` (headless) or the `variant` of its `build` agent (interactive).
 
-`models.yaml` also holds the context policy and the autopilot switch
+`config.yaml` also holds the context policy and the autopilot switch
 (`autopilot.auto_merge`, empty until you trust a risk class).
 
 ## The command
@@ -41,7 +41,7 @@ swe-cli bootstrap                   # clone repos, apply models and context
 swe-cli context show|apply          # context window and compaction point per tool; write Claude Code, Codex, omp
 swe-cli doctor [project]            # git credentials, tmux or Orca, CLIs, gh, each central clone
 swe-cli delegate start|status|send|review|scope|sync-branch|stop|cleanup   # coding CLIs in worktrees (docs/delegation.md)
-swe-cli lane run <agent> <card> | swe-cli lane review <author-cli> <card>   # headless one-shot
+swe-cli lane run <agent> <card> | swe-cli lane review <author-cli> <card> [agent]   # headless one-shot
 swe-cli merge <pr> --risk <r> --sha <verified sha> [--approved]   # the merge gate
 swe-cli name                        # the plugin name
 ```
@@ -68,10 +68,10 @@ swe-cli orchestrate orders                # the orchestrator, in ~/work/orders
 
 ```bash
 claude update                                     # aliases opus/sonnet/haiku now mean the newest
-$EDITOR models.yaml                             # in the project directory; only where you pin ids, or to move an agent
+$EDITOR config.yaml                             # in the project directory; only where you pin ids, or to move an agent
 swe-cli models check && swe-cli models apply          # omp updated
 make claude                                       # rebuild the plugin so its subagents follow
 swe-cli models show
 ```
 
-Workers and reviewers need no apply: `swe-cli delegate` and `swe-cli lane` read `models.yaml` on every card.
+Workers and reviewers need no apply: `swe-cli delegate` and `swe-cli lane` read `config.yaml` on every card.

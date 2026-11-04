@@ -1,0 +1,101 @@
+# config.yaml: the ONE file that says which agent runs what, in this project directory (`swe-cli project init` writes it;
+# edit it freely). An agent is three things: the harness (cli), the model and the reasoning level. Roles and workflow
+# nodes name an agent, never a model. A new model is an edit here plus `swe-cli models check`.
+#
+#   swe-cli models show                          who runs what
+#   swe-cli models check                         every model exists where it will run, every provider is logged in
+#   swe-cli models set <agent> --cli C --model M --reasoning R     change one agent (the manager does this for you)
+#
+# Harnesses: claude, codex, omp, opencode. Reasoning is passed the harness's own way and left out when empty:
+#   claude   --effort low|medium|high|xhigh|max      codex  model_reasoning_effort minimal|low|medium|high|xhigh
+#   omp      --thinking minimal|low|medium|high|xhigh   opencode  --variant (provider-specific: high, max, minimal, ...)
+
+# pm: you talk to a project manager that runs workflows (plan, build, review, merge).
+# dev: you are the developer; the agent reads or creates the issue, codes, opens the PR, and stops (no review, no merge).
+mode: {mode}
+
+# The agent you talk to at the project level (`swe-cli orchestrate <project>`, or `claude` in the project directory).
+manager: manager
+
+# Where CLI sessions run: tmux (attach with tmux), or orca (terminals inside the Orca app).
+launcher: tmux
+
+# Only the planner needs a strong model. Junior agents take well-described cards; senior agents take medium or
+# complex ones. The planner marks a card `agent: developer-senior` or `reviewer: reviewer-senior` when it needs more.
+agents:
+  manager:          {cli: claude, model: claude-sonnet-5-5, reasoning: medium}
+  planner:          {cli: claude, model: claude-opus-5-5,   reasoning: high}
+  developer-junior: {cli: claude, model: claude-haiku-5-5,  reasoning: high}     # cards with a clear description
+  developer-senior: {cli: claude, model: claude-sonnet-5-5, reasoning: high}     # medium or complex cards
+  reviewer-junior:  {cli: claude, model: claude-haiku-5-5,  reasoning: high}     # fast check of the PR against its issue
+  reviewer-senior:  {cli: claude, model: claude-sonnet-5-5, reasoning: medium}   # deeper check: complex, untrusted, or someone else's code
+  documenter:       {cli: omp,    model: google-antigravity/gemini-3.8-flash, reasoning: medium}
+  scribe:           {cli: claude, model: claude-haiku-5-5,  reasoning: medium}
+  ci-fixer:         {cli: claude, model: claude-sonnet-5-5, reasoning: medium}
+  integrator:       {cli: claude, model: claude-sonnet-5-5, reasoning: medium}
+  verifier:         {cli: claude, model: claude-haiku-5-5,  reasoning: medium}
+
+context:
+  default: {window: 272000, compact_at: 245000}   # Codex, Gemini, GPT, and anything not listed
+  families:
+    claude: {window: 400000, compact_at: 350000}  # opus, sonnet, haiku, fable and claude-* ids
+  models: {}                                      # exact overrides: "<model id>": {window: N, compact_at: N}
+
+autopilot:
+  auto_merge: []                       # e.g. [low], later [low, standard]; money-path is never auto-merged
+
+# Roles: what each workflow node plays. A node may name another agent, or override `cli`, `model` or `reasoning`.
+#   skills     the plugin skills the agent is told to use, nothing else (the first is the role's own skill)
+#   agent      the name of an agent above
+#   workspace  new (own worktree and branch) | same:<node> (that node's worktree) | scratch (read-only, origin/main) | pr
+#   outcome    the last line the agent prints: card | review | node
+#   timeout    minutes before the node fails
+roles:
+  planner:
+    skills: [planner, architect, how, project, github]
+    agent: planner
+    workspace: scratch
+    outcome: node
+    timeout: 45
+  developer:
+    skills: [developer, swe, tdd, deslop, changelog, github]
+    agent: developer-junior
+    workspace: new
+    outcome: card
+    timeout: 90
+  documenter:
+    skills: [documenter, deslop, github]
+    agent: documenter
+    workspace: new
+    outcome: card
+    timeout: 45
+  reviewer:
+    skills: [reviewer, interrogate, why, integrator, changelog, github]
+    agent: reviewer-junior
+    workspace: same
+    outcome: review
+    timeout: 60
+  ci-fixer:
+    skills: [ci-fixer, tdd, github]
+    agent: ci-fixer
+    workspace: same
+    outcome: card
+    timeout: 60
+  scribe:
+    skills: [changelog, deslop, github]
+    agent: scribe
+    workspace: pr
+    outcome: card
+    timeout: 30
+  verifier:
+    skills: [verifier, verify-maintain, github]
+    agent: verifier
+    workspace: scratch
+    outcome: node
+    timeout: 60
+  integrator:
+    skills: [integrator, github, why]
+    agent: integrator
+    workspace: pr
+    outcome: card
+    timeout: 60

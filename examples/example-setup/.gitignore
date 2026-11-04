@@ -1,3 +1,0 @@
-# per-run state is made by swe-cli, not committed (jlogger/ is a git submodule: the tracked upstream)
-/.wt/
-/.swe/runs/

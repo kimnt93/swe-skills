@@ -1,8 +1,0 @@
-# Project directory of example-setup: written by `swe-cli project create` or `init` and `swe-cli project <name> add`; edit freely.
-name: example-setup
-description: example-setup
-repos:
-  jlogger:
-    url: https://github.com/kimnt93/jlogger
-    github: kimnt93/jlogger
-    dir: jlogger

@@ -49,23 +49,23 @@ gh api repos/<owner>/<repo>/branches/main/protection --jq '.required_status_chec
 ### Goal
 
 The project's orchestrator runs real cards on the pilot repo: card → delegated session in a worktree → `make verify` →
-PR → optional cross-family review → human merge. One card, then 3, then about 10 in parallel.
+PR → optional review → human merge. One card, then 3, then about 10 in parallel.
 
 ### Steps
 
 1. `bash cli/tests/selftest.sh` passes. `make cli`.
 2. **Human logins** (interactive), once each: `claude auth login`, `codex login`, `omp login openai-codex`, `gh auth login`
    (whichever CLIs you use).
-3. Pick exact ids with `omp models ls`; edit the project's `models.yaml` (`manager`, `launcher`, `agents`); then
+3. Pick exact ids with `omp models ls`; edit the project's `config.yaml` (`manager`, `launcher`, `agents`); then
    `swe-cli models check` reports only logins.
 4. `swe-cli bootstrap` (projects, model roles, context limits).
 5. **Add the pilot project:** `swe-cli project create <name>` in ~/work, then `swe-cli project <name> add <git url>` with the pilot repo's git URL
-   (it writes `AGENTS.md`, `PROJECT.md`, `skills/`, `workflows/`, `roles.yaml`, `models.yaml`, `project.yaml` and clones the repo;), then `swe-cli models check` = 0 problems. Start the orchestrator
+   (it writes `AGENTS.md`, `PROJECT.md`, `skills/`, `workflows/`, the `roles:` block of `config.yaml`, `config.yaml`, `project.yaml` and clones the repo;), then `swe-cli models check` = 0 problems. Start the orchestrator
    with `swe-cli orchestrate <name>` and ask it to adopt the repo (the `project` skill: `setup_repo.sh`, templates,
    `ARCHITECTURE.md`) and to fill `PROJECT.md`.
 6. **One run:** `swe-cli doctor <name>` is clean, then ask the orchestrator for one small `risk: low` change. It runs
    `swe-cli flow run <name> feature --goal "..."` ([workflows.md](workflows.md)). Watch with `swe-cli flow status <name>`,
-   `tmux attach -t <name>-<card>` (or the Orca terminal). Check the PR, `make verify`, the cross-family review verdict and
+   `tmux attach -t <name>-<card>` (or the Orca terminal). Check the PR, `make verify`, the review verdict and
    its SHA, and the `## Learned` facts in the run report. **Human** says merge; the orchestrator runs `flow merge`, folds the
    facts into `PROJECT.md`, then `flow clean`.
 7. Fix whatever broke, with a test in `cli/tests/selftest.sh`, before the next step.
@@ -97,12 +97,12 @@ is a configuration change plus a sampling habit.
 - `swe-cli merge <pr> --risk <r> --sha <sha>`: merges only an allowed risk class, at the reviewer's
   verified SHA, with every required check passed; never money-path; never a PR without required
   checks. The manager calls it after a clean verdict, or with `--approved` when you say merge. It also refuses a branch that is behind or in conflict with `main`.
-- `autopilot.auto_merge` in `models.yaml`, empty by default.
+- `autopilot.auto_merge` in `config.yaml`, empty by default.
 
 ### Steps
 
 1. Gate: runbook 2 is done (20 clean merges). If not, stop.
-2. Pin model ids in `models.yaml` (replace the `opus` / `sonnet` / `haiku` aliases with full
+2. Pin model ids in `config.yaml` (replace the `opus` / `sonnet` / `haiku` aliases with full
    ids) so no model changes during an autopilot run. `swe-cli models check && swe-cli models apply`.
 3. **Human:** set `autopilot.auto_merge: [low]`.
 4. Add the sampling jobs (a scheduled `swe-cli flow run`, or cron): weekly, list the week's auto-merged PRs for the human to
@@ -125,8 +125,8 @@ A new model ships (say Opus 6), a model is retired, or a CLI's cost or quality c
 ### Steps
 
 1. `claude update`: the `claude` agents' `opus` / `sonnet` / `haiku` aliases now mean the newest
-   models, unless `models.yaml` pins full ids.
-2. Edit `models.yaml` where needed: pinned model ids in `agents`, the omp and opencode agents, `omp_roles`, the subagents' agents (`swe-cli models set <agent> --model <id>`).
+   models, unless `config.yaml` pins full ids.
+2. Edit `config.yaml` where needed: pinned model ids in `agents`, the omp and opencode agents, `omp_roles`, the subagents' agents (`swe-cli models set <agent> --model <id>`).
 3. `swe-cli models check`: 0 problems (each id exists where it runs, each provider is logged in).
 4. `swe-cli models apply`, then `swe-cli models show`.
 5. `make claude codex omp`, so the plugin's subagents get the new models.

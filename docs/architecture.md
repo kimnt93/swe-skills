@@ -46,10 +46,10 @@ orchestrator   → swe-cli merge 41 --approved --sha <sha> → squash-merged; sw
 
 | Piece | Where it is defined | Writes code? | Merges? |
 |---|---|---|---|
-| manager (any CLI) | the project's `models.yaml` `manager` (an agent), per project `manager:` in `project.yaml`; started by `swe-cli orchestrate` | no | only with the human's approval (`swe-cli merge --approved`), or under autopilot for allowed risks |
-| coding CLIs (`claude`, `codex`, `omp`, `opencode`) | the project's `models.yaml` `clis`, started by `swe-cli delegate` | yes, in a worktree | no |
+| manager (any CLI) | the project's `config.yaml` `manager` (an agent), per project `manager:` in `project.yaml`; started by `swe-cli orchestrate` | no | only with the human's approval (`swe-cli merge --approved`), or under autopilot for allowed risks |
+| coding CLIs (`claude`, `codex`, `omp`, `opencode`) | the project's `config.yaml` `clis`, started by `swe-cli delegate` | yes, in a worktree | no |
 | agents: cli, model, reasoning | `agents` | yes, in a worktree | no |
-| who reviews whom | `reviewers` | — | — |
+| who reviews | the `reviewer-junior` or `reviewer-senior` agent | — | — |
 | session launcher | `launcher` (`tmux` or `orca`) | — | — |
 | plugin subagents (`swe:worker`, `swe:adversary`) | `subagents` | inside Claude Code | no |
 | the merge gate | `swe-cli merge` | — | the only path to `main` |
@@ -98,17 +98,17 @@ orchestrator   → swe-cli merge 41 --approved --sha <sha> → squash-merged; sw
 ### Invariants
 
 - Nobody pushes to `main`; every change is a PR with a passing `verify` check.
-- A cross-family review covers one SHA. A new push needs a new review.
+- A review covers one SHA. A new push needs a new review.
 - Code that breaches the project's layering fails `make verify` (`archcheck`, `lint-imports`).
 - A change to `ARCHITECTURE.md` comes with an ADR, in its own reviewed PR, approved by the human.
 - Orchestrators never edit repository files; the central clone is never edited.
-- Every model is named in exactly one place: the project's `models.yaml`.
+- Every model is named in exactly one place: the project's `config.yaml`.
 
 ## Decisions
 
 | # | Decision | Rejected alternative | Why |
 |---|---|---|---|
-| A1 | **One orchestrator per project, and it can be any CLI agent** (Claude Code, Codex, oh-my-pi), set in `models.yaml` or per project | a fixed manager product for everyone | the orchestrator is the same skill (`fleet-manager`) on whatever agent you have a login for; a project can be added or removed without touching the others |
+| A1 | **One orchestrator per project, and it can be any CLI agent** (Claude Code, Codex, oh-my-pi), set in `config.yaml` or per project | a fixed manager product for everyone | the orchestrator is the same skill (`fleet-manager`) on whatever agent you have a login for; a project can be added or removed without touching the others |
 | A2 | **Coding CLIs are processes, not profiles:** the orchestrator starts them in sessions, one worktree per card | worker profiles shared by all projects, or per project | a worker profile holds memory that mixes projects; the CLI starts fresh per card and reads only its repo |
 | A3 | **Orchestrators split work themselves**  | a global auto-decomposer | it could route a project's work to another project; the orchestrator reads the project's architecture first |
 | A4 | **The orchestrator only orchestrates;** docs and repo changes are delegated cards too | let it edit docs directly | one write path (branch → PR → review → gate) for everything in a repo |
@@ -129,7 +129,7 @@ orchestrator   → swe-cli merge 41 --approved --sha <sha> → squash-merged; sw
 | one subscription runs out | `swe-cli delegate status` shows a stuck or blocked session | the orchestrator reports it and asks; switch the project's CLI (any of Claude Code, Codex, oh-my-pi) or wait.|
 | two cards change the same behaviour in different files | green separately, red together | `sync-branch --verify` and the gate's up-to-date rule; serialize cards that depend on each other |
 | `ARCHITECTURE.md` drifts from the code | `archcheck` / `lint-imports` green while the doc says otherwise | the manager's weekly status checks the doc against the layering checks; changes need an ADR |
-| a self-review is weak | defects found after merge | cross-family review for risky cards; the human samples merged PRs; autopilot stays off until 20 clean merges (runbook 3) |
+| a self-review is weak | defects found after merge | review for risky cards; the human samples merged PRs; autopilot stays off until 20 clean merges (runbook 3) |
 | a session hangs or exits | `swe-cli delegate status` says stopped or unchanged | tmux `remain-on-exit` keeps the last output; `send` a nudge or `stop` and restart the card |
 
 ## Plugin decisions
@@ -142,11 +142,11 @@ How the plugin and the repository are built (the table above covers the agents).
 | D2 | The plugin's name comes from the build (`PLUGIN_NAME`, default `swe`). The router skill carries the same name, so the entry command is `/<name>`. | One source, any name. Claude Code accepts a plugin skill named like its plugin as `/<name>` (tested). |
 | D3 | Org values are build settings (`PLUGIN_DOMAIN`, `PLUGIN_OWNER`, `PLUGIN_HOMEPAGE`); private ones live in `plugin.local.env`. No org name in tracked files (a test enforces it). | The plugin can be published or shared without leaking internal names. |
 | D4 | Skills are flat and grouped by `metadata.group`. | The installers and the Agent Skills spec need `skills/<name>/SKILL.md`. |
-| D5 | Skills and roles name agents (`developer`, `documenter`, ...), never models. An agent is a cli, a model and a reasoning level, defined in the project's `models.yaml`. | A new model is one edit (`swe-cli models set`) plus `swe-cli models check`. |
+| D5 | Skills and roles name agents (`developer`, `documenter`, ...), never models. An agent is a cli, a model and a reasoning level, defined in the project's `config.yaml`. | A new model is one edit (`swe-cli models set`) plus `swe-cli models check`. |
 | D6 | Four coding CLIs: Claude Code (Claude models), Codex (OpenAI models), oh-my-pi (OpenAI and Google models) and opencode (any provider). Each agent names its own cli; another family reviews. | Cross-family review is available when it matters; every subscription you hold is used. |
 | D7 | The manager is any CLI agent, started by `swe-cli orchestrate` or by opening a terminal in the project directory. The coding CLIs are never profiles. | A profile per CLI held memory that mixed projects. |
 | D8 | The manager answers questions with the read-only skills and routes work: it picks a workflow and starts it; it does not code. Judgment lives in the coding CLIs, whose agent is chosen per role or card. | The coordinator's tokens stay a small share, and the project survives any one subscription running out. |
 | D9 | "Done" means `make verify` exits 0 on the committed head, and, required CI is green on the PR head. | Verification before parallelism. |
-| D10 | Money-path (orders, fills, positions, balances, risk, P&L) goes to the strong agent, is cross-family reviewed, replay-tested, and never auto-merged (`swe-cli merge` refuses it). | A wrong answer there is a loss. |
+| D10 | Money-path (orders, fills, positions, balances, risk, P&L) goes to the strong agent, is reviewed, replay-tested, and never auto-merged (`swe-cli merge` refuses it). | A wrong answer there is a loss. |
 | D11 | Merging is a deterministic gate (`swe-cli merge`), run by the orchestrator under autopilot or with the human's approval; there is no merging agent. | Merging needs facts (verified SHA, green checks, allowed risk or approval), not judgment. |
 | D12 | Git and GitHub follow one way (the `github` skill): issue → branch → small Conventional Commits → PR → gate → main; `pr_lint.py`, `archcheck` and `lint-imports` enforce the submit rules. | A rule nothing checks gets broken. |

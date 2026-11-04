@@ -28,7 +28,7 @@ $swe:swe add an endpoint to cancel an open order
 ## 4. Run it in a project of agents
 
 ```bash
-export SWE_MODELS=cli/examples/models.codex-only.yaml    # one CLI: codex
+export SWE_MODELS=cli/examples/config.codex-only.yaml    # one CLI: codex
 swe-cli models check
 swe-cli project add orders --dir ~/work/orders --repo api=acme/orders-api
 swe-cli doctor orders
@@ -42,11 +42,11 @@ use this on a checkout you care about). It answers Codex's "trust this directory
 
 | Agent | Model | Use |
 |---|---|---|
-| `planner`, `developer-strong`, `reviewer` | `gpt-6-sol`, reasoning high | money-path, hard design |
+| `planner`, `developer-senior`, `reviewer` | `gpt-6-sol`, reasoning high | money-path, hard design |
 | `developer`, `ci-fixer`, `integrator` | `gpt-6-sol`, reasoning medium | most cards |
 | `documenter`, `scribe`, `verifier` | `gpt-6-luna`, reasoning low | mechanical cards, docs, scouting |
 
-Put the model ids your login offers in the `agents` of the project's `models.yaml` (`swe-cli models set developer --cli codex --model <id>`). The prompt and busy markers
+Put the model ids your login offers in the `agents` of the project's `config.yaml` (`swe-cli models set developer --cli codex --model <id>`). The prompt and busy markers
 (`clis.codex.ready` and `busy`) were taken from one Codex version; if `swe-cli delegate` reports that Codex never
 showed its prompt, attach to the session, read what the prompt looks like and fix `ready`.
 

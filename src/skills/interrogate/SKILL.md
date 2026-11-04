@@ -1,6 +1,6 @@
 ---
 name: interrogate
-description: "Adversarial review of a diff or a design: adversaries try to break it, and only findings proven by a run survive. Use before shipping a contested or risky change, for 'challenge this', 'find blind spots', 'review this branch', and as the brief of the cross-family reviewer."
+description: "Adversarial review of a diff or a design: adversaries try to break it, and only findings proven by a run survive. Use before shipping a contested or risky change, for 'challenge this', 'find blind spots', 'review this branch', and as the brief of the reviewer."
 metadata:
   group: process
   summary: "Adversarial review where only findings proven by a run survive"
@@ -19,7 +19,7 @@ findings; don't fix them.
 ## Fan out
 
 - **In one harness:** 2–3 adversaries (in Claude Code, `subagent_type: "@PLUGIN@:adversary"`), each
-  in its own worktree, on the `developer-strong` and `developer` agents.
+  in its own worktree, on the `developer-senior` and `developer` agents.
 - **Cross-family (preferred for a PR):** the other CLI reviews (`swe-cli delegate review <project> <card>`, started by the project's manager).
 - **Wide or risky change:** both CLIs as adversaries on the same diff, each read-only.
 

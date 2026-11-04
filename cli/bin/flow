@@ -18,7 +18,7 @@ the run report for the manager. The manager merges the ready PRs (`swe-cli flow 
 (`swe-cli flow clean`): sessions, worktrees, branches and the tmp directory go, nothing is left behind.
 
 Files: workflows in cli/workflows/*.yaml (a project overrides with <project dir>/workflows/), roles in
-cli/roles.yaml (a project overrides role by role in <project dir>/roles.yaml). A run lives in $SWE_TMP/swe/<project>/<run>/ (default /tmp): run.json, run.log, reports/.
+the `roles:` block of cli/templates/config.yaml (a project overrides role by role in its config.yaml). A run lives in $SWE_TMP/swe/<project>/<run>/ (default /tmp): run.json, run.log, reports/.
 Environment: SWE_TMP, SWE_POLL (seconds between polls, default 5), SWE_NOTIFY (a command that gets the
 run report on stdin: a chat bridge), SWE_MAX_AGENTS (sessions at once, default 6).
 """
@@ -114,9 +114,11 @@ def find_workflow(name: str, project: dict | None) -> dict:
 
 
 def load_roles(project: dict | None) -> dict:
-    roles = (yaml.safe_load((SWE_DIR / "roles.yaml").read_text(encoding="utf-8")) or {}).get("roles", {})
+    """Roles live in config.yaml: the plugin's template first, then the project's own (an old roles.yaml still counts)."""
+    roles = (yaml.safe_load((SWE_DIR / "templates" / "config.yaml").read_text(encoding="utf-8")) or {}).get("roles", {})
     if project and project.get("dir"):
-        for extra in (Path(project["dir"]) / "roles.yaml", Path(project["dir"]) / ".swe" / "roles.yaml"):
+        root = Path(project["dir"])
+        for extra in (root / "config.yaml", root / "roles.yaml", root / ".swe" / "roles.yaml", root / "config.yaml"):
             if not extra.exists():
                 continue
             for name, spec in ((yaml.safe_load(extra.read_text(encoding="utf-8")) or {}).get("roles") or {}).items():
@@ -183,17 +185,11 @@ def problems_of(wf: dict, roles: dict, cfg: dict, project: dict | None, depth: i
                     found.append(f"{label}: skill {skill!r} does not exist in src/skills")
             agent = str(spec.get("agent") or "")
             if not agent:
-                found.append(f"{label}: no agent (set `agent:` on the role or the node; agents are in models.yaml)")
+                found.append(f"{label}: no agent (set `agent:` on the role or the node; agents are in config.yaml)")
             elif "${" not in agent and agent not in (cfg.get("agents") or {}):
-                found.append(f"{label}: agent {agent!r} is not in models.yaml agents ({', '.join(cfg.get('agents') or {})})")
+                found.append(f"{label}: agent {agent!r} is not in config.yaml agents ({', '.join(cfg.get('agents') or {})})")
             if spec.get("cli") and spec["cli"] not in cfg["clis"]:
                 found.append(f"{label}: cli {spec['cli']!r} is not one of {', '.join(cfg['clis'])}")
-            if spec.get("cross_family"):
-                if not node.get("reviews"):
-                    found.append(f"{label}: cross_family needs `reviews: <node>` (the node whose author it must differ from)")
-                for author, reviewer in (cfg.get("reviewers") or {}).items():
-                    if reviewer not in (cfg.get("agents") or {}):
-                        found.append(f"{label}: reviewers.{author} names {reviewer!r}, which is not an agent")
             ws = spec.get("workspace", "new")
             if not (ws in ("new", "scratch", "pr") or re.match(r"^same:[\w-]+$", ws) or ws == "same"):
                 found.append(f"{label}: workspace must be new, scratch, pr or same:<node>")
@@ -369,12 +365,8 @@ def parse_outcome(line: str) -> dict:
 
 
 def resolve_agent(cfg: dict, spec: dict, node: dict, run: Run, ctx: dict) -> dict:
-    """The agent a node runs as: the role's (or node's) `agent`, or, for a cross-family reviewer, the agent that
-    `reviewers` names for the cli that wrote the reviewed node. `cli`, `model`, `reasoning` on the node win."""
+    """The agent a node runs as: the role's (or node's) `agent`. `cli`, `model`, `reasoning` on the node win."""
     name = spec.get("agent") or ""
-    if spec.get("cross_family"):
-        author = run.node(ctx["prefix"] + node["reviews"]).get("cli") or fleet.agent_spec(cfg, name)["cli"]
-        name = (cfg.get("reviewers") or {}).get(author, name)
     return fleet.agent_spec(cfg, name, cli=str(spec.get("cli") or ""), model=str(spec.get("model") or ""),
                             reasoning=str(spec.get("reasoning") or ""))
 
@@ -833,7 +825,7 @@ def cmd_validate(args: list[str]) -> int:
             if skill not in known_skills():
                 problems.append(f"role {role}: skill {skill!r} does not exist in src/skills")
         if spec.get("agent") not in (cfg.get("agents") or {}):
-            problems.append(f"role {role}: agent {spec.get('agent')!r} is not in models.yaml agents")
+            problems.append(f"role {role}: agent {spec.get('agent')!r} is not in config.yaml agents")
     for message in problems:
         print("PROBLEM", message)
     print(f"{len(names)} workflow(s) checked, {len(problems)} problem(s)")
@@ -853,7 +845,7 @@ def cmd_graph(args: list[str]) -> int:
         if kind == "agent":
             spec = {**roles.get(node.get("role"), {}), **node}
             agent = (cfg.get("agents") or {}).get(spec.get("agent") or "", {})
-            who = "cross-family reviewer" if spec.get("cross_family") else f"{spec.get('agent')}: {spec.get('cli') or agent.get('cli', '?')}/{spec.get('model') or agent.get('model', '?')}/{spec.get('reasoning') or agent.get('reasoning') or '-'}"
+            who = f"{spec.get('agent')}: {spec.get('cli') or agent.get('cli', '?')}/{spec.get('model') or agent.get('model', '?')}/{spec.get('reasoning') or agent.get('reasoning') or '-'}"
             detail = f"{node['role']} [{who}] skills {','.join(spec.get('skills', []))}"
         if kind == "map":
             detail = f"map {node['map']} -> workflow {node['workflow']}"
@@ -970,7 +962,7 @@ def record_changelog(run: Run, entry: dict) -> None:
 def update_branch(run: Run, entry: dict) -> bool:
     """The branch is behind main or conflicts: the reviewer agent brings it up to date, resolves, re-verifies, re-reviews."""
     wf = {"name": "update", "nodes": {"update": {"role": "reviewer", "workspace": "same", "card": entry["card"],
-                                                 "reviews": "update", "agent": "reviewer", "cross_family": True, "goal":
+                                                 "reviews": "update", "agent": fleet.REVIEWER, "goal":
                                                  "The PR is behind main or conflicts with it. Bring it up to date as the integrator skill says "
                                                  "(rebase, resolve only inside this card's own files, make verify), push your fix with "
                                                  "--force-with-lease, then review the result at the new head and give your verdict."}}}

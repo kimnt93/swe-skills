@@ -62,7 +62,7 @@ Only once step 4 works well on one repo by hand. A project is a directory holdin
 ```bash
 make cli                                 # links swe-cli into ~/.local/bin
 bash cli/tests/selftest.sh               # proves the cli against fake CLIs, a scratch repo and a fake Orca
-swe-cli project create orders            # ./orders/ with AGENTS.md, workflows/, roles.yaml, models.yaml, project.yaml
+swe-cli project create orders            # ./orders/ with AGENTS.md, workflows/, config.yaml, config.yaml, project.yaml
 swe-cli project orders add <git url>     # add each repo; clones it into ./orders
 cd orders
 swe-cli update                           # later: pull main, reinstall everywhere
@@ -80,6 +80,6 @@ merges and cleans. Add a repo any time: `swe-cli project <project> add <git url>
 |---|---|
 | `/swe` is unknown | start a new session; `claude plugin list` should show `swe@swe-skills` |
 | `make validate` fails on a placeholder or name | read the first ERROR line; the validator names the file and line |
-| `swe-cli models check` lists `omp has no model ...` | `omp login <provider>`, then `omp models ls` and put the exact id in the project's `models.yaml` |
+| `swe-cli models check` lists `omp has no model ...` | `omp login <provider>`, then `omp models ls` and put the exact id in the project's `config.yaml` |
 | `gh auth status` fails inside a delegated session | `gh auth login` for the user that runs the orchestrator |
 | old `kim` or other plugin still listed | `PLUGIN_NAME=<old> make claude codex omp REMOVE=1` |

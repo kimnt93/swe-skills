@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """swe-cli delegate: a project's manager (any CLI agent) starts coding CLIs, one git worktree per card.
 
-Sessions run in tmux or, with launcher: orca in models.yaml, as Orca terminals you can watch in the Orca UI.
+Sessions run in tmux or, with launcher: orca in config.yaml, as Orca terminals you can watch in the Orca UI.
 A project is a directory holding one or more repo clones; worktrees live in <dir>/.wt/<repo>/<branch>.
 
     swe-cli delegate start <project> <card> --files a,b --goal "..." [--repo name] [--branch type/n-slug] [--issue N]
-                         [--risk standard] [--agent developer] [--cli C] [--model M] [--reasoning R] [--brief-file F] [--dry-run]
+                         [--risk standard] [--agent developer-junior] [--cli C] [--model M] [--reasoning R] [--brief-file F] [--dry-run]
     swe-cli orchestrate <project> [--agent A] [--dry-run]   the project's manager agent, in its directory
     swe-cli delegate review <project> <card> [--agent A] [--dry-run]    the other CLI, read-only
     swe-cli delegate status <project> [card] [--fetch]      JSON for one card, a table for the project
@@ -517,7 +517,7 @@ def cmd_start(args: list[str]) -> int:
     pos, flag, switch = flags_of(args, {"--dry-run"})
     if len(pos) != 2 or "--files" not in flag or not ("--goal" in flag or "--brief-file" in flag):
         die(2, "usage: swe-cli delegate start <project> <card> --files a,b --goal \"...\" [--branch type/n-slug] "
-               "[--issue N] [--repo name] [--risk standard] [--agent developer] [--cli C] [--model M] [--reasoning R] [--brief-file F] [--dry-run]")
+               "[--issue N] [--repo name] [--risk standard] [--agent developer-junior] [--cli C] [--model M] [--reasoning R] [--brief-file F] [--dry-run]")
     name, card = pos
     project = project_of(name)
     cfg = fleet.load()
@@ -525,7 +525,7 @@ def cmd_start(args: list[str]) -> int:
     if not files:
         die(2, "--files must be repo-relative paths (a file, a directory/ or a glob)")
     goal = Path(flag["--brief-file"]).read_text(encoding="utf-8").strip() if "--brief-file" in flag else flag["--goal"]
-    agent = fleet.agent_spec(cfg, flag.get("--agent", "developer"), cli=flag.get("--cli", ""), model=flag.get("--model", ""),
+    agent = fleet.agent_spec(cfg, flag.get("--agent", "developer-junior"), cli=flag.get("--cli", ""), model=flag.get("--model", ""),
                              reasoning=flag.get("--reasoning", ""))
     cli = agent["cli"]
     plugin = fleet.plugin_name()
@@ -553,7 +553,7 @@ def cmd_review(args: list[str]) -> int:
     name, card = pos
     cfg = fleet.load()
     record = load_record(name, card)
-    reviewer = fleet.agent_spec(cfg, flag.get("--agent") or cfg["reviewers"][record["cli"]])
+    reviewer = fleet.agent_spec(cfg, flag.get("--agent") or fleet.REVIEWER)
     other = reviewer["cli"]
     if other not in cfg["clis"]:
         die(2, f"unknown cli {other!r}")

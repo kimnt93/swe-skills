@@ -51,10 +51,10 @@ Build settings live in `plugin.env`. Put private values (your real domain, owner
 ```
 plugin.env           build settings (name, owner, version, domain, description)
 src/skills/          the skills; src/skills/router/ becomes /<name>
-src/agents/          Claude Code subagents (worker, adversary); models from cli/templates/models.yaml
+src/agents/          Claude Code subagents (worker, adversary); models from cli/templates/config.yaml
 src/manifests/       plugin manifests with placeholders
 scripts/             build.py, install.py, validate_skills.py, gen_docs.py, publish.sh
-cli/                 the `<name>-cli` command, workflows/, roles.yaml, templates/ (models.yaml, PROJECT.md, learn skill), briefs, tests
+cli/                 the `<name>-cli` command, workflows/, config.yaml, templates/ (config.yaml, PROJECT.md, learn skill), briefs, tests
 docs/                architecture.md (the design), agents-and-skills.md (the recommended setup)
 tests/               build_test.sh, enforcement_test.sh, fixtures
 CHANGELOG.md         one entry per version (make publish requires it)

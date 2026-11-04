@@ -70,7 +70,7 @@ code, only the files the task allows, and the project's `ARCHITECTURE.md` respec
 ## With a project of agents (unattended)
 
 A project is a directory. In it, `swe-cli project init` writes `AGENTS.md` (the manager's instructions), the
-workflows, `roles.yaml`, `models.yaml` and `project.yaml`, and asks for git URLs until you are done. You talk to
+workflows, the `roles:` block of `config.yaml`, `config.yaml` and `project.yaml`, and asks for git URLs until you are done. You talk to
 the **manager**, any CLI agent started with `swe-cli orchestrate <project>` (or just `claude`, `codex`, `omp`, `opencode` in that
 directory). A question (`/swe:how ...`) it answers itself; work that matches a workflow it runs as a DAG; every node is one agent; every node is one agent; the **gate** merges. See [workflows.md](workflows.md).
 

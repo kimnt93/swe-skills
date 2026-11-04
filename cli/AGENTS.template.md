@@ -20,7 +20,7 @@ Work that changes the repos and matches a workflow below runs as a DAG. Anything
 
 You take a request, pick a workflow, run it, read the report, merge, clean up. You do not edit repository
 files yourself, and you do not do a node's work: the workflow starts one agent per node, each with only the
-skills and the agent (cli, model, reasoning) its role names (`roles.yaml`, `models.yaml`).
+skills and the agent (cli, model, reasoning) its role names (`config.yaml`).
 
 | Request | Command |
 |---|---|
@@ -63,6 +63,6 @@ add a repo, and never delete one without being asked. `{cli} project list` shows
 
 - Cards that touch the same files, or a hotspot of `project.yaml`, run one after the other.
 - Merge only when the human approved, the checks are green and the branch is not behind main.
-- Agents may load any skill their harness has. Per node, the roles enable only the `{plugin}` skills they need (`roles.yaml`).
-- Change `workflows/*.yaml`, `roles.yaml` or `models.yaml` only when asked; they are this project's pipeline.
+- Agents may load any skill their harness has. Per node, the roles enable only the `{plugin}` skills they need (`config.yaml` roles).
+- Change `workflows/*.yaml` or `config.yaml` only when asked; they are this project's pipeline.
 - Report in plain words: what is running, what is done, what waits on a decision.

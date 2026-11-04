@@ -41,14 +41,19 @@ make cli                # link the swe-cli command into ~/.local/bin
 
 ```bash
 mkdir orders && cd orders
-swe-cli project create orders # ./orders/ with AGENTS.md, models.yaml (agents: cli, model, reasoning), roles.yaml, workflows/
+swe-cli project create orders          # asks: project manager (pm) or developer (dev); --mode pm|dev skips the question
 cd orders && swe-cli project orders add <git url>   # add repos one at a time; `swe-cli project init` makes the current directory a project
 swe-cli orchestrate orders    # start the manager (any harness) in this directory, then ask it for work
 swe-cli update                # later: pull main, reinstall everywhere; `swe-cli project update` refreshes this project
 ```
 
-Agents (`cli`, `model`, `reasoning`) are defined in one file, the project's `models.yaml`; the manager is an agent too. How workflows,
+Agents (`cli`, `model`, `reasoning`) are defined in one file, the project's `config.yaml`; the manager is an agent too. How workflows,
 roles, reports, change logs and merging work: [docs/workflows.md](docs/workflows.md).
+
+## Examples
+
+[examples/pm-jlogger](examples/pm-jlogger/README.md) (a project manager runs plan, build, review, merge) and
+[examples/dev-gorouter](examples/dev-gorouter/README.md) (a developer's agent: issue, code, PR; no review, no merge).
 
 ## Documentation
 

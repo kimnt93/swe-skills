@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # setup_repo.sh <owner>/<repo> [--check <required check name>] [--approvals N] [--dry-run]
 # --approvals defaults to 0: agents run as your own gh account, and GitHub does not let an account
-# approve its own PR; the cross-family review is enforced by `swe-cli merge` instead. Use 1 once agents
+# approve its own PR; the review is enforced by `swe-cli merge` instead. Use 1 once agents
 # run as a separate bot account.
 # Squash-only merges, delete branches on merge, a protected main with the required check, and the
 # project labels (assets/labels.json). Idempotent. --self-test runs it against a fake gh.

@@ -30,13 +30,13 @@ grep -q 'PUBLIC_DOMAIN=acme.test' dist/qa/skills/deployment-setup/assets/templat
 ! grep -rqE '@(PLUGIN|DOMAIN|OWNER|HOMEPAGE|SKILL_INDEX)@' dist/qa || fail "placeholder left"
 pass "build: default 'swe', and PLUGIN_NAME=qa PLUGIN_DOMAIN=acme.test, both valid"
 
-# 1b. subagents: rendered, with the model of the agent models.yaml gives them
-grep -q '^model: sonnet$' dist/qa/agents/worker.md || fail "worker model from models.yaml"
-grep -q '^model: opus$' dist/qa/agents/adversary.md || fail "adversary model from models.yaml"
+# 1b. subagents: rendered, with the model of the agent config.yaml gives them
+grep -q '^model: claude-sonnet-5-5$' dist/qa/agents/worker.md || fail "worker model from config.yaml"
+grep -q '^model: claude-sonnet-5-5$' dist/qa/agents/adversary.md || fail "adversary model from config.yaml"
 grep -q 'qa' dist/qa/agents/adversary.md || fail "adversary not rendered"
 [ -f dist/qa/LICENSE ] && grep -q '/qa <task>' dist/qa/README.md || fail "LICENSE or README"
 [ -f dist/qa/CHANGELOG.md ] || fail "CHANGELOG in the plugin"
-pass "agents: worker=sonnet, adversary=opus from models.yaml; LICENSE, README, CHANGELOG shipped"
+pass "agents: worker=sonnet, adversary=opus from config.yaml; LICENSE, README, CHANGELOG shipped"
 
 # 1c. the owner's rule: no org name and no vq anywhere in the source, docs or build
 hits="$(grep -rIniE 'vietquant|viet-quant|\bvq\b|vq-|VQ_' --exclude-dir=.git --exclude-dir=dist . dist/qa | grep -v '^./tests/build_test.sh:' || true)"

@@ -230,7 +230,7 @@ How an agent brings an open pull request up to date with main and resolves its m
 
 ### interrogate
 
-Adversarial review of a diff or a design: adversaries try to break it, and only findings proven by a run survive. Use before shipping a contested or risky change, for 'challenge this', 'find blind spots', 'review this branch', and as the brief of the cross-family reviewer.
+Adversarial review of a diff or a design: adversaries try to break it, and only findings proven by a run survive. Use before shipping a contested or risky change, for 'challenge this', 'find blind spots', 'review this branch', and as the brief of the reviewer.
 
 - **Invoke:** `/swe:interrogate`
 - **Detail:** [process.md](skills/process.md#interrogate) · **Source:** [SKILL.md](../src/skills/interrogate/SKILL.md)

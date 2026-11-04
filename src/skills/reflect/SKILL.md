@@ -20,7 +20,7 @@ Skip it when the task was trivial or a skill was followed correctly. One-offs ar
    | tooling: context the human had to paste that a command or skill could have fetched | `low` | [tooling-reviewer](references/tooling-reviewer.md) |
    | divergent: what another approach would have done better | `top`, another family | [divergent-reviewer](references/divergent-reviewer.md) |
 
-3. **Synthesize** with the `developer-strong` agent with [synthesizer](references/synthesizer.md) and the three outputs:
+3. **Synthesize** with the `developer-senior` agent with [synthesizer](references/synthesizer.md) and the three outputs:
    an Accepted / Rejected / Backlog list.
 4. **Structure before prose:** an accepted lesson that a lint, a validator check or a test would
    enforce better becomes a backlog item "build this check" (the **encode-lessons-in-structure** principle).
