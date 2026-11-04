@@ -1,7 +1,7 @@
 # Model tiers
 
-Skills and cards name a **tier**, never a model id. The ids live in one file, `fleet/models.yaml`
-in the stack's repository. `fleet models show` prints the current mapping, and `fleet models cmd <cli> <tier>`
+Skills and cards name a **tier**, never a model id. The ids live in one file, `cli/models.yaml`
+in the stack's repository. `swe-cli models show` prints the current mapping, and `swe-cli models cmd <cli> <tier>`
 prints the exact command a coding CLI runs. When a new model ships, only that file changes.
 
 | Tier | Use it for | Never for |

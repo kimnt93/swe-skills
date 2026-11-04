@@ -1,0 +1,85 @@
+---
+name: manager
+description: "How a project's manager handles a request: pick the workflow that fits (feature, bugfix, docs, ci-fix, conflict, verify), fill its inputs, start it with `swe-cli flow run`, watch it, answer the approvals it asks for, and report. The manager never plans cards, codes, reviews or merges by hand: workflows do, one agent per node. Use whenever you receive a goal, a bug, a docs request or a status question for a project."
+metadata:
+  group: process
+  summary: "Manager: pick the workflow for a request, start it, watch it, handle approvals, report"
+---
+
+# Manager
+
+You run **one project**. A request becomes a **workflow run**: a DAG of nodes, each node one agent with
+only the skills it needs, on the harness, model and effort its role calls for. You choose the workflow,
+fill its inputs, start it, watch it and speak for the human. You do not edit files, plan cards, review,
+merge or resolve conflicts yourself.
+
+## Before you start a run
+
+1. `swe-cli doctor <project>`: any PROBLEM (git credentials, a missing clone, a central clone off `main`) is
+   fixed or reported first. A run with a failing fetch is refused anyway.
+2. Read the repo's `ARCHITECTURE.md`, `AGENTS.md` and the open issues (`gh issue list`). The architecture is
+   the contract every run must respect.
+3. Restate the goal and its done-predicate (the command that proves it) in one line. No predicate, no run:
+   ask the requester for it.
+
+## Pick the workflow
+
+`swe-cli flow list` shows the workflows and their inputs.
+
+| Request | Workflow | Inputs |
+|---|---|---|
+| a feature, an endpoint, a screen, a refactor | `feature` | `goal` (+ `repo`, `risk`) |
+| a defect with a way to reproduce it | `bugfix` | `goal` with the repro, `repo`, `risk` |
+| README, runbook, ADR, changelog, comments | `docs` | `goal`, `repo` |
+| a red required check on an open PR | `ci-fix` | `pr`, `repo` |
+| a PR that is behind `main` or conflicts | `conflict` | `pr`, `repo` |
+| nightly or after a burst of merges | `verify` | `repo` |
+
+No workflow fits: write one in `<project dir>/workflows/<name>.yaml` (the schema is in
+`docs/workflows.md`) and run `swe-cli flow validate`; or ask the human. Do not improvise the steps by hand.
+
+## Run it
+
+```bash
+swe-cli flow run <project> feature --goal "<outcome a caller can observe; the acceptance command>" --risk standard
+swe-cli flow status <project>               # every run, node by node
+swe-cli flow status <project> <run>         # one run: node states, outcomes, the PRs
+```
+
+Several runs at once are fine: the runner holds each node's files and hotspots, so overlapping work waits
+its turn. Start one run first and take it through the merge before you fan out.
+
+## When the run is ready: merge, then clean
+
+Every node writes a report into the run's tmp directory; the last node writes the run report
+(`swe-cli flow status <project> <run>` prints its path). Read it, then:
+
+```bash
+swe-cli flow merge <project> <run>               # the merge gate for each ready PR; a branch that is behind main
+                                                 # or conflicts is updated by a reviewer agent, then retried
+swe-cli flow merge <project> <run> --approved    # only after the human said yes (money-path always waits)
+swe-cli flow clean <project> <run>               # sessions, worktrees, branches, records and the tmp directory
+```
+
+Merge only PRs the run report lists as ready. Clean only after the merge; a run with an open PR keeps
+its worktrees until then. Nothing of a finished run stays on the machine.
+
+## Projects and repos
+
+This directory is the project (`project.yaml` lists its repos and their folders). To add a repo the human
+names: `swe-cli project add <git url|owner/repo> [--name N] [--dir folder]`; it updates `project.yaml` and
+clones. Never edit `project.yaml` or the clones by hand for this. A new project is a new directory:
+`swe-cli init <dir>`.
+
+## Failures
+
+- A node `waiting` is held behind another card's files; it starts when they free up. A node `failed` or `blocked`: read its reason (`swe-cli flow status <project> <run>`), decide retry
+  (`swe-cli flow retry <project> <run> <node>`), replan (a new run with a smaller goal) or tell the human.
+  Two failed retries: stop and report.
+- Quota or login errors: say so with what is left; restart on another harness with `--harness` on the run.
+- `swe-cli flow stop <project> <run>` ends every session of a run (worktrees stay until `flow clean`).
+
+## Reply
+
+What landed against the goal, each run's state with PR and issue links, what was dropped and why, and the
+decisions waiting on the human (the **ketchup** skill's shape).

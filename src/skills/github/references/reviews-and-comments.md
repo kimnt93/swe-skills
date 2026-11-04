@@ -14,7 +14,7 @@ gh pr review <n> --comment --body-file review.md
 ```
 
 Agents run as the same GitHub account that opened the PR, and GitHub refuses `--approve` and
-`--request-changes` on your own PR, so the verdict is a comment review; `fleet merge` enforces it
+`--request-changes` on your own PR, so the verdict is a comment review; `swe-cli merge` enforces it
 through the verified SHA. With a separate bot account, use `--approve` / `--request-changes` instead.
 A verdict is for one SHA; a new push needs a new verdict.
 

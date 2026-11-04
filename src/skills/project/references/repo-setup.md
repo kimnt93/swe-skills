@@ -16,6 +16,6 @@ lists the check; `gh label list` shows the labels; `gh repo view --json squashMe
 
 **Approvals.** Agents run as your `gh` account, and GitHub does not let an account approve its own PR,
 so the default is 0 required approvals: the review by the other model family is enforced by
-`fleet merge` (it needs the reviewer's verdict SHA) and recorded on the PR. When agents get their own
+`swe-cli merge` (it needs the reviewer's verdict SHA) and recorded on the PR. When agents get their own
 bot account (a fine-grained token with `contents`, `pull_requests` and `issues` write), rerun with
 `--approvals 1` so GitHub enforces the review too.

@@ -52,8 +52,8 @@ after a review needs a new review: the verdict covers one head SHA.
 Only through the gate, after the other model family's review passed on the current head:
 
 ```bash
-fleet merge <number> --risk <low|standard|money-path> --sha <verified head sha>             # autopilot
-fleet merge <number> --risk <...> --sha <verified head sha> --approved                       # the human said merge
+swe-cli merge <number> --risk <low|standard|money-path> --sha <verified head sha>             # autopilot
+swe-cli merge <number> --risk <...> --sha <verified head sha> --approved                       # the human said merge
 ```
 
 The gate squash-merges with `--match-head-commit`, so a later push can't sneak in.

@@ -25,7 +25,7 @@ Skip it when the task was trivial or a skill was followed correctly. One-offs ar
 4. **Structure before prose:** an accepted lesson that a lint, a validator check or a test would
    enforce better becomes a backlog item "build this check" (the **encode-lessons-in-structure** principle).
 5. **Apply after approval only**, in this plugin's source repository (`src/skills/`, `src/agents/`,
-   `fleet/skills/`), never in `dist/` or an installed copy. A substantive edit runs the router's eval
+   `cli/`), never in `dist/` or an installed copy. A substantive edit runs the router's eval
    playbook first. Then `make validate`, `make test`, and reinstall.
 
 **Reply:** edits applied, checks to build, findings dropped and why.
