@@ -11,6 +11,11 @@ projects from the project directory's project.yaml (see init).
     swe-cli init [dir] [--repo <git url>]...   make the directory a project: AGENTS.md (orchestrator), workflows/, roles.yaml,
                                           models.yaml, project.yaml; asks for git URLs until you are done
     swe-cli project add <git url|owner/repo> [--name N] [--dir sub]   add a repo to this project directory's project.yaml, clone it
+    swe-cli project update [--force]        refresh this project's AGENTS.md, workflows, roles, models, learn skill from the plugin;
+                                          files you edited are kept (the new one is <file>.new)
+    swe-cli update [harness ...] [--project] [--no-pull] [--dry-run]
+                                          git pull the plugin's main branch, rebuild, reinstall into every detected harness
+                                          (or the named ones) and relink this command; --project also updates this project
     swe-cli project notes                   PROJECT.md word count against the 2000-word limit; the project's own skills
     swe-cli project add <name> --dir <path> --repo <name>=<owner/repo|url> [--repo ...] [--description "..."]
                       [--cli claude|codex|omp] [--orchestrator <cli>[:<tier>]] [--dry-run]
@@ -28,6 +33,10 @@ projects from the project directory's project.yaml (see init).
     swe-cli delegate ...                    start coding CLIs in tmux worktrees and read their results (see delegate)
     swe-cli doctor [project]                git credentials, tmux, CLIs, gh, repos: what would stop a delegation
     swe-cli lane run|review ...             headless one-shot: one card through a CLI with -p (see lane)
+    swe-cli changelog check <pr> [--repo owner/repo]       does the PR need a CHANGELOG.md entry, and has it one
+    swe-cli changelog record <project> <repo> --pr N --title T [--url U] [--date D]
+                                          append a merged PR to <project dir>/changelog/ (flow merge does this)
+    swe-cli changelog show [--repo R] [--since YYYY-MM-DD] [--project P]
     swe-cli merge <pr> --risk R --sha S [--repo owner/repo] [--approved] [--dry-run]
                                           the merge gate, then gh pr merge --squash --auto
     swe-cli name                            the plugin name ($PLUGIN_NAME, else plugin.env, default swe)
@@ -37,6 +46,7 @@ Environment: SWE_MODELS, SWE_PROJECTS, OMP_CONFIG, CLAUDE_SETTINGS, CODEX_CONFIG
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import os
@@ -50,7 +60,7 @@ from pathlib import Path
 import yaml
 
 FLEET = Path(__file__).resolve().parents[1]
-REPO = FLEET.parent
+REPO = Path(os.environ.get("SWE_REPO") or FLEET.parent)
 
 
 def find_workspace() -> Path | None:
@@ -968,6 +978,112 @@ def add_repo_to_workspace(root: Path, url: str, name: str = "", subdir: str = ""
     return rc
 
 
+def digest(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def shipped_files(name: str, with_notes: bool = False) -> dict[str, str]:
+    """The files a project gets from the plugin, rendered for this project: relative path -> text."""
+    plugin = plugin_name()
+    fill = lambda t: t.replace("{project}", name).replace("{plugin}", plugin).replace("{cli}", f"{plugin}-cli")
+    files = {"AGENTS.md": fill((FLEET / "AGENTS.template.md").read_text(encoding="utf-8")),
+             "skills/learn/SKILL.md": (FLEET / "templates" / "skills" / "learn" / "SKILL.md").read_text(encoding="utf-8")}
+    if with_notes:
+        files["PROJECT.md"] = fill((FLEET / "templates" / "PROJECT.md").read_text(encoding="utf-8"))
+        files["changelog/project.md"] = fill("# {project} change log\n\nMerged pull requests of every repo, newest first "
+                                             "(`{cli} flow merge` writes them; the manager adds cross-repo lines).\n")
+    for rel in ("roles.yaml", "models.yaml"):
+        files[rel] = (FLEET / rel).read_text(encoding="utf-8")
+    for wf in sorted((FLEET / "workflows").glob("*.yaml")):
+        files[f"workflows/{wf.name}"] = wf.read_text(encoding="utf-8")
+    return files
+
+
+def load_shipped(root: Path) -> dict[str, str]:
+    path = root / ".swe" / "shipped.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+
+
+def save_shipped(root: Path, record: dict[str, str]) -> None:
+    (root / ".swe").mkdir(exist_ok=True)
+    merged = {**load_shipped(root), **record}
+    (root / ".swe" / "shipped.json").write_text(json.dumps(merged, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def project_update(root: Path | None, dry: bool, force: bool) -> int:
+    """Bring this project's AGENTS.md, workflows, roles, models and learn skill up to the plugin's current versions.
+    A file you did not edit is replaced; one you edited is kept and the new version is written next to it as <file>.new
+    (--force replaces it after saving <file>.bak). PROJECT.md, project.yaml and the clones are never touched."""
+    if not root or not (root / "project.yaml").is_file():
+        sys.exit("swe-cli: not inside a project directory (no project.yaml above here)")
+    name = workspace_entry(root)[0]
+    last = load_shipped(root)
+    record, counts = {}, {"updated": 0, "same": 0, "kept": 0, "new": 0}
+    for rel, text in shipped_files(name).items():
+        target = root / rel
+        new = digest(text)
+        if not target.exists():
+            action = "added"
+        else:
+            current = digest(target.read_text(encoding="utf-8"))
+            if current == new:
+                counts["same"] += 1
+                record[rel] = new
+                continue
+            action = "updated" if current == last.get(rel) else ("forced" if force else "kept")
+        if dry:
+            print(f"would {'write ' + rel + '.new (edited by you)' if action == 'kept' else action + ' ' + rel}")
+            continue
+        if action == "kept":
+            (root / (rel + ".new")).write_text(text, encoding="utf-8")
+            print(f"kept   {rel} (you edited it; the new version is {rel}.new)")
+            counts["kept"] += 1
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if action == "forced":
+            shutil.copy2(target, str(target) + ".bak")
+        target.write_text(text, encoding="utf-8")
+        record[rel] = new
+        counts["new" if action == "added" else "updated"] += 1
+        print(f"{action:8}{rel}")
+    if not dry:
+        save_shipped(root, record)
+    print(f"project {name}: {counts['updated']} updated, {counts['new']} added, {counts['same']} current, {counts['kept']} kept")
+    return 0
+
+
+def git(*args: str, cwd: Path = REPO) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
+
+
+def self_update(args: list[str], dry: bool) -> int:
+    """Update the plugin from the main branch: pull, rebuild, reinstall into every detected harness (or --agent X),
+    and, with --project, update the current project's files too."""
+    flags = set(args)
+    if not (REPO / ".git").exists():
+        sys.exit(f"swe-cli: {REPO} is not a git checkout; update it by hand")
+    if git("status", "--porcelain").stdout.strip():
+        sys.exit(f"swe-cli: {REPO} has uncommitted changes; commit or stash them first")
+    branch = git("branch", "--show-current").stdout.strip()
+    if branch != "main":
+        sys.exit(f"swe-cli: {REPO} is on {branch or 'a detached head'}, not main; switch with `git switch main`")
+    before = git("rev-parse", "--short", "HEAD").stdout.strip()
+    if "--no-pull" not in flags:
+        if execute([["git", "-C", str(REPO), "pull", "--ff-only", "origin", "main"]], dry):
+            return 1
+    after = git("rev-parse", "--short", "HEAD").stdout.strip()
+    print(f"{plugin_name()}: {before} -> {after}")
+    agents = [a for a in args if not a.startswith("--")]
+    for command in (["make", "-C", str(REPO), *(agents or ["install"])], ["make", "-C", str(REPO), "cli"]):
+        print(("would run: " if dry else "run: ") + " ".join(command))
+        if not dry and subprocess.run(command).returncode:
+            return 1
+    if "--project" in flags and WORKSPACE:
+        return project_update(WORKSPACE, dry, False)
+    print("projects: run `" + plugin_name() + "-cli project update` inside each project to refresh its AGENTS.md, workflows and roles")
+    return 0
+
+
 def init_workspace(args: list[str], dry: bool) -> int:
     """Make the current (or the given) directory a project: AGENTS.md for the orchestrator, workflows, roles, models,
     project.yaml; then ask for git URLs until the user is done. Repos can also be given with --repo."""
@@ -1004,28 +1120,22 @@ def init_workspace(args: list[str], dry: bool) -> int:
         sys.exit(f"swe-cli: --cli must be one of {', '.join(CLI_NAMES)}")
     if (root / "project.yaml").exists() and not force:
         sys.exit(f"swe-cli: {root} is already a project (project.yaml exists); add repos with `swe-cli project add <url>`, or --force")
-    plugin = plugin_name()
-    files = {"AGENTS.md": (FLEET / "AGENTS.template.md", True), "PROJECT.md": (FLEET / "templates" / "PROJECT.md", True),
-             "skills/learn/SKILL.md": (FLEET / "templates" / "skills" / "learn" / "SKILL.md", False)}
-    for rel in ("roles.yaml", "models.yaml"):
-        files[rel] = (FLEET / rel, False)
-    for wf in sorted((FLEET / "workflows").glob("*.yaml")):
-        files[f"workflows/{wf.name}"] = (wf, False)
+    files = shipped_files(name, with_notes=True)
     if dry:
         print(f"would make {root} the project {name}: " + ", ".join(sorted(files)) + ", project.yaml")
         return 0
     root.mkdir(parents=True, exist_ok=True)
-    for rel, (source, render) in files.items():
+    record = {}
+    for rel, text in files.items():
         target = root / rel
         if target.exists() and not force:
             print(f"keep {rel}")
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
-        text = source.read_text(encoding="utf-8")
-        if render:
-            text = text.replace("{project}", name).replace("{plugin}", plugin).replace("{cli}", f"{plugin}-cli")
         target.write_text(text, encoding="utf-8")
+        record[rel] = digest(text)
         print(f"wrote {rel}")
+    save_shipped(root, record)
     save_workspace(name, {"dir": str(root), "description": name, "cli": cli, "repos": {}})
     register_workspace(name, root)
     print(f"project {name} at {root}")
@@ -1041,6 +1151,7 @@ def init_workspace(args: list[str], dry: bool) -> int:
             if not url:
                 break
             add_repo_to_workspace(root, url)
+    plugin = plugin_name()
     print(f"next: cd {root} && {plugin}-cli orchestrate {name}   (add repos any time: {plugin}-cli project add <git url>)")
     return 0
 
@@ -1082,6 +1193,130 @@ def bootstrap(cfg: dict, projects: dict[str, dict], dry: bool) -> int:
     return models_apply(cfg, projects, dry) or context_apply(cfg, dry)
 
 
+# ------------------------------------------------------------------------------------------------ changelog
+
+CHANGELOG_EXEMPT = {"docs", "chore", "ci", "test", "style", "build"}
+CONVENTIONAL = re.compile(r"^(\w+)(\([^)]*\))?(!)?:\s*(.+)$")
+
+
+def pr_kind(title: str) -> str:
+    match = CONVENTIONAL.match(title.strip())
+    return match.group(1).lower() if match else ""
+
+
+def changelog_needed(info: dict) -> tuple[bool, str]:
+    """Whether the PR needs a CHANGELOG.md entry, and whether it touches one: (needs, why)."""
+    labels = {(label.get("name") if isinstance(label, dict) else str(label)) for label in info.get("labels") or []}
+    if "no-changelog" in labels:
+        return False, "labelled no-changelog"
+    kind = pr_kind(info.get("title", ""))
+    if kind in CHANGELOG_EXEMPT:
+        return False, f"a {kind} change needs no entry"
+    return True, kind or "no conventional type"
+
+
+def changelog_touched(info: dict) -> bool:
+    return any(Path(f.get("path", "")).name.lower() == "changelog.md" for f in info.get("files") or [])
+
+
+def changelog_gate(info: dict) -> str:
+    """Empty when the PR is fine; else the refusal reason."""
+    needs, why = changelog_needed(info)
+    if needs and not changelog_touched(info):
+        return (f"CHANGELOG.md is missing from this PR ({why}): add an entry under ## [Unreleased] (changelog skill), "
+                "or label the PR no-changelog; start `swe-cli flow run <project> changelog --input pr=<n>`")
+    return ""
+
+
+def changelog_check(args: list[str]) -> int:
+    flags = dict(zip(args[1::2], args[2::2]))
+    if not args or args[0].startswith("--"):
+        sys.exit("usage: swe-cli changelog check <pr> [--repo owner/repo]")
+    target = ["--repo", flags["--repo"]] if flags.get("--repo") else []
+    view = run(["gh", "pr", "view", args[0], *target, "--json", "title,files,labels"])
+    if view.returncode != 0:
+        print(f"gh pr view failed: {view.stderr.strip()}", file=sys.stderr)
+        return 2
+    info = json.loads(view.stdout)
+    reason = changelog_gate(info)
+    if reason:
+        print(reason)
+        return 3
+    needs, why = changelog_needed(info)
+    print("changelog ok" if needs else f"changelog not needed ({why})")
+    return 0
+
+
+def changelog_dir(project: str) -> Path:
+    projects = load_projects()
+    if project in projects and projects[project].get("dir"):
+        return Path(projects[project]["dir"]).expanduser() / "changelog"
+    if WORKSPACE:
+        return WORKSPACE / "changelog"
+    sys.exit(f"swe-cli: no project directory for {project!r}")
+
+
+def changelog_append(path: Path, title: str, line: str, month: str) -> None:
+    """Add a line under its month heading (newest first; a new month goes on top); repeating a line is a no-op."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else [f"# {title}"]
+    if line in lines:
+        return
+    heading = f"## {month}"
+    if heading in lines:
+        at = lines.index(heading) + 1
+        while at < len(lines) and not lines[at].strip():
+            at += 1
+        lines[at:at] = [line]
+        if at == len(lines) - 1 or lines[at + 1].startswith("## "):
+            lines.insert(at + 1, "")
+    else:
+        lines[1:1] = ["", heading, "", line]
+    path.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
+
+
+def changelog_record(args: list[str]) -> int:
+    if len(args) < 2:
+        sys.exit("usage: swe-cli changelog record <project> <repo> --pr N --title T [--url U] [--date D]")
+    project, repo = args[0], args[1]
+    flags = dict(zip(args[2::2], args[3::2]))
+    if "--pr" not in flags or "--title" not in flags:
+        sys.exit("usage: swe-cli changelog record <project> <repo> --pr N --title T [--url U] [--date D]")
+    date = flags.get("--date") or time.strftime("%Y-%m-%d", time.gmtime())
+    number, title = flags["--pr"], flags["--title"].strip()
+    kind = pr_kind(title)
+    summary = CONVENTIONAL.match(title).group(4) if kind else title
+    link = f"[#{number}]({flags['--url']})" if flags.get("--url") else f"#{number}"
+    label = f" {kind}:" if kind else ""
+    root = changelog_dir(project)
+    month = date[:7]
+    changelog_append(root / f"{repo}.md", f"{repo} change log", f"- {date}{label} {summary} ({link})", month)
+    changelog_append(root / "project.md", "Project change log", f"- {date} `{repo}`{label} {summary} ({link})", month)
+    print(f"recorded {repo}#{number} in {root}")
+    return 0
+
+
+def changelog_show(args: list[str]) -> int:
+    flags = dict(zip(args[0::2], args[1::2]))
+    if flags.get("--project"):
+        root = changelog_dir(flags["--project"])
+    elif WORKSPACE:
+        root = WORKSPACE / "changelog"
+    else:
+        sys.exit("swe-cli: not inside a project directory; pass --project <name>")
+    path = root / (f"{flags['--repo']}.md" if flags.get("--repo") else "project.md")
+    if not path.exists():
+        print(f"no change log yet: {path}")
+        return 0
+    since = flags.get("--since", "")
+    for line in path.read_text(encoding="utf-8").splitlines():
+        match = re.match(r"- (\d{4}-\d{2}-\d{2})", line)
+        if since and match and match.group(1) < since:
+            continue
+        print(line)
+    return 0
+
+
 # ------------------------------------------------------------------------------------------------ merge
 
 
@@ -1099,7 +1334,7 @@ def merge(cfg: dict, pr: str, risk: str, sha: str, repo: str, approved: bool, dr
             return refuse("money-path is never auto-merged: it needs the human's approval (--approved)")
         if risk not in allowed:
             return refuse(f"risk {risk!r} is not in autopilot.auto_merge {sorted(allowed) or '(off)'}: wait for the human")
-    view = run(["gh", "pr", "view", pr, *target, "--json", "headRefOid,state,isDraft,mergeStateStatus"])
+    view = run(["gh", "pr", "view", pr, *target, "--json", "headRefOid,state,isDraft,mergeStateStatus,title,files,labels"])
     if view.returncode != 0:
         return refuse(f"gh pr view failed: {view.stderr.strip()}")
     info = json.loads(view.stdout)
@@ -1110,6 +1345,9 @@ def merge(cfg: dict, pr: str, risk: str, sha: str, repo: str, approved: bool, dr
     if info.get("mergeStateStatus") in ("BEHIND", "DIRTY"):
         return refuse(f"the branch is {info['mergeStateStatus'].lower()} main: run `swe-cli delegate sync-branch` in its worktree, "
                       "re-run make verify, push, and get a new verdict")
+    missing = changelog_gate(info)
+    if missing:
+        return refuse(missing)
     checks = run(["gh", "pr", "checks", pr, *target, "--required", "--json", "name,bucket"])
     if checks.returncode != 0 and not checks.stdout.strip():
         return refuse(f"gh pr checks failed: {checks.stderr.strip()}")
@@ -1136,6 +1374,8 @@ def main() -> int:
     if command == "name":
         print(plugin_name())
         return 0
+    if command == "update":
+        return self_update([a for a in rest if a != "--dry-run"], "--dry-run" in rest)
     if command == "init":
         return init_workspace([a for a in rest if a != "--dry-run"], "--dry-run" in rest)
     if command in ("lane", "delegate", "orchestrate", "flow"):
@@ -1175,6 +1415,8 @@ def main() -> int:
             return add_repo_to_workspace(root, rest[1], flags.get("--name", ""), flags.get("--dir", ""), dry)
         if rest[0] == "add":
             return project_add(cfg, rest[1:], dry)
+        if rest[0] == "update":
+            return project_update(WORKSPACE, dry, "--force" in rest)
         if rest[0] == "notes":
             return project_notes(WORKSPACE)
         if rest[0] == "list":
@@ -1197,6 +1439,10 @@ def main() -> int:
             return context_apply(cfg, dry)
         if rest[0] == "env" and len(rest) == 3:
             return context_env(cfg, rest[1], rest[2])
+    if command == "changelog" and rest:
+        action = {"check": changelog_check, "record": changelog_record, "show": changelog_show}.get(rest[0])
+        if action:
+            return action(rest[1:])
     if command == "merge" and rest:
         flags = dict(zip(rest[1::2], rest[2::2]))
         if "--risk" not in flags or "--sha" not in flags:

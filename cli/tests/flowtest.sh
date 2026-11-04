@@ -91,7 +91,8 @@ case "$1 $2" in
   "pr view")
     if [[ "$args" == *"--json state"* ]]; then [ -e "$s/merged-any" ] && echo '{"state":"MERGED"}' || echo '{"state":"OPEN"}'; exit 0; fi
     n="$3"; head="$(cat "$s/head-$n" 2>/dev/null || true)"; m=CLEAN; [ -e "$s/behind-$n" ] && m=BEHIND
-    echo "{\"headRefOid\":\"$head\",\"state\":\"OPEN\",\"isDraft\":false,\"mergeStateStatus\":\"$m\"}";;
+    files='[{"path":"CHANGELOG.md"}]'; [ -e "$s/nolog-$n" ] && files='[{"path":"a.py"}]'
+    echo "{\"headRefOid\":\"$head\",\"state\":\"OPEN\",\"isDraft\":false,\"mergeStateStatus\":\"$m\",\"title\":\"feat: card $n\",\"url\":\"https://github.com/o/r/pull/$n\",\"files\":$files,\"labels\":[]}";;
   "pr checks") echo '[{"name":"verify","bucket":"pass"}]';;
   "pr merge") echo "MERGED $*" >>"$s/gh.log"; touch "$s/merged-any";;
   "auth status") exit 0;;
@@ -137,7 +138,7 @@ b1, b2 = n["c1/build"], n["c2/build"]
 assert max(b1["started"], b2["started"]) < min(b1["finished"], b2["finished"]), "the two builds did not overlap"
 assert len(d["ready"]) == 2 and {e["pr"] for e in d["ready"]} == {"1", "2"}, d["ready"]
 PY
-grep -rqF 'Enable only these `swe` skills for this role: developer, swe, tdd, deslop, github' "$tmp/proj/.wt/app/" || fail "build node did not get only its skills"
+grep -rqF 'Enable only these `swe` skills for this role: developer, swe, tdd, deslop, changelog, github' "$tmp/proj/.wt/app/" || fail "build node did not get only its skills"
 grep -rqF 'Disable every other `swe` skill' "$tmp/proj/.wt/app/" || fail "brief does not disable the other plugin skills"
 grep -rq "^## Learned" "$SWE_TMP/swe/ft/r1/report.md" || fail "learned facts are not collected into the run report"
 ! grep -rq "go-code" "$tmp/proj/.wt/app/"*/.swe/brief-*.md || fail "a build brief names a language skill the role does not enable"
@@ -154,11 +155,17 @@ grep -q '"cli": "claude"' "$SWE_TMP/swe/ft/r2/run.json" && grep -q '"tier": "low
 pass "flow docs: the documenter runs on the low tier (haiku, no effort flag); its reviewer is the other family"
 
 # 4. the manager merges (a branch that is behind gets the reviewer to update it), then cleans: nothing is left
-touch "$FAKE_STATE/behind-2"
+touch "$FAKE_STATE/behind-2" "$FAKE_STATE/nolog-1"
+"$fleet" flow merge ft r1 --approved >"$tmp/nolog.txt" 2>&1 && fail "a PR without a changelog entry was merged"
+grep -q "CHANGELOG.md is missing" "$tmp/nolog.txt" && grep -q "flow run ft changelog" "$tmp/nolog.txt" || { cat "$tmp/nolog.txt"; fail "missing changelog not reported"; }
+rm -f "$FAKE_STATE/nolog-1"
 "$fleet" flow merge ft r1 --approved >"$tmp/merge.txt" 2>&1 || { cat "$tmp/merge.txt"; fail "flow merge"; }
 [ "$(grep -c '^MERGED pr merge' "$FAKE_STATE/gh.log")" = 2 ] || { cat "$FAKE_STATE/gh.log"; fail "both PRs were not merged"; }
-grep -q "the reviewer updates the branch" "$tmp/merge.txt" || fail "a behind branch was not handed to the reviewer"
+grep -q "the reviewer updates the branch" "$tmp/nolog.txt" || fail "a behind branch was not handed to the reviewer"
 "$fleet" flow merge ft r2 --approved >/dev/null 2>&1 || fail "merge r2"
+log="$tmp/proj/changelog/project.md"
+[ -f "$log" ] && [ "$(grep -c 'feat: \|`app` feat' "$log")" -ge 3 ] && grep -q '^## 20' "$log" && [ -f "$tmp/proj/changelog/app.md" ] || { cat "$log" 2>&1; fail "merged PRs not recorded in changelog/"; }
+"$fleet" changelog show --project ft --repo app | grep -q "feat" || fail "changelog show"
 "$fleet" flow clean ft r1 >"$tmp/clean.txt" 2>&1 || { cat "$tmp/clean.txt"; fail "flow clean r1"; }
 "$fleet" flow clean ft r2 >"$tmp/clean.txt" 2>&1 || { cat "$tmp/clean.txt"; fail "flow clean r2"; }
 [ ! -e "$SWE_TMP/swe/ft/r1" ] && [ ! -e "$SWE_TMP/swe/ft/r2" ] || fail "tmp run directories remain"

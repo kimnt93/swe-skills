@@ -921,6 +921,22 @@ def merge_one(run: Run, entry: dict, approved: bool) -> tuple[bool, str]:
     return result.returncode == 0, (result.stdout + result.stderr).strip()
 
 
+def record_changelog(run: Run, entry: dict) -> None:
+    """After a merge: append the PR to the project's changelog/ (project.md and <repo>.md). Never blocks the merge."""
+    view = subprocess.run(["gh", "pr", "view", str(entry["pr"]), "--repo", entry["github"], "--json", "title,url"],
+                          capture_output=True, text=True)
+    try:
+        info = json.loads(view.stdout)
+    except ValueError:
+        info = {}
+    title = info.get("title") or entry.get("title") or f"PR {entry['pr']}"
+    command = [sys.executable, str(HERE / "main"), "changelog", "record", run.project, entry["repo"],
+               "--pr", str(entry["pr"]), "--title", title] + (["--url", info["url"]] if info.get("url") else [])
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        run.log(f"changelog record for #{entry['pr']} failed: {(result.stdout + result.stderr).strip()}")
+
+
 def update_branch(run: Run, entry: dict) -> bool:
     """The branch is behind main or conflicts: the reviewer agent brings it up to date, resolves, re-verifies, re-reviews."""
     wf = {"name": "update", "nodes": {"update": {"role": "reviewer", "workspace": "same", "card": entry["card"],
@@ -951,6 +967,9 @@ def cmd_merge(args: list[str]) -> int:
         if entry["pr"] in [m["pr"] for m in run.data["merged"]]:
             continue
         ok, text = merge_one(run, entry, approved)
+        if not ok and "CHANGELOG.md is missing" in text:
+            print(f"#{entry['pr']}: the PR has no change log entry; run: swe-cli flow run {run.project} changelog "
+                  f"--input pr={entry['pr']} --input repo={entry['github']}")
         if not ok and ("behind" in text or "dirty" in text):
             print(f"#{entry['pr']}: {text.splitlines()[0] if text else 'behind main'}; the reviewer updates the branch")
             if update_branch(run, entry):
@@ -960,6 +979,7 @@ def cmd_merge(args: list[str]) -> int:
         if ok:
             run.data["merged"].append({"pr": entry["pr"], "sha": entry["sha"]})
             run.save()
+            record_changelog(run, entry)
         else:
             code = 3
     if code == 0:

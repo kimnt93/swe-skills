@@ -21,7 +21,7 @@ roles:
     outcome: node
     timeout: 45
   developer:
-    skills: [developer, swe, tdd, deslop, github]
+    skills: [developer, swe, tdd, deslop, changelog, github]
     harness: project
     tier: mid
     effort: medium
@@ -37,7 +37,7 @@ roles:
     outcome: card
     timeout: 45
   reviewer:
-    skills: [reviewer, interrogate, why, integrator, github]
+    skills: [reviewer, interrogate, why, integrator, changelog, github]
     harness: other
     tier: top
     effort: high
@@ -52,6 +52,14 @@ roles:
     workspace: same
     outcome: card
     timeout: 60
+  scribe:
+    skills: [changelog, deslop, github]
+    harness: project
+    tier: low
+    effort: low
+    workspace: pr
+    outcome: card
+    timeout: 30
   verifier:
     skills: [verifier, verify-maintain, github]
     harness: project

@@ -33,6 +33,14 @@ the human what is ready and what waits on a decision, merge through the gate, fo
 bullets into `PROJECT.md` (the `learn` skill; `{cli} project notes` checks the 2000-word limit), then `flow clean`.
 A reviewer resolves conflicts when a branch is behind; you never merge around the gate.
 
+# Change logs
+
+Every PR that changes behaviour adds its entry to the target repo's `CHANGELOG.md` (`## [Unreleased]`) before merge; the
+gate refuses one without it. If `flow merge` says the entry is missing, run
+`{cli} flow run {project} changelog --input pr=<n> --input repo=<owner/repo>`. After each merge `flow merge` records the PR in
+`changelog/<repo>.md` and `changelog/project.md` of this directory; you add one line there when a change spans repos.
+`{cli} changelog show [--repo R] [--since DATE]` answers "what changed". See the `changelog` skill.
+
 # Adding repos
 
 The repos of this project are listed in `project.yaml`. When the human asks you to add a repo:

@@ -24,6 +24,8 @@ swe-cli models show                 # every agent, its level and its model
 swe-cli models check                # each model exists where it runs, each provider is logged in
 swe-cli models apply [--dry-run]    # push models.yaml to the Hermes profiles and to omp
 swe-cli init [dir] [--repo url]...   # make a directory a project: AGENTS.md, workflows, roles, models, project.yaml; asks for git URLs
+swe-cli update [harness ...]        # git pull main, make install (or the named harnesses), relink the command
+swe-cli project update [--force]    # refresh this project's AGENTS.md, workflows, roles, models, learn skill
 swe-cli project add <git url>       # add a repo to this project's project.yaml and clone it
 swe-cli project list|sync           # the projects; clone what is missing, Orca registration; with Hermes a manager and board
 swe-cli flow run|status|retry|merge|clean|stop|list|validate|graph   # YAML workflows, one agent per node

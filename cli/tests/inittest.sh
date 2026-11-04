@@ -33,7 +33,7 @@ grep -q "remote-api-server" project.yaml || fail "repo not listed in project.yam
 python3 -c "print('word ' * 2100)" >>PROJECT.md
 "$cli" project notes >/dev/null 2>&1 && fail "an over-long PROJECT.md must fail project notes"
 # an existing directory with files in it becomes a project too, files kept
-mkdir "$tmp/old" && echo keep >"$tmp/old/README.md" && (cd "$tmp/old" && "$cli" init --name old >/dev/null 2>&1 && grep -q keep README.md && [ -f PROJECT.md ]) || fail "init on an existing directory"
+mkdir "$tmp/old" && echo keep >"$tmp/old/README.md" && (cd "$tmp/old" && "$cli" init --name old >/dev/null 2>&1 && grep -q keep README.md && [ -f PROJECT.md ] && [ -f changelog/project.md ]) || fail "init on an existing directory"
 # works from a subdirectory and from anywhere via the registry
 mkdir -p sub/deep && (cd sub/deep && "$cli" project list | grep -q "^acme") || fail "discovery from a subdirectory"
 (cd / && "$cli" project list | grep -q "^acme") || fail "registry lookup from elsewhere"
@@ -43,3 +43,40 @@ mkdir -p sub/deep && (cd sub/deep && "$cli" project list | grep -q "^acme") || f
 sed -i 's/^description:.*/description: "local override"/' workflows/docs.yaml
 "$cli" flow list 2>&1 | grep -q "local override" || fail "project workflow does not override"
 echo "PASS init: project.yaml, AGENTS.md, workflows; repos cloned from URLs; found from subdirectories and via the registry"
+
+# ---- project update: untouched files are refreshed, edited files are kept with a .new, missing ones come back
+"$cli" project update >"$tmp/up.txt" 2>&1 || { cat "$tmp/up.txt"; fail "project update"; }
+grep -q "0 updated, 0 added" "$tmp/up.txt" || { cat "$tmp/up.txt"; fail "a fresh project must be current"; }
+rm workflows/bugfix.yaml
+echo "# my rule" >>AGENTS.md
+python3 - <<'PY'
+import hashlib, json, pathlib
+shipped = json.load(open(".swe/shipped.json"))
+old = pathlib.Path("roles.yaml").read_text() + "# older shipped version\n"
+pathlib.Path("roles.yaml").write_text(old)
+shipped["roles.yaml"] = hashlib.sha256(old.encode()).hexdigest()
+json.dump(shipped, open(".swe/shipped.json", "w"))
+PY
+"$cli" project update >"$tmp/up.txt" 2>&1 || { cat "$tmp/up.txt"; fail "project update 2"; }
+[ -f workflows/bugfix.yaml ] || fail "deleted workflow not restored"
+grep -q "my rule" AGENTS.md && [ -f AGENTS.md.new ] || fail "edited AGENTS.md must be kept with a .new"
+! grep -q "older shipped version" roles.yaml || fail "unedited roles.yaml not refreshed"
+grep -q "1 updated, 1 added" "$tmp/up.txt" && grep -q "2 kept" "$tmp/up.txt" || { cat "$tmp/up.txt"; fail "update summary"; }
+"$cli" project update --force >/dev/null 2>&1; [ -f AGENTS.md.bak ] && ! grep -q "my rule" AGENTS.md || fail "--force replaces after a backup"
+echo "PASS project update: refreshes what you did not edit, keeps what you edited (.new), restores what is missing, --force with .bak"
+
+# ---- swe-cli update: pulls main, rebuilds, reinstalls, relinks (a stand-in repo with a Makefile)
+git init -q --bare "$tmp/upstream.git"
+git clone -q "$tmp/upstream.git" "$tmp/plugin" 2>/dev/null
+printf 'install:\n\t@echo installed >>installs.log\ncli:\n\t@echo linked >>installs.log\nclaude:\n\t@echo only-claude >>installs.log\n' >"$tmp/plugin/Makefile"
+echo ".gitignore" >/dev/null; printf 'installs.log\n' >"$tmp/plugin/.gitignore"
+git -C "$tmp/plugin" add -A; git -C "$tmp/plugin" commit -qm one; git -C "$tmp/plugin" push -q origin HEAD:main 2>/dev/null
+git -C "$tmp/plugin" branch -M main; git -C "$tmp/plugin" branch -u origin/main -q
+git clone -q "$tmp/upstream.git" "$tmp/other" 2>/dev/null; echo two >"$tmp/other/NEWS"; git -C "$tmp/other" add -A; git -C "$tmp/other" commit -qm two; git -C "$tmp/other" push -q origin HEAD:main
+SWE_REPO="$tmp/plugin" "$cli" update >"$tmp/upd.txt" 2>&1 || { cat "$tmp/upd.txt"; fail "swe-cli update"; }
+[ -f "$tmp/plugin/NEWS" ] || fail "update did not pull main"
+grep -q installed "$tmp/plugin/installs.log" && grep -q linked "$tmp/plugin/installs.log" || fail "update did not reinstall and relink"
+SWE_REPO="$tmp/plugin" "$cli" update claude >/dev/null 2>&1; grep -q only-claude "$tmp/plugin/installs.log" || fail "update <harness> installs only that one"
+echo dirty >"$tmp/plugin/Makefile.local"; git -C "$tmp/plugin" add Makefile.local
+SWE_REPO="$tmp/plugin" "$cli" update >/dev/null 2>&1 && fail "update must refuse a dirty checkout"
+echo "PASS update: pulls main (fast-forward only), rebuilds and reinstalls into the detected (or named) harnesses, relinks, refuses a dirty or non-main checkout"
