@@ -1,0 +1,36 @@
+[project]
+name = "dag-orders"
+version = "0.1.0"
+description = "Dagster project: daily orders assets, checks, schedule, metrics."
+requires-python = ">=3.11"
+dependencies = [
+    "dagster>=1.10,<2",
+    "dagster-webserver>=1.10,<2",
+    "dagster-postgres>=0.26",
+    "polars>=1.0",
+    "psycopg[binary]>=3.2",
+    "opentelemetry-sdk>=1.30",
+    "opentelemetry-exporter-otlp-proto-http>=1.30",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.8"]
+
+[tool.dagster]
+module_name = "dag.definitions"
+code_location_name = "orders"
+
+[tool.ruff]
+line-length = 79
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore:.*get_event_records.*:DeprecationWarning",
+    "ignore:Use fetch_.*:UserWarning",
+]

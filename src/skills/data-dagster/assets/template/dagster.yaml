@@ -1,0 +1,20 @@
+# Run, event and schedule storage in PostgreSQL (a separate database from the
+# data). Credentials come from the environment (Swarm: *_FILE secrets are read
+# into the environment by the entrypoint).
+storage:
+  postgres:
+    postgres_db:
+      username: {env: DAGSTER_PG_USER}
+      password: {env: DAGSTER_PG_PASSWORD}
+      hostname: {env: DAGSTER_PG_HOST}
+      db_name: {env: DAGSTER_PG_DB}
+      port: 5432
+
+run_coordinator:
+  module: dagster.core.run_coordinator
+  class: QueuedRunCoordinator
+  config:
+    max_concurrent_runs: 4
+
+telemetry:
+  enabled: false

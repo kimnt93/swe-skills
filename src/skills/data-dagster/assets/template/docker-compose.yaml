@@ -1,0 +1,29 @@
+# Local stack: webserver + daemon + Dagster's own PostgreSQL. Production uses
+# the deployment-setup skill's Swarm file with the same two services.
+services:
+  dagster-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: dagster
+      POSTGRES_USER: dagster
+      POSTGRES_PASSWORD: dagster-local
+  webserver:
+    build: .
+    command: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000", "-w", "workspace.yaml"]
+    env_file: .env
+    environment:
+      DAGSTER_PG_HOST: dagster-db
+      DAGSTER_PG_PASSWORD: dagster-local
+    ports: ["3000:3000"]
+    depends_on: [dagster-db]
+  daemon:
+    build: .
+    command: ["dagster-daemon", "run", "-w", "workspace.yaml"]
+    env_file: .env
+    environment:
+      DAGSTER_PG_HOST: dagster-db
+      DAGSTER_PG_PASSWORD: dagster-local
+    volumes: ["output:/var/lib/dagster-output"]
+    depends_on: [dagster-db]
+volumes:
+  output: {}
