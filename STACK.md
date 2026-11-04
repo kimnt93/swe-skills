@@ -19,7 +19,7 @@ Router rule: Go unless the task is ML or data (Python) or a measured hot path (R
 | Concern | Choice | Notes |
 |---|---|---|
 | Database | **PostgreSQL** | raw SQL by default (go-pg v10, psycopg 3, tokio-postgres); multi-line SQL, bounded lists |
-| ORM | **go-pg v10** (Go only) | only when asked or already present (`db-orm`); Python and Rust stay on raw SQL |
+| ORM | **GORM** (Go), **SQLAlchemy 2** (Python) | only when asked or already present (`db-orm`); both run on PostgreSQL, MySQL, SQLite; Rust stays on raw SQL |
 | Migrations | **goose** SQL files, run by a one-shot job | `db-migrations`; expand and contract for risky changes |
 | Cache | **Redis** (go-redis v9, redis-py, redis-rs) | |
 | Streaming | **Kafka** (confluent-kafka-go v2, confluent-kafka, rdkafka) | idempotent consumers (`principles`) |
@@ -33,7 +33,7 @@ Router rule: Go unless the task is ML or data (Python) or a measured hot path (R
 |---|---|---|
 | Realtime pipelines | **Pathway**: Kafka in, windows and joins, Kafka or database out | `data-pathway` |
 | Batch and scheduled pipelines | **Dagster** assets, partitions, asset checks, schedules | `data-dagster` |
-| Pipeline metrics | one OTel set, `stream_pipeline_*` for streams and `dagster_*` for jobs | `data-realtime-metrics` |
+| Pipeline metrics | an OTel contract per framework: `stream_pipeline_*` (Pathway), `dagster_*` (Dagster), each with its timeframes | `data-pathway`, `data-dagster` |
 | Dashboards | Grafana JSON checked against the metrics the code emits | `data-pathway`, `data-dagster` |
 
 ## Platform
@@ -52,7 +52,7 @@ Router rule: Go unless the task is ML or data (Python) or a measured hot path (R
 |---|---|---|
 | Logs | structured JSON (zerolog, jlogger, pino, tracing) to **Loki** | `service-logging` |
 | Traces | **OpenTelemetry** (OTLP), service graph first | `service-tracing` |
-| Metrics | OTel to **Mimir** / Prometheus, **Grafana** | `data-realtime-metrics` |
+| Metrics | OTel to **Mimir** / Prometheus, **Grafana** (pipeline metrics only for Pathway and Dagster) | `data-pathway`, `data-dagster` |
 | Errors | **Sentry** or **GlitchTip** through the DSN, nothing private sent | `service-errors` |
 
 ## Quality
@@ -68,7 +68,7 @@ Router rule: Go unless the task is ML or data (Python) or a measured hot path (R
 
 | Concern | Choice |
 |---|---|
-| Harnesses | Claude Code, Codex, oh-my-pi as plugins; 50+ more as plain skills (`make harness`) |
+| Harnesses | Claude Code, Codex, oh-my-pi as plugins; 52 more as plain skills (`make harness`) |
 | Project runner | `swe-cli`: YAML workflows, one agent per node, tmux or Orca, one git worktree per card |
 | Roles | manager, planner, developer, reviewer, documenter, intake, integrator, ci-fixer, verifier, scribe |
 | Model tiers | top for review and design, mid for building, low for docs and changelog (`models.yaml`) |

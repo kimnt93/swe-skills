@@ -30,7 +30,7 @@ grep -q 'PUBLIC_DOMAIN=acme.test' dist/qa/skills/deployment-setup/assets/templat
 ! grep -rqE '@(PLUGIN|DOMAIN|OWNER|HOMEPAGE|SKILL_INDEX)@' dist/qa || fail "placeholder left"
 pass "build: default 'swe', and PLUGIN_NAME=qa PLUGIN_DOMAIN=acme.test, both valid"
 
-# 1b. subagents: rendered, with the model cli/models.yaml gives their tier
+# 1b. subagents: rendered, with the model models.yaml gives their tier
 grep -q '^model: sonnet$' dist/qa/agents/worker.md || fail "worker model from models.yaml"
 grep -q '^model: opus$' dist/qa/agents/adversary.md || fail "adversary model from models.yaml"
 grep -q 'qa' dist/qa/agents/adversary.md || fail "adversary not rendered"
