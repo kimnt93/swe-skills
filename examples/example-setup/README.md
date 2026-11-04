@@ -1,7 +1,7 @@
 # example-setup
 
 What `swe-cli project create example-setup` + `swe-cli project example-setup add <jlogger url>` leave on disk, with the
-notes and agents filled in. The upstream clone `jlogger/` is made by the command and not committed (see `.gitignore`).
+notes and agents filled in. The upstream `jlogger/` is tracked here as a git submodule (`git clone --recurse-submodules`, or `git submodule update --init`); `project add` makes the same clone.
 
 ```text
 example-setup/
@@ -13,7 +13,7 @@ example-setup/
   workflows/       feature, bugfix, docs, card, ci-fix, conflict, changelog, verify (YAML DAGs)
   skills/learn/    the project's own skill for folding run lessons into PROJECT.md
   changelog/       project.md: every merged PR of every repo
-  jlogger/         the upstream clone (made by `project add`)
+  jlogger/         the upstream repo (git submodule; `project add` makes the same clone)
 ```
 
 Rebuild it: `bash examples/example-setup/setup.sh ~/Documents/me`.

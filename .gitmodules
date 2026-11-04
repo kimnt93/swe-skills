@@ -1,0 +1,3 @@
+[submodule "examples/example-setup/jlogger"]
+	path = examples/example-setup/jlogger
+	url = https://github.com/kimnt93/jlogger
