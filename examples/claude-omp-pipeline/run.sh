@@ -14,6 +14,6 @@ cp "$here/models.yaml" "$name/models.yaml"                         # 3. agents: 
 cd "$name"
 swe-cli models check                                               # 4. models exist, logins work
 swe-cli flow validate "$name"                                      # 5. the workflows are sound
-swe-cli flow graph "$name" docs                                    # 6. the DAG that will run
+swe-cli flow graph docs "$name"                                    # 6. the DAG that will run
 swe-cli flow run "$name" docs --goal "Add a short 'Quick start' section to the repo's README"   # 7. plan, write, review
 swe-cli flow status "$name"

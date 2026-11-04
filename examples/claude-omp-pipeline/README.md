@@ -25,7 +25,7 @@ swe-cli project demo add <git url>          # clone the repo into ./demo/<repo>;
 cp models.yaml demo/models.yaml             # claude builds, omp reviews
 swe-cli models check                        # models exist, logins work
 swe-cli flow validate demo                  # workflows are sound
-swe-cli flow graph demo docs                # plan -> cards (write -> check -> review) -> report
+swe-cli flow graph docs demo                # plan -> cards (write -> check -> review) -> report
 swe-cli flow run demo docs --goal "..."     # one agent per node, each in its own worktree
 ```
 
