@@ -1,20 +1,16 @@
-// Package ormstore is the optional bun ORM adapter. Use it only when the project asks for an ORM
-// or already has one; the default adapter is raw SQL (go-code/references/postgres.md).
+// Package ormstore is the optional go-pg ORM adapter. Use it only when the project asks for the
+// ORM or already has one; the default adapter is raw SQL (go-code/references/postgres.md).
 package ormstore
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"net"
-	"net/url"
 	"strconv"
 	"time"
 
-	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/pgdialect"
-	"github.com/uptrace/bun/driver/pgdriver"
+	"github.com/go-pg/pg/v10"
 )
 
 // ErrNotFound is returned when a row does not exist.
@@ -27,17 +23,17 @@ type Postgres struct {
 	Database string
 	User     string
 	Password string
-	SSLMode  string
+	PoolSize int
 }
 
-// itemModel maps the items table. Plain value fields: no pointers, no nullzero or omitempty, so a
-// zero value is written as a value.
+// itemModel maps the items table. Plain value fields: no pointers, no omitempty, and use_zero on
+// every written column, so a Go zero value is stored as a value and never as NULL.
 type itemModel struct {
-	bun.BaseModel `bun:"table:items,alias:i"`
+	tableName struct{} `pg:"items,alias:i"`
 
-	ID        string    `bun:"id,pk,type:uuid"`
-	Name      string    `bun:"name,notnull"`
-	CreatedAt time.Time `bun:"created_at,notnull"`
+	ID        string    `pg:"id,pk,type:uuid,use_zero"`
+	Name      string    `pg:"name,use_zero"`
+	CreatedAt time.Time `pg:"created_at,use_zero"`
 }
 
 // Item is the domain view of a row.
@@ -47,24 +43,20 @@ type Item struct {
 	CreatedAt time.Time
 }
 
-// Store is the bun adapter.
+// Store is the go-pg ORM adapter.
 type Store struct {
-	db *bun.DB
+	db *pg.DB
 }
 
-// Open connects with the pgdriver and wraps the pool in bun.
+// Open builds the pool; connections are made on first use.
 func Open(c Postgres) *Store {
-	dsn := url.URL{
-		Scheme:   "postgres",
-		User:     url.UserPassword(c.User, c.Password),
-		Host:     net.JoinHostPort(c.Host, strconv.Itoa(c.Port)),
-		Path:     c.Database,
-		RawQuery: "sslmode=" + c.SSLMode,
-	}
-
-	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn.String())))
-
-	return &Store{db: bun.NewDB(sqldb, pgdialect.New())}
+	return &Store{db: pg.Connect(&pg.Options{
+		Addr:     net.JoinHostPort(c.Host, strconv.Itoa(c.Port)),
+		User:     c.User,
+		Password: c.Password,
+		Database: c.Database,
+		PoolSize: c.PoolSize,
+	})}
 }
 
 // Close closes the pool.
@@ -72,11 +64,16 @@ func (s *Store) Close() error {
 	return s.db.Close()
 }
 
+// Ping is the postgres check of /healthz.
+func (s *Store) Ping(ctx context.Context) error {
+	return s.db.Ping(ctx)
+}
+
 // Create inserts one item.
 func (s *Store) Create(ctx context.Context, it Item) error {
 	row := rowOf(it)
 
-	_, err := s.db.NewInsert().Model(&row).Exec(ctx)
+	_, err := s.db.ModelContext(ctx, &row).Insert()
 
 	return err
 }
@@ -85,8 +82,8 @@ func (s *Store) Create(ctx context.Context, it Item) error {
 func (s *Store) Get(ctx context.Context, id string) (Item, error) {
 	var row itemModel
 
-	err := s.db.NewSelect().Model(&row).Where("i.id = ?", id).Scan(ctx)
-	if errors.Is(err, sql.ErrNoRows) {
+	err := s.db.ModelContext(ctx, &row).Where("i.id = ?", id).Select()
+	if errors.Is(err, pg.ErrNoRows) {
 		return Item{}, ErrNotFound
 	}
 	if err != nil {
@@ -100,12 +97,11 @@ func (s *Store) Get(ctx context.Context, id string) (Item, error) {
 func (s *Store) ListByIDs(ctx context.Context, ids []string) ([]Item, error) {
 	var rows []itemModel
 
-	err := s.db.NewSelect().
-		Model(&rows).
-		Where("i.id IN (?)", bun.List(ids)).
-		OrderExpr("i.created_at DESC").
+	err := s.db.ModelContext(ctx, &rows).
+		Where("i.id IN (?)", pg.In(ids)).
+		Order("i.created_at DESC").
 		Limit(500).
-		Scan(ctx)
+		Select()
 	if err != nil {
 		return nil, fmt.Errorf("list items: %w", err)
 	}
@@ -122,11 +118,10 @@ func (s *Store) ListByIDs(ctx context.Context, ids []string) ([]Item, error) {
 func (s *Store) Upsert(ctx context.Context, it Item) error {
 	row := rowOf(it)
 
-	_, err := s.db.NewInsert().
-		Model(&row).
-		On("CONFLICT (id) DO UPDATE").
+	_, err := s.db.ModelContext(ctx, &row).
+		OnConflict("(id) DO UPDATE").
 		Set("name = EXCLUDED.name").
-		Exec(ctx)
+		Insert()
 
 	return err
 }
@@ -135,19 +130,18 @@ func (s *Store) Upsert(ctx context.Context, it Item) error {
 func (s *Store) RenameAll(ctx context.Context, from, to string) (int64, error) {
 	var affected int64
 
-	err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		res, err := tx.NewUpdate().
-			Model((*itemModel)(nil)).
+	err := s.db.RunInTransaction(ctx, func(tx *pg.Tx) error {
+		res, err := tx.ModelContext(ctx, (*itemModel)(nil)).
 			Set("name = ?", to).
 			Where("name = ?", from).
-			Exec(ctx)
+			Update()
 		if err != nil {
 			return fmt.Errorf("rename items: %w", err)
 		}
 
-		affected, err = res.RowsAffected()
+		affected = int64(res.RowsAffected())
 
-		return err
+		return nil
 	})
 
 	return affected, err
@@ -162,7 +156,7 @@ WHERE name = ?
 `
 	var count int
 
-	err := s.db.NewRaw(query, name).Scan(ctx, &count)
+	_, err := s.db.WithContext(ctx).QueryOne(pg.Scan(&count), query, name)
 
 	return count, err
 }

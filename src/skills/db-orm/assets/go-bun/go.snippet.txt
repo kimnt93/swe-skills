@@ -1,3 +1,0 @@
-go get github.com/uptrace/bun@latest
-go get github.com/uptrace/bun/dialect/pgdialect@latest
-go get github.com/uptrace/bun/driver/pgdriver@latest

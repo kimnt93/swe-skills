@@ -13,16 +13,21 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestRoundTrip(t *testing.T) {
+func openFromEnv() *Store {
 	port, _ := strconv.Atoi(os.Getenv("POSTGRES_PORT"))
-	store := Open(Postgres{
+
+	return Open(Postgres{
 		Host:     os.Getenv("POSTGRES_HOST"),
 		Port:     port,
 		Database: os.Getenv("POSTGRES_DB"),
 		User:     os.Getenv("POSTGRES_USER"),
 		Password: os.Getenv("POSTGRES_PASSWORD"),
-		SSLMode:  "disable",
+		PoolSize: 5,
 	})
+}
+
+func TestRoundTrip(t *testing.T) {
+	store := openFromEnv()
 	defer store.Close()
 
 	ctx := context.Background()
