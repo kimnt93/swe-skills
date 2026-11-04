@@ -15,16 +15,20 @@ done
 unset SWE_PROJECTS SWE_WORKSPACE
 
 mkdir "$tmp/acme" && cd "$tmp/acme"
-# non-interactive: --repo
-"$cli" init --name acme --repo "$tmp/remote-api-server" >"$tmp/init.txt" 2>&1 || { cat "$tmp/init.txt"; fail "init"; }
+"$cli" project init --name acme >"$tmp/init.txt" 2>&1 || { cat "$tmp/init.txt"; fail "init"; }
 for f in AGENTS.md PROJECT.md skills/learn/SKILL.md project.yaml roles.yaml models.yaml workflows/feature.yaml workflows/card.yaml; do
     [ -e "$f" ] || fail "init did not write $f"
 done
 grep -q "^agents:" models.yaml && grep -q "developer-strong:" models.yaml && ! grep -qi "hermes\|kanban\|^board:\|^workers:\|tier" models.yaml || fail "models.yaml is the agents template (cli, model, reasoning per agent, no tiers, no Hermes)"
 grep -q "flow run acme feature" AGENTS.md || fail "AGENTS.md is not rendered for the project"
-grep -q "swe-cli project add" AGENTS.md || fail "AGENTS.md does not tell the manager how to add repos"
-[ -d remote-api-server/.git ] || fail "repo not cloned"
-grep -q "remote-api-server" project.yaml || fail "repo not listed in project.yaml"
+grep -q "project acme add" AGENTS.md || fail "AGENTS.md does not tell the manager how to add repos"
+grep -q "remote-api-server" project.yaml && fail "init must not add repos"
+"$cli" init --repo x >/dev/null 2>&1 && fail "init must not take --repo"
+"$cli" project acme add "$tmp/remote-api-server" >"$tmp/add0.txt" 2>&1 || { cat "$tmp/add0.txt"; fail "project <name> add"; }
+[ -d remote-api-server/.git ] && grep -q "remote-api-server" project.yaml || fail "named add did not clone and list the repo"
+(cd / && "$cli" project acme add "$tmp/remote-web-app" --name web2 --dir web2 >/dev/null 2>&1) && [ -d web2/.git ] || [ -d "$tmp/acme/web2/.git" ] || fail "named add from elsewhere"
+"$cli" project nope add x >/dev/null 2>&1 && fail "unknown project must fail"
+mkdir "$tmp/made" && (cd "$tmp/made" && "$cli" project create shop >/dev/null 2>&1 && [ -f shop/project.yaml ] && [ -f shop/AGENTS.md ]) || fail "project create"
 "$cli" project add "$tmp/remote-web-app" --name web >"$tmp/add.txt" 2>&1 || { cat "$tmp/add.txt"; fail "project add"; }
 [ -d remote-web-app/.git ] && grep -q "web:" project.yaml || fail "second repo"
 "$cli" project add "$tmp/remote-web-app" --name web | grep -q "already" || fail "adding the same repo twice must be a no-op"

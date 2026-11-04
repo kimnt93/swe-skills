@@ -59,7 +59,7 @@ PR → optional cross-family review → human merge. One card, then 3, then abou
 3. Pick exact ids with `omp models ls`; edit the project's `models.yaml` (`manager`, `launcher`, `agents`); then
    `swe-cli models check` reports only logins.
 4. `swe-cli bootstrap` (projects, model roles, context limits).
-5. **Add the pilot project:** `mkdir ~/work/<name> && cd ~/work/<name> && swe-cli init` and give it the pilot repo's git URL
+5. **Add the pilot project:** `swe-cli project create <name>` in ~/work, then `swe-cli project <name> add <git url>` with the pilot repo's git URL
    (it writes `AGENTS.md`, `PROJECT.md`, `skills/`, `workflows/`, `roles.yaml`, `models.yaml`, `project.yaml` and clones the repo;), then `swe-cli models check` = 0 problems. Start the orchestrator
    with `swe-cli orchestrate <name>` and ask it to adopt the repo (the `project` skill: `setup_repo.sh`, templates,
    `ARCHITECTURE.md`) and to fill `PROJECT.md`.

@@ -9,9 +9,11 @@ projects from the project directory's project.yaml (see init).
     swe-cli models set <agent> [--cli C] [--model M] [--reasoning R]   change an agent in models.yaml (the manager's way to pick harnesses)
     swe-cli models reviewer <cli>           the agent that reviews work written with <cli>
     swe-cli models subagent <name>          the Claude Code model for a plugin subagent (used by the build)
-    swe-cli init [dir] [--repo <git url>]...   make the directory a project: AGENTS.md (orchestrator), workflows/, roles.yaml,
-                                          models.yaml, project.yaml; asks for git URLs until you are done
-    swe-cli project add <git url|owner/repo> [--name N] [--dir sub]   add a repo to this project directory's project.yaml, clone it
+    swe-cli project init [dir] [--name N]   make the directory (default: here) a project: AGENTS.md (orchestrator), workflows/,
+                                          roles.yaml, models.yaml, project.yaml. Adds no repos. (`swe-cli init` is the same)
+    swe-cli project create <project>        make ./<project>/ and init it
+    swe-cli project <project> add <git url|owner/repo> [--name N] [--dir sub]   add a repo to that project, clone it
+    swe-cli project add <git url|owner/repo> [--name N] [--dir sub]   the same, for the project around the current directory
     swe-cli project update [--force]        refresh this project's AGENTS.md, workflows, roles, models, learn skill from the plugin;
                                           files you edited are kept (the new one is <file>.new)
     swe-cli update [harness ...] [--project] [--no-pull] [--dry-run]
@@ -865,16 +867,14 @@ def self_update(args: list[str], dry: bool) -> int:
 
 def init_workspace(args: list[str], dry: bool) -> int:
     """Make the current (or the given) directory a project: AGENTS.md for the manager, workflows, roles, models,
-    project.yaml; then ask for git URLs until the user is done. Repos can also be given with --repo."""
-    usage = "usage: swe-cli init [dir] [--name N] [--manager <agent>] [--repo <git url>]... [--yes] [--force]"
-    pos, urls, name, manager, force, yes = [], [], "", "", False, False
+    project.yaml. It adds no repos: use `swe-cli project <project> add <git url>` afterwards."""
+    usage = "usage: swe-cli project init [dir] [--name N] [--manager <agent>] [--force]"
+    pos, name, manager, force = [], "", "", False
     i = 0
     while i < len(args):
         a = args[i]
-        if a in ("--repo", "--name", "--manager") and i + 1 < len(args):
-            if a == "--repo":
-                urls.append(args[i + 1])
-            elif a == "--name":
+        if a in ("--name", "--manager") and i + 1 < len(args):
+            if a == "--name":
                 name = args[i + 1]
             else:
                 manager = args[i + 1]
@@ -882,8 +882,6 @@ def init_workspace(args: list[str], dry: bool) -> int:
             continue
         if a == "--force":
             force = True
-        elif a == "--yes":
-            yes = True
         elif a.startswith("--"):
             sys.exit(usage)
         else:
@@ -896,7 +894,7 @@ def init_workspace(args: list[str], dry: bool) -> int:
     if not NAME_RE.match(name):
         sys.exit(f"swe-cli: project name {name!r} must match {NAME_RE.pattern}; pass --name")
     if (root / "project.yaml").exists() and not force:
-        sys.exit(f"swe-cli: {root} is already a project (project.yaml exists); add repos with `swe-cli project add <url>`, or --force")
+        sys.exit(f"swe-cli: {root} is already a project (project.yaml exists); add repos with `swe-cli project {name} add <url>`, or --force")
     files = shipped_files(name, with_notes=True)
     if dry:
         print(f"would make {root} the project {name}: " + ", ".join(sorted(files)) + ", project.yaml")
@@ -916,21 +914,34 @@ def init_workspace(args: list[str], dry: bool) -> int:
     save_workspace(name, {"dir": str(root), "description": name, **({"manager": manager} if manager else {}), "repos": {}})
     register_workspace(name, root)
     print(f"project {name} at {root}")
-    for url in urls:
-        if add_repo_to_workspace(root, url):
-            return 1
-    if not urls and not yes and sys.stdin.isatty():
-        while True:
-            try:
-                url = input("Git URL of a repo to add (empty to finish): ").strip()
-            except EOFError:
-                break
-            if not url:
-                break
-            add_repo_to_workspace(root, url)
     plugin = plugin_name()
-    print(f"next: cd {root} && {plugin}-cli orchestrate {name}   (add repos any time: {plugin}-cli project add <git url>)")
+    print(f"next: cd {root} && {plugin}-cli orchestrate {name}   (add repos: {plugin}-cli project {name} add <git url>)")
     return 0
+
+
+def create_project(args: list[str], dry: bool) -> int:
+    """swe-cli project create <project>: a new directory <project> here, made a project."""
+    if not args or args[0].startswith("--"):
+        sys.exit("usage: swe-cli project create <project> [--manager <agent>] [--force]")
+    if not NAME_RE.match(args[0]):
+        sys.exit(f"swe-cli: project name {args[0]!r} must match {NAME_RE.pattern}")
+    return init_workspace([str(Path.cwd() / args[0]), "--name", args[0], *args[1:]], dry)
+
+
+def project_named_add(name: str, rest: list[str], dry: bool) -> int:
+    """swe-cli project <project> add <git url> [--name N] [--dir sub]: add a repo to a project by its name."""
+    known = registered_workspaces()
+    if name in known:
+        root = Path(known[name])
+    elif WORKSPACE and workspace_entry(WORKSPACE)[0] == name:
+        root = WORKSPACE
+    else:
+        sys.exit(f"swe-cli: no project named {name!r} (known: {', '.join(sorted(known)) or 'none'}); "
+                 f"make one with `swe-cli project create {name}`")
+    flags = dict(zip(rest[1::2], rest[2::2]))
+    if not rest or rest[0].startswith("--") or not set(flags) <= {"--name", "--dir"}:
+        sys.exit("usage: swe-cli project <project> add <git url|owner/repo> [--name N] [--dir subdir]")
+    return add_repo_to_workspace(root, rest[0], flags.get("--name", ""), flags.get("--dir", ""), dry)
 
 
 def project_notes(root: Path | None) -> int:
@@ -1138,8 +1149,13 @@ def main() -> int:
         return 0
     if command == "update":
         return self_update([a for a in rest if a != "--dry-run"], "--dry-run" in rest)
-    if command == "init":
-        return init_workspace([a for a in rest if a != "--dry-run"], "--dry-run" in rest)
+    if command == "init" or (command == "project" and rest[:1] == ["init"]):
+        tail = rest[1:] if command == "project" else rest
+        return init_workspace([a for a in tail if a != "--dry-run"], "--dry-run" in rest)
+    if command == "project" and rest[:1] == ["create"]:
+        return create_project([a for a in rest[1:] if a != "--dry-run"], "--dry-run" in rest)
+    if command == "project" and len(rest) >= 2 and rest[1] == "add" and rest[0] not in ("add", "list", "sync", "update", "notes"):
+        return project_named_add(rest[0], [a for a in rest[2:] if a != "--dry-run"], "--dry-run" in rest)
     if command in ("lane", "delegate", "orchestrate", "flow"):
         script = FLEET / "bin" / {"lane": "lane", "flow": "flow"}.get(command, "delegate")
         os.execv(str(script), [str(script), *(["orchestrate"] if command == "orchestrate" else []), *rest])

@@ -56,7 +56,7 @@ orchestrator   → swe-cli merge 41 --approved --sha <sha> → squash-merged; sw
 
 ### Repositories and worktrees
 
-- A **project is a directory** (`swe-cli init`; its `project.yaml` lists `repos:`) that holds one or more **central clones**
+- A **project is a directory** (`swe-cli project create`; its `project.yaml` lists `repos:`) that holds one or more **central clones**
   (`swe-cli project add <git url>` records and clones one). Each stays on `main`, clean, and nobody edits it.
 - **Projects may share a repo.** Two projects can clone the same GitHub repo into their own directories. The
   duplicate is resolved in branches, not by forbidding it: the overlap check also covers every open card of any

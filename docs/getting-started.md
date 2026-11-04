@@ -62,9 +62,9 @@ Only once step 4 works well on one repo by hand. A project is a directory holdin
 ```bash
 make cli                                 # links swe-cli into ~/.local/bin
 bash cli/tests/selftest.sh               # proves the cli against fake CLIs, a scratch repo and a fake Orca
-mkdir orders && cd orders
-swe-cli init                             # writes AGENTS.md, workflows/, roles.yaml, models.yaml, project.yaml;
-                                         # asks for git URLs until you press Enter on an empty line
+swe-cli project create orders            # ./orders/ with AGENTS.md, workflows/, roles.yaml, models.yaml, project.yaml
+swe-cli project orders add <git url>     # add each repo; clones it into ./orders
+cd orders
 swe-cli update                           # later: pull main, reinstall everywhere
 swe-cli project update                   # later: refresh this project's workflows and AGENTS.md
 swe-cli doctor orders                    # git credentials, CLIs, tmux or Orca, the clones
@@ -72,7 +72,7 @@ swe-cli orchestrate orders               # start the manager agent (default clau
 ```
 
 Then tell the manager what you want; it runs a workflow (`feature`, `bugfix`, `docs`, ...), reads the report,
-merges and cleans. Add a repo any time: `swe-cli project add <git url>`, or ask the manager.
+merges and cleans. Add a repo any time: `swe-cli project <project> add <git url>`, or ask the manager.
 
 ## Troubleshooting
 

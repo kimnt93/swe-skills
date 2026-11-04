@@ -53,7 +53,7 @@ gate refuses one without it. If `flow merge` says the entry is missing, run
 The repos of this project are listed in `project.yaml`. When the human asks you to add a repo:
 
 ```
-{cli} project add <git url or owner/repo> [--name <short name>] [--dir <folder>]
+{cli} project {project} add <git url or owner/repo> [--name <short name>] [--dir <folder>]
 ```
 
 It records the repo in `project.yaml` and clones it into this directory. Never edit the clones by hand to

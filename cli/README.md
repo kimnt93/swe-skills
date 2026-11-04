@@ -29,10 +29,11 @@ swe-cli models show                 # every agent: its cli, model and reasoning
 swe-cli models set <agent> --cli C --model M --reasoning R   # change one agent (comments in the file stay)
 swe-cli models check                # each model exists where it runs, each provider is logged in
 swe-cli models apply [--dry-run]    # write omp's model roles
-swe-cli init [dir] [--repo url]...   # make a directory a project: AGENTS.md, workflows, roles, models, project.yaml; asks for git URLs
+swe-cli project init [dir]         # make a directory (default: here) a project: AGENTS.md, workflows, roles, models, project.yaml
+swe-cli project create <project>   # make ./<project>/ and init it
+swe-cli project <project> add <git url>   # add a repo to that project and clone it (no repos on init)
 swe-cli update [harness ...]        # git pull main, make install (or the named harnesses), relink the command
 swe-cli project update [--force]    # refresh this project's AGENTS.md, workflows, roles, models, learn skill
-swe-cli project add <git url>       # add a repo to this project's project.yaml and clone it
 swe-cli project list|sync           # the projects; clone what is missing, Orca registration
 swe-cli flow run|status|retry|merge|clean|stop|list|validate|graph   # YAML workflows, one agent per node
 swe-cli orchestrate <project>       # start the project's manager (any CLI) in its directory

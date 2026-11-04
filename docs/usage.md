@@ -69,7 +69,7 @@ code, only the files the task allows, and the project's `ARCHITECTURE.md` respec
 
 ## With a project of agents (unattended)
 
-A project is a directory. In it, `swe-cli init` writes `AGENTS.md` (the manager's instructions), the
+A project is a directory. In it, `swe-cli project init` writes `AGENTS.md` (the manager's instructions), the
 workflows, `roles.yaml`, `models.yaml` and `project.yaml`, and asks for git URLs until you are done. You talk to
 the **manager**, any CLI agent started with `swe-cli orchestrate <project>` (or just `claude`, `codex`, `omp`, `opencode` in that
 directory). A question (`/swe:how ...`) it answers itself; work that matches a workflow it runs as a DAG; every node is one agent; every node is one agent; the **gate** merges. See [workflows.md](workflows.md).
@@ -85,8 +85,9 @@ you → manager: "add github.com/acme/billing-api to this project"     (it runs 
 Your commands:
 
 ```bash
-swe-cli init [dir] [--repo <git url>]...   # make a directory a project, add repos
-swe-cli project add <git url>              # another repo in this project (project.yaml + clone)
+swe-cli project init [dir]                 # make a directory a project (no repos)
+swe-cli project create <project>           # ./<project>/ made a project
+swe-cli project <project> add <git url>    # a repo in that project (project.yaml + clone)
 swe-cli orchestrate <name>                 # start the project's manager (any CLI) in its directory
 swe-cli flow run|status|retry|merge|clean|stop ...   # what the manager runs; you can too
 swe-cli models show | check | apply        # who runs on which model

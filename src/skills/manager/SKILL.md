@@ -108,9 +108,10 @@ its worktrees until then. Nothing of a finished run stays on the machine.
 ## Projects and repos
 
 This directory is the project (`project.yaml` lists its repos and their folders). To add a repo the human
-names: `swe-cli project add <git url|owner/repo> [--name N] [--dir folder]`; it updates `project.yaml` and
-clones. Never edit `project.yaml` or the clones by hand for this. A new project is a new directory:
-`swe-cli init <dir>`.
+names: `swe-cli project <project> add <git url|owner/repo> [--name N] [--dir folder]` (`<project>` is this project's
+name; `swe-cli project list` shows it); it updates `project.yaml` and clones. Never edit `project.yaml` or the clones by
+hand for this. A new project is a new directory: `swe-cli project create <project>` makes `./<project>/`, or
+`swe-cli project init` makes the current directory a project; neither adds repos.
 
 ## Failures
 

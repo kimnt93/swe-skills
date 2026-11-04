@@ -7,7 +7,7 @@ do a node's work.
 
 ## A project directory
 
-`swe-cli init` makes a directory a project:
+`swe-cli project init` (here) or `swe-cli project create <name>` (a new directory) makes a project:
 
 ```
 orders/
@@ -25,7 +25,7 @@ orders/
 The command finds the project from the current directory upward (`project.yaml`), or by name from anywhere
 (`~/.swe/workspaces.yaml`, written by `init`).
 
-`swe-cli init <new dir>` creates the directory with these files; `swe-cli init` inside an existing directory adds
+`swe-cli project create <name>` creates the directory with these files; `swe-cli project init` inside an existing directory adds
 them and keeps what is there. `swe-cli project notes` checks `PROJECT.md` against the 2000-word limit.
 
 ## Updating

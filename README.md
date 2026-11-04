@@ -41,7 +41,8 @@ make cli                # link the swe-cli command into ~/.local/bin
 
 ```bash
 mkdir orders && cd orders
-swe-cli init                  # AGENTS.md, PROJECT.md, models.yaml (agents: cli, model, reasoning), roles.yaml, workflows/; asks for git URLs and clones them
+swe-cli project create orders # ./orders/ with AGENTS.md, models.yaml (agents: cli, model, reasoning), roles.yaml, workflows/
+cd orders && swe-cli project orders add <git url>   # add repos one at a time; `swe-cli project init` makes the current directory a project
 swe-cli orchestrate orders    # start the manager (any harness) in this directory, then ask it for work
 swe-cli update                # later: pull main, reinstall everywhere; `swe-cli project update` refreshes this project
 ```

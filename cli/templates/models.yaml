@@ -1,5 +1,5 @@
 # models.yaml: the ONE place that says which agent runs what. It lives in the project directory
-# (`swe-cli init` copies it there; edit it freely). An agent is three things: the harness (cli), the model and the
+# (`swe-cli project init` copies it there; edit it freely). An agent is three things: the harness (cli), the model and the
 # reasoning level. Roles (roles.yaml) and workflow nodes name an agent, never a model.
 #
 #   swe-cli models show                          who runs what

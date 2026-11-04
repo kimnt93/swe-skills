@@ -6,7 +6,7 @@ Read this file fully, then `docs/README.md` (and `docs/runbooks.md` for operatio
 
 The source of a software-engineering plugin. `scripts/build.py` renders it into
 `dist/<PLUGIN_NAME>/` (default name `swe`): a complete plugin for Claude Code, Codex and omp, and
-plain skills for every other harness. `cli/` is the `<name>-cli` command (`swe-cli`): `swe-cli init` makes a directory a project (AGENTS.md as the orchestrator, `workflows/*.yaml`, `roles.yaml`, `project.yaml` listing the repo clones); the orchestrator is any CLI agent that runs YAML workflows (`cli/bin/flow`), one agent per node, in worktrees (tmux or Orca); every agent and model is set in the project's `models.yaml`.
+plain skills for every other harness. `cli/` is the `<name>-cli` command (`swe-cli`): `swe-cli project init` (here) or `swe-cli project create <name>` (a new directory) makes a project (AGENTS.md as the orchestrator, `workflows/*.yaml`, `roles.yaml`, `project.yaml` listing the repo clones); the orchestrator is any CLI agent that runs YAML workflows (`cli/bin/flow`), one agent per node, in worktrees (tmux or Orca); every agent and model is set in the project's `models.yaml`.
 
 ## Rules
 
