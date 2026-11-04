@@ -2,7 +2,7 @@
 
 Two outputs from one input: every valid order, cleaned (`topic_out`), and a
 per-symbol tumbling-window aggregate (`topic_out` + ".agg"). Metrics follow
-the shared stream_pipeline_* contract (data-realtime-metrics skill).
+the shared stream_pipeline_* contract (data-pathway skill, references/metric-contract.md).
 """
 
 from __future__ import annotations

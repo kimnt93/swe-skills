@@ -1,21 +1,7 @@
 # Dagster metrics and dashboard
 
-Dagster has no metrics endpoint. `assets/template/src/dag/metrics.py` runs a sensor (`metrics_sensor`, every 30 s, in the
-daemon) that reads the instance event log after a stored cursor and exports over OTLP/HTTP like every other service
-(`OTEL_EXPORTER_OTLP_ENDPOINT`, optional bearer token; an empty endpoint makes it a no-op).
-
-| Metric | Type | Labels | Meaning |
-|---|---|---|---|
-| `dagster_runs_total` | counter | `job`, `status` (`success`/`failure`/`canceled`) | finished runs |
-| `dagster_run_duration_seconds` | histogram | `job` | wall time of successful runs |
-| `dagster_asset_materializations_total` | counter | `asset` | materialisations recorded |
-| `dagster_asset_check_failures_total` | counter | `asset` | checks that did not pass |
-| `dagster_asset_last_success_timestamp_seconds` | gauge | `asset` | newest materialisation (freshness) |
-| `dagster_metrics_sensor_last_tick_timestamp_seconds` | gauge | none | heartbeat of the sensor itself |
-
-Rules: labels are job and asset names (bounded by code); never partition keys, run ids or error text. The freshness gauge is
-rebuilt from the latest materialisation of every asset on each tick, so it survives a daemon restart. Counters restart from
-zero with the daemon, which Prometheus `increase()` handles.
+The names, labels, buckets and how each value is computed are the [metric contract](metric-contract.md); the schedule, sensor,
+freshness and query windows are in [timeframes](timeframes.md). This page covers the dashboard and the alerts.
 
 ## Dashboard
 

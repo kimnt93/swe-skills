@@ -1,7 +1,7 @@
 # Metrics for a Pathway pipeline
 
-A Pathway job is a `transform` pipeline in the metric contract of `data-realtime-metrics`
-([metric-contract](../../data-realtime-metrics/references/metric-contract.md)): same names, same single `status` label.
+A Pathway job is a `transform` (or `sink`) pipeline of the [metric contract](metric-contract.md): fixed names, one `status` label, and
+the clocks in [timeframes](timeframes.md). This page says where each call goes in `pipeline.py`.
 
 | Contract call | Where in `pipeline.py` | Meaning |
 |---|---|---|
@@ -25,13 +25,13 @@ Notes
 
 `assets/grafana-dashboard.json` (uid `pathway-pipelines`): running, restarts, errors, rejected %, rows out, backlog;
 rows in/rejected/out per second; event-to-output latency p50/p95/p99; input lag; last input age; output freshness; running
-state timeline; errors and restarts. Import it like the all-pipelines dashboard
-([dashboard](../../data-realtime-metrics/references/dashboard.md)); it needs the same `service_name` label.
+state timeline; errors and restarts. Import it in Grafana (Dashboards, New, Import; re-importing the uid replaces it); it filters on
+the `service_name` label.
 
 ## Verify the contract
 
 ```bash
-python3 ../data-realtime-metrics/scripts/otlp_check.py --role transform --wait 60 &
+python3 scripts/otlp_check.py --role transform --wait 60 &
 OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318 python -m pipeline     # feed it a few messages
 ```
 

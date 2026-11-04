@@ -1,6 +1,6 @@
 ---
 name: data-pathway
-description: Build realtime data pipelines with Pathway (Python, Rust engine) - Kafka in, streaming transforms, tumbling and sliding windows, joins, Kafka or database out - from a tested project template with config from env, pure business logic, persistence, the shared stream_pipeline_* OTel metrics and a Grafana dashboard. Use when starting, changing or reviewing a Pathway streaming job, a realtime aggregate or enrichment over Kafka, or when asked for Pathway, streaming ETL, live windows or incremental recomputation in Python.
+description: Build realtime data pipelines with Pathway (Python, Rust engine) - Kafka in, streaming transforms, tumbling and sliding windows, joins, Kafka or database out - from a tested project template with config from env, pure business logic, persistence, the stream_pipeline_* OTel metric contract, its timeframes and a Grafana dashboard. Use when starting, changing or reviewing a Pathway streaming job, a realtime aggregate or enrichment over Kafka, or when asked for Pathway, streaming ETL, live windows or incremental recomputation in Python.
 compatibility: Python 3.11+ and the pathway package (Linux or macOS). The template's pure-logic tests run with pytest alone; its Pathway tests need pathway and pandas installed. Not yet run end to end against a live Pathway install by the authors - treat versions as a starting point and run the checks below.
 metadata:
   group: data
@@ -36,9 +36,10 @@ Dagster ([data-dagster](../data-dagster/SKILL.md)); plain consume-and-act servic
    tests with `pw.debug.table_from_rows`. Read [pipeline](references/pipeline.md).
 4. **Config from the environment** (`config.py`): every setting named, secrets from `NAME` or `NAME_FILE`,
    no defaults for secrets. Kafka settings in [pipeline](references/pipeline.md).
-5. **Metrics**: the shared `stream_pipeline_*` set via `pipeline_metrics.py` (a copy of the
-   `data-realtime-metrics` template) fed from `pw.io.subscribe`. Read [metrics](references/metrics.md);
-   verify with `data-realtime-metrics/scripts/otlp_check.py --role transform`.
+5. **Metrics**: the `stream_pipeline_*` contract ([metric-contract](references/metric-contract.md)) via the template's
+   `pipeline_metrics.py`, fed from `pw.io.subscribe`; the windows and clocks (event time, commit interval, export interval, query
+   windows) are in [timeframes](references/timeframes.md). Wiring: [metrics](references/metrics.md). Verify with
+   `scripts/otlp_check.py --role transform`.
 6. **Dashboard**: import `assets/grafana-dashboard.json` (uid `pathway-pipelines`): rows in, rejected, out,
    event-to-output latency, lag, freshness, restarts. No per-service edits.
 7. **Persistence and deploy**: a volume for `PERSISTENCE_DIR`, one replica per consumer group,
@@ -56,7 +57,7 @@ Dagster ([data-dagster](../data-dagster/SKILL.md)); plain consume-and-act servic
 - **One status per arrival**: each input row is `received` once and is either `published` or `dropped`.
 - **At-least-once at the edges**: the Kafka writer can repeat rows after a restart; give downstream keys
   (`order_id`) and make consumers idempotent (the `idempotency` principle).
-- **No per-key metric labels**: symbols, users and topics never become labels (the metric contract).
+- **No per-key metric labels**: symbols, users, topics and window lengths never become labels ([metric-contract](references/metric-contract.md)).
 - **No secrets in logs or settings dumps**; Kafka credentials from files on Swarm.
 - Versions: pin `pathway` in `pyproject.toml`; the API moves between minor versions, so re-run the tests on every bump.
 
@@ -65,7 +66,7 @@ Dagster ([data-dagster](../data-dagster/SKILL.md)); plain consume-and-act servic
 ```bash
 uv run ruff format --check src tests && uv run ruff check src tests
 uv run pytest                      # pure tests always; Pathway tests when pathway is installed
-python3 ../data-realtime-metrics/scripts/otlp_check.py --role transform --wait 60 &   # then start the pipeline
+python3 scripts/otlp_check.py --role transform --wait 60 &   # then start the pipeline
 ```
 
 ## Example prompts

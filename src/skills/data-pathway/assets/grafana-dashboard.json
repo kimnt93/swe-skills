@@ -1,7 +1,7 @@
 {
   "uid": "pathway-pipelines",
   "title": "Pathway Pipelines",
-  "description": "Realtime Pathway pipelines on the shared stream_pipeline_* metrics: rows in, rejected, out, event-to-output latency, lag, freshness. Complements the all-pipelines dashboard; no per-service edits.",
+  "description": "Realtime Pathway pipelines on the shared stream_pipeline_* metrics: rows in, rejected, out, event-to-output latency, lag, freshness. Contract: references/metric-contract.md.",
   "tags": [
     "pathway",
     "stream",

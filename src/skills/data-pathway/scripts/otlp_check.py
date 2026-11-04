@@ -6,10 +6,10 @@ Run it, point the service at it, and read the verdict:
     python3 scripts/otlp_check.py --role transform --wait 30
     OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318 <start the service>
 
-Roles: ingestion (feed -> Kafka), transform (Kafka -> Kafka), sink (Kafka -> store),
-consumer (anything -> application logic). Exit code 0 = pass, 1 = contract violation,
+Roles: transform (Kafka -> Kafka) and sink (Kafka -> store) are the Pathway ones; ingestion and
+consumer remain for other services. Exit code 0 = pass, 1 = contract violation,
 2 = nothing received. Standard library only; decodes OTLP protobuf and OTLP JSON.
-See references/metric-contract.md for the contract this file encodes.
+See references/metric-contract.md (data-pathway) for the contract this file encodes.
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 ---
 name: data-dagster
-description: Build and run batch and scheduled data pipelines as Dagster assets - daily partitioned assets, asset checks, jobs, schedules, resources, backfills - from a tested project template (polars, PostgreSQL source, Docker, compose) with dagster_* OTel metrics exported by a sensor and a Grafana dashboard for runs, durations, materializations, checks and freshness. Use when starting, changing or reviewing a Dagster project or DAG, scheduling or backfilling a data job, adding data-quality checks, or when asked for Dagster, assets, orchestration or pipeline lineage in Python.
+description: Build and run batch and scheduled data pipelines as Dagster assets - daily partitioned assets, asset checks, jobs, schedules, resources, backfills - from a tested project template (polars, PostgreSQL source, Docker, compose) with the dagster_* OTel metric contract (exported by a sensor), its timeframes (partition, schedule, freshness, query windows) and a Grafana dashboard for runs, durations, materializations, checks and freshness. Use when starting, changing or reviewing a Dagster project or DAG, scheduling or backfilling a data job, adding data-quality checks, or when asked for Dagster, assets, orchestration or pipeline lineage in Python.
 compatibility: Python 3.11+, dagster 1.10 to 1.x (below 2.0), polars, psycopg 3. Template tests use Dagster's in-process execution and an in-memory OTel reader; no database or Docker needed. Tested with dagster 1.13, polars 1.x, opentelemetry-sdk 1.3x. The compose stack and Dockerfile were not run by the authors.
 metadata:
   group: data
@@ -35,8 +35,11 @@ schedules. In this stack it is the tool for **batch, scheduled and backfilled da
 4. **Partition by the data's natural unit** (day). A failed day re-runs alone; a backfill is a partition range.
 5. **Add checks** next to the asset (`@asset_check`); make the ones that guard downstream work `blocking=True`.
 6. **Schedule** with `build_schedule_from_partitioned_job` and a delay after the day ends; use a sensor for event-driven runs.
-7. **Metrics**: the template's `metrics_sensor` exports `dagster_*` over OTLP. Read [metrics](references/metrics.md).
-   Import `assets/grafana-dashboard.json` (uid `dagster-orchestration`).
+7. **Metrics**: the template's `metrics_sensor` exports the `dagster_*` set over OTLP, defined by the
+   [metric contract](references/metric-contract.md); the clocks (partition, schedule, run, freshness, export, query windows) are in
+   [timeframes](references/timeframes.md); the dashboard and alerts in [metrics](references/metrics.md). Import
+   `assets/grafana-dashboard.json` (uid `dagster-orchestration`).
+   State each asset's freshness target next to the asset.
 8. **Test** with `dagster.materialize([...], resources={...}, partition_key=...)` and a fake resource; test the sensor with
    `build_sensor_context`. Read [testing](references/testing.md).
 9. **Deploy** the webserver and the daemon from one image, with PostgreSQL storage and a queued run coordinator.
@@ -50,7 +53,8 @@ schedules. In this stack it is the tool for **batch, scheduled and backfilled da
 - **No secrets in definitions or logs**: passwords from `NAME` or `NAME_FILE`, read at call time, never stored in resource config.
 - **No I/O at import time**: definitions load in the webserver, the daemon and every run worker; building a client, reading a
   file or calling the network at import breaks all three.
-- **Bounded metric labels**: `job` and `asset` only; never partition keys, run ids or error text.
+- **Bounded metric labels**: `job` and `asset` only; never partition keys, run ids or error text ([metric-contract](references/metric-contract.md)).
+- **Name the time**: partition timezone (UTC), the schedule delay after the day ends, and each asset's freshness target.
 - **Exact numbers**: money is integers or `Decimal`; polars columns are typed explicitly at the boundary.
 - **One code location per image**, `dagster>=1.10,<2`; re-run the tests on every Dagster bump (the event-log API used by the
   metrics sensor is deprecated for removal in 2.0).
