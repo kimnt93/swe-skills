@@ -41,7 +41,7 @@ Never start a new HTTP API in Python or Rust without a reason written in the PR.
    or topic it maps to.
 6. **A question you could answer by running something is not the human's.** Use the
    [prototype](references/prototype.md) playbook.
-7. **Measured numbers** go through the `benchmark-checklist` skill before you report them.
+7. **Measured numbers** go through the **explain-the-number** principle before you report them.
 8. **Done** only when `make verify` exits 0 on the committed head and its tail is in your reply.
 9. **Before review**, run the `deslop` skill over the diff.
 10. **Respect the architecture.** Read the project's `ARCHITECTURE.md` before a structural change;
@@ -60,7 +60,7 @@ Never start a new HTTP API in Python or Rust without a reason written in the PR.
 | structure only | [refactoring](references/refactoring.md) | behaviour tests unchanged and green |
 | schema change | [migration](references/migration.md) + `db-migrations` | migrate up and down on live PostgreSQL |
 | large change across many PRs | [multi-phase](references/multi-phase.md) | each phase green on its own |
-| slowness | [perf-issue](references/perf-issue.md) + `benchmark-checklist` | baseline vs after, the number explained |
+| slowness | [perf-issue](references/perf-issue.md) + explain-the-number | baseline vs after, the number explained |
 | a profile or trace to read | [profiling](references/profiling.md) | the hot frame at file:line |
 | one metric to push | [hillclimb](references/hillclimb.md) | one commit per kept win |
 | production symptom | [incident](references/incident.md) | a repro, then bug-fix |

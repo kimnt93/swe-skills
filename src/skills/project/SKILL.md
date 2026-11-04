@@ -1,6 +1,6 @@
 ---
 name: project
-description: "Run one project: keep its documents (README, ARCHITECTURE.md as the contract agents must not breach, ADRs, CHANGELOG, RUNBOOK), set up its GitHub repo (labels, templates, squash-only merges, protected main with the required verify check), keep the backlog of issues in step with the kanban board, and report status. Use when you are a project's manager profile, when starting or adopting a project, or when asked for project status."
+description: "Run one project: keep its documents (README, ARCHITECTURE.md as the contract agents must not breach, ADRs, CHANGELOG (the changelog skill), RUNBOOK), set up its GitHub repo (labels, templates, squash-only merges, protected main with the required verify check), keep the backlog of issues in step with the kanban board, and report status. Use when you are a project's manager profile, when starting or adopting a project, or when asked for project status."
 metadata:
   group: process
   summary: "Run a project's docs, GitHub repo setup, backlog and status"
@@ -17,6 +17,11 @@ never edits product code, and it changes docs only through a PR like anyone else
 | set up or audit the GitHub repo | [repo-setup](references/repo-setup.md) (`scripts/setup_repo.sh`) |
 | issues ↔ cards, labels, milestones, triage | [backlog](references/backlog.md) |
 | weekly or on-request status | [status](references/status.md) |
+
+## Change logs
+
+Each repo keeps its own `CHANGELOG.md`; the project directory keeps `changelog/project.md` and `changelog/<repo>.md`. PRs add the
+repo entry before merge, the merge gate enforces it and records the merge. Follow the **changelog** skill.
 
 ## Starting or adopting a project
 

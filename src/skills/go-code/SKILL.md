@@ -35,7 +35,7 @@ a measured hot path to `rust-code`, web UIs to `ts-code` (which calls this servi
 | API contract: `/v1` versions, `/docs` Swagger, `/healthz`, `/internal` (service token + caller headers), port 3000, host `{service}.{env}.{host}`, refactor an API | the `api-contract` skill |
 | Postgres, SQL, query, repository, migration, goose, struct rows, transaction | [postgres](references/postgres.md) |
 | formatting, readability, long lines, clean up, review, **writing or formatting any SQL query** | [readable-code](references/readable-code.md) |
-| use an ORM (bun / SQLAlchemy / SeaORM), "swap to an ORM" | the `db-orm` skill (opt-in; **raw SQL is the default**) |
+| use the ORM (`pg.DB.Model`), "swap to an ORM" | the `db-orm` skill (go-pg v10; opt-in; **raw SQL is the default**) |
 | migration, schema change, new column or index, goose | the `db-migrations` skill (goose SQL files) |
 | Redis, cache, lock, TTL, idempotency key, pub/sub | [redis](references/redis.md) |
 | Kafka, topic, consumer, producer, stream, partition, offset | [kafka](references/kafka.md) |

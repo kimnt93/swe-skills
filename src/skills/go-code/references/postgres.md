@@ -115,7 +115,7 @@ or password.
 - `postgres.Migrate(ctx, cfg, "schemas")` (goose through `database/sql` with pgx's stdlib driver, migrations only) runs from
   `cmd/api migrate` as a one-shot job before the service rolls out (`deployment-setup`: `migration_compose_file`).
 - A schema change = migration + row struct + SQL constant + port change + test, in one change. Safe patterns (concurrent indexes, backfills,
-  expand and contract) and the migration linter: the `db-migrations` skill. Prefer an ORM? Only when asked: the `db-orm` skill (bun).
+  expand and contract) and the migration linter: the `db-migrations` skill. Prefer an ORM? Only when asked: the `db-orm` skill (go-pg v10's ORM, same library).
 
 ## Tracing
 

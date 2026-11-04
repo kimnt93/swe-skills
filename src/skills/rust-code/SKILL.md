@@ -13,7 +13,7 @@ One entry point for Rust work, including Rust-backed Python packages. Read this 
 
 **Rust is for performance:** hot paths that Go or Python can't make fast enough (matching, pricing, indicators,
 parsers, large in-memory computations), Rust cores for Python packages (PyO3), and low-latency services. Bring the
-baseline number that justifies it (the `benchmark-checklist` skill); new ordinary APIs are Go (`go-code`).
+baseline number that justifies it (the **explain-the-number** principle); new ordinary APIs are Go (`go-code`).
 
 ## How to work
 
@@ -36,7 +36,6 @@ baseline number that justifies it (the `benchmark-checklist` skill); new ordinar
 | env vars, config, secrets, `.env.example`, Loader | [env-config](references/env-config.md) |
 | API contract: `/v1` versions, `/docs` Swagger, `/healthz`, `/internal` (service token + caller headers), port 3000, host `{service}.{env}.{host}`, refactor an API | the `api-contract` skill |
 | Postgres, SQL, tokio-postgres, deadpool, repository | [postgres](references/postgres.md) |
-| use an ORM (SeaORM / bun / SQLAlchemy), "swap to an ORM" | the `db-orm` skill (opt-in; **raw SQL is the default**) |
 | migration, schema change, new column or index, goose | the `db-migrations` skill (goose SQL files) |
 | Redis, cache, lock | [redis](references/redis.md) |
 | Kafka, rdkafka, producer, consumer, cmake | [kafka](references/kafka.md) |
@@ -51,7 +50,7 @@ baseline number that justifies it (the `benchmark-checklist` skill); new ordinar
 
 ## Rules that always apply
 
-- **Stack:** tokio, axum, serde, thiserror, tracing, `time`, tokio-postgres + deadpool with raw SQL (an ORM only when asked: `db-orm`), redis, rdkafka, aws-sdk-s3, polars (pinned), pyo3 (abi3) + maturin ([stack](references/stack.md)).
+- **Stack:** tokio, axum, serde, thiserror, tracing, `time`, tokio-postgres + deadpool with raw SQL (no ORM), redis, rdkafka, aws-sdk-s3, polars (pinned), pyo3 (abi3) + maturin ([stack](references/stack.md)).
 - **Standard:** `cargo fmt --all`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `unsafe_code = "forbid"`, no `unwrap()`/`expect()` on external input, `///`
   docs on public items, RFC 430 naming, typed errors (`thiserror`) with stable codes and no secrets in messages.
 - **Readable code, always:** one statement per line, spaces around every operator, at most 100 columns, a condition has at most two operands (more: one

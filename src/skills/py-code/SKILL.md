@@ -35,7 +35,6 @@ data endpoint in process. A measured hot loop moves to Rust through PyO3 (the py
 | Litestar, endpoint, route, schema, dependency, middleware, error handler (serving a model or data in process; new APIs are Go) | [litestar-api](references/litestar-api.md) |
 | API contract: `/v1` versions, `/docs` Swagger, `/healthz`, `/internal` (service token + caller headers), port 3000, host `{service}.{env}.{host}`, refactor an API | the `api-contract` skill |
 | Postgres, SQL, psycopg, repository, migration, goose, pool | [postgres](references/postgres.md) |
-| use an ORM (bun / SQLAlchemy / SeaORM), "swap to an ORM" | the `db-orm` skill (opt-in; **raw SQL is the default**) |
 | migration, schema change, new column or index, goose | the `db-migrations` skill (goose SQL files) |
 | Redis, cache, lock, TTL, idempotency | [redis](references/redis.md) |
 | Kafka, topic, consumer, producer, stream | [kafka](references/kafka.md) |
@@ -51,7 +50,7 @@ data endpoint in process. A measured hot loop moves to Rust through PyO3 (the py
 
 ## Rules that always apply
 
-- **Stack:** uv, ruff, Litestar + uvicorn, msgspec at the edges, psycopg 3 (plain SQL; an ORM only when asked: `db-orm`), redis-py asyncio, confluent-kafka, boto3, Celery, polars
+- **Stack:** uv, ruff, Litestar + uvicorn, msgspec at the edges, psycopg 3 (plain SQL, no ORM), redis-py asyncio, confluent-kafka, boto3, Celery, polars
   (not pandas), msgspec / orjson / ciso8601 for hot paths ([stack](references/stack.md)).
 - **PEP 8, enforced:** 79 columns, `snake_case` / `CapWords` / `UPPER_CASE`, exception names end in `Error`, imports sorted, docstrings wrapped; `ruff format`,
   `ruff check` (`E W F I N UP B SIM ASYNC`) and `pycodestyle --max-line-length=79` must be clean.

@@ -7,7 +7,7 @@ iterations (latency, throughput, memory, a model's validation score).
    and at least 8 attempts"). Pick a workload that reproduces the complaint.
 2. Build the measurement harness and freeze it: one command, median of N runs, prints its error
    count and the work done (the **build-the-lever** principle). Vet it with the
-   **benchmark-checklist** skill. Record the baseline and a green run of the regression tests.
+   **explain-the-number** principle. Record the baseline and a green run of the regression tests.
 3. Keep a decision log outside the tree: one row per attempt (hypothesis, change, before, after,
    kept or reverted).
 4. Each hypothesis names a mechanism ("the JSON encode allocates per field") ordered as in

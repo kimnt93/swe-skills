@@ -28,8 +28,7 @@ Notebooks are for exploration only: anything that will run twice moves into the 
   set every seed (`random`, `numpy`, the framework's); dependencies locked with `uv lock`.
 - **The model card** saved next to the model: code commit, config, data snapshot id and row counts,
   split boundaries, metrics per split, library versions.
-- **Evaluate like a benchmark** (the **explain-the-number** principle and the `benchmark-checklist`
-  skill): a fixed split, a baseline (last value, moving average, the current model), the metric with
+- **Evaluate like a benchmark** (the **explain-the-number** principle and the checks in it): a fixed split, a baseline (last value, moving average, the current model), the metric with
   several seeds or a confidence interval. A model ships only when it beats the current one on the
   test window.
 - **Serving:** batch predictions written to PostgreSQL or a Kafka topic by a worker; or online

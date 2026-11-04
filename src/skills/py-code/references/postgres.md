@@ -52,7 +52,7 @@ name. `conninfo` contains the password: never log it.
 
 SQL files `schemas/NNNN_name.sql` with `-- +goose Up` and a working `-- +goose Down`, applied by the goose binary as a one-shot
 job before the service rolls out (`deployment-setup`: `migration_compose_file`). **Never edit a released file**; add a version. Safe patterns (concurrent indexes, backfills, expand and contract) and the migration
-linter: the `db-migrations` skill. Prefer an ORM? Only when asked: the `db-orm` skill (SQLAlchemy).
+linter: the `db-migrations` skill. Python services use plain SQL; the ORM skill (`db-orm`) is Go only.
 Columns are `NOT NULL DEFAULT ...` where a default exists, so Python values are never `None` by accident.
 
 ## Checks

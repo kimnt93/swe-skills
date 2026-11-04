@@ -14,7 +14,7 @@
    5. a faster language for the hot path: move it to Rust (a PyO3 binding for Python, a Rust service
       for Go), measured.
 4. If the fix crosses a function boundary, run the **architect** skill first.
-5. Measure again with the same harness; vet the number with the **benchmark-checklist** skill.
+5. Measure again with the same harness; vet the number with the **explain-the-number** principle.
 6. For a sustained push on one metric, use the [hillclimb](hillclimb.md) playbook.
 
 **Reply:** baseline → after, the limiter, the fix, and the evidence the number is real.
