@@ -56,18 +56,3 @@ one grouped event. **The six rules.**
 Rust, plus `references/frontend.md` for Next.js and Vite); add the variable and the Swarm secret
 (`assets/sentry.env.example`, `compose.sentry.yaml`); verify against `scripts/sentry_receiver.py`, a local
 receiver that shows what the service really sends.
-
-### data-realtime-metrics
-
-**What it is.** The same small metric set for every realtime pipeline, so one Grafana dashboard covers
-ingestion, transform, sink and consumer services. **The idea.** One service is one pipeline; `service.name` is
-`{datasource}-{role}`. Message totals only, with three statuses: `received` (every arrival, including dropped),
-`dropped` (arrived, deliberately not forwarded), `published` (forwarded: Kafka ack, sink write, handled). The
-only label in the whole set is `status`; never label by message type, symbol, topic or partition (per-type detail
-belongs in logs); histograms and gauges carry no labels. Metrics leave over OTLP/HTTP to
-`{endpoint}/v1/metrics` with an optional bearer token.
-
-**What happens.** Pick the role (`ingestion` adds `connection_active`, `reconnects_total`, `in_flight`;
-`transform`, `sink`, `consumer` add nothing); copy the template (Python, Go, TypeScript, Rust); wire the three
-counters at the points a message arrives, is dropped and is forwarded; check with `scripts/otlp_check.py`; import
-`assets/grafana-dashboard.json`. **References.** `metric-contract`, per-language guides, `dashboard`, `timeframes`.

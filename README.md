@@ -1,76 +1,73 @@
 # swe-skills
 
-A software-engineering plugin for coding agents. One entry command picks the language for the job,
-routes the task to a playbook, the engineering principles and tested skills, and does not finish
-until the project's `make verify` passes.
+A software-engineering plugin for coding agents. One entry command (`/swe`) picks the language for the job, routes the task to a
+playbook, the engineering principles and tested skills, and does not finish until the project's `make verify` passes.
+On top of the skills, `swe-cli` runs a **project of agents**: a directory with your repos, where a manager agent turns a request into
+a workflow run (plan, build, check, review, merge) with one agent per node.
 
-| The job | Language | Skill |
-|---|---|---|
-| HTTP APIs, services, Kafka consumers, workers | **Go, Fiber v3** (default) | `go-code` |
-| ML: training, evaluation, inference, data pipelines | **Python** | `py-code` |
-| hot paths, Rust cores for Python, low-latency services | **Rust** | `rust-code` |
-| server-rendered web apps | **Next.js** (App Router) | `ts-code` |
-| dashboards and internal SPAs | **Vite + React + TypeScript** | `ts-code` |
+| The job | Language |
+|---|---|
+| HTTP APIs, services, Kafka consumers | **Go**, Fiber v3 (default) |
+| ML, data pipelines (Pathway, Dagster) | **Python** |
+| hot paths, Rust cores for Python | **Rust** |
+| web apps and dashboards | **Next.js**, or **Vite + React + TypeScript** |
 
-It installs as a plugin in Claude Code, Codex and oh-my-pi, or as plain skills in Hermes, OpenCode, Gemini CLI
-and 55+ other harnesses (`make harness` lists them).
+The full stack is in [STACK.md](STACK.md).
 
-On top of the skills, `swe-cli` runs a project of agents: a directory with `AGENTS.md`, `PROJECT.md`, YAML
-workflows and one or more repo clones. A manager agent turns a request into a workflow run (plan, build, check,
-review, merge, clean), one agent per node, each with only the skills and model its role needs
-([how it works](#the-command-swe-cli)).
-
-The plugin's name comes from the build. The default is **`swe`**:
+## Setup
 
 ```bash
-make claude                      # plugin "swe"   ->  /swe, /swe:go-code, ...
-PLUGIN_NAME=acme make claude     # plugin "acme"  ->  /acme, /acme:go-code, ...
+git clone <this repo> && cd swe-skills
+make install            # build, validate, install into every harness found on this machine
+make claude codex omp   # or only some harnesses (make harness lists all 55)
+make cli                # link the swe-cli command into ~/.local/bin
 ```
 
-Build settings live in `plugin.env`. Put private values (your real domain, owner) in a
-git-ignored `plugin.local.env`, for example `PLUGIN_DOMAIN ?= mycompany.io`. An environment
-variable always wins.
+## Use
+
+```text
+/swe the orders consumer double-counts fills when Kafka redelivers. repro first, then fix and verify.
+/swe:interrogate review this branch
+```
+
+| Harness | Entry | Another skill |
+|---|---|---|
+| Claude Code | `/swe` | `/swe:<skill>` |
+| Codex | `$swe:swe` | `$swe:<skill>` |
+| oh-my-pi | `/skill:swe` | `/skill:<skill>` |
+| any other harness | skill `swe` | skill `swe-<skill>` |
+
+## A project of agents
+
+```bash
+mkdir orders && cd orders
+swe-cli init                  # AGENTS.md, PROJECT.md, models.yaml (tiers), roles.yaml, workflows/; asks for git URLs and clones them
+swe-cli orchestrate orders    # start the manager (any harness) in this directory, then ask it for work
+swe-cli update                # later: pull main, reinstall everywhere; `swe-cli project update` refreshes this project
+```
+
+Tiers (`top`, `mid`, `low`) and the model each one uses are defined in one file, the project's `models.yaml`. How workflows,
+roles, reports, change logs and merging work: [docs/workflows.md](docs/workflows.md).
 
 ## Documentation
 
 | Read | When |
 |---|---|
-| [docs/getting-started.md](docs/getting-started.md) | install and the first task, troubleshooting |
-| [docs/harnesses.md](docs/harnesses.md) | install into Claude Code, Codex, oh-my-pi and 55+ more harnesses (generated) |
-| [docs/runbooks.md](docs/runbooks.md) | the steps that need you: pilot service, agents live, autopilot, publish |
-| [docs/context-and-sync.md](docs/context-and-sync.md) | context limits per tool and `/sync` (log in once on the default profile) |
-| [docs/setup-claude.md](docs/setup-claude.md) | **Setup A:** Claude Code on your Claude subscription as the coding agent |
-| [docs/setup-omp.md](docs/setup-omp.md) | **Setup B:** oh-my-pi as the coding agent |
-| [docs/usage.md](docs/usage.md) | what to say for each kind of task; skills; GitHub; a project of agents |
-| [docs/recommended-setup.md](docs/recommended-setup.md) | the order of work, tiers, the daily routine, what never to do |
-| [docs/architecture.md](docs/architecture.md) | the design: roles, flows, invariants, decisions, risks |
-| [docs/workflows.md](docs/workflows.md) | the project directory, YAML workflows, roles, reports, merge and clean, self-improvement |
-| [STACK.md](STACK.md) | the dev stack: languages, data, platform, observability, quality, agents |
-| [docs/delegation.md](docs/delegation.md) | tmux sessions in git worktrees: the commands, keeping conflicts small, viewing sessions |
-| [docs/agents-and-skills.md](docs/agents-and-skills.md) | which agent gets which skills and GitHub rights |
-| [docs/skills/](docs/skills/README.md) | **each skill in detail**: when to use it, what to say, what happens, what you get |
-| [docs/skills.md](docs/skills.md) | quick reference for every skill (generated) |
-
-## Use
-
-```text
-/swe                                          print the plugin (every skill, grouped)
-/swe the orders consumer double-counts fills when Kafka redelivers. repro first, then fix and verify.
-/swe:interrogate review this branch
-/swe:architect design the position snapshot API
-```
-
-| Harness | Entry | Other skills | Subagents |
-|---|---|---|---|
-| Claude Code | `/swe` | `/swe:<skill>` | `swe:worker`, `swe:adversary` |
-| Codex | `$swe:swe` | `$swe:<skill>` | — |
-| oh-my-pi | `/skill:swe` | `/skill:<skill>` | omp's own roles |
-| Hermes and others | skill `swe` | skill `swe-<skill>` | — |
+| [docs/getting-started.md](docs/getting-started.md) | install, first task, troubleshooting |
+| [docs/usage.md](docs/usage.md) | what to say for each kind of task |
+| [docs/workflows.md](docs/workflows.md) | the project directory, workflows, roles, merge and clean |
+| [docs/architecture.md](docs/architecture.md) | the design: roles, flows, invariants, decisions |
+| [docs/agents-and-skills.md](docs/agents-and-skills.md) | which agent gets which skills |
+| [docs/skills/](docs/skills/README.md) | each skill in detail |
+| [docs/harnesses.md](docs/harnesses.md) | every supported harness and how it installs |
+| [docs/context.md](docs/context.md) | context limits per tool |
+| [docs/recommended-setup.md](docs/recommended-setup.md) | order of work, tiers, the daily routine |
+| [docs/development.md](docs/development.md) | make targets, build settings, layout, enforced rules |
+| [cli/README.md](cli/README.md) | every `swe-cli` command |
 
 ## Skills
-
 <!-- skills:start -->
-42 skills in 6 groups. Click a skill for its detail.
+41 skills in 6 groups. Click a skill for its detail.
 
 ### Start here
 
@@ -126,7 +123,7 @@ variable always wins.
 | [data-dagster](docs/skills/data-platform.md#data-dagster) | Dagster DAGs: assets, checks, schedules, template, dagster_* OTel metrics, dashboard |
 | [data-pathway](docs/skills/data-platform.md#data-pathway) | Realtime Pathway pipelines: Kafka in/out, windows, template, OTel metrics, dashboard |
 | [db-migrations](docs/skills/data-platform.md#db-migrations) | PostgreSQL schema changes as goose SQL files, safe by default |
-| [db-orm](docs/skills/data-platform.md#db-orm) | Opt-in go-pg v10 ORM adapter behind the same port as raw SQL |
+| [db-orm](docs/skills/data-platform.md#db-orm) | GORM (Go) and SQLAlchemy 2 (Python) adapters behind the same port as raw SQL |
 
 ### API and deployment
 
@@ -139,86 +136,7 @@ variable always wins.
 
 | Skill | Description |
 |---|---|
-| [data-realtime-metrics](docs/skills/observability.md#data-realtime-metrics) | The same OTel metric set for every realtime pipeline, one Grafana dashboard |
 | [service-errors](docs/skills/observability.md#service-errors) | Unexpected errors to Sentry or GlitchTip, with nothing private leaving |
 | [service-logging](docs/skills/observability.md#service-logging) | One JSON log format in Go, Python, TypeScript and Rust, checked by logcheck |
 | [service-tracing](docs/skills/observability.md#service-tracing) | OpenTelemetry tracing: service dependencies by default, span detail on request |
 <!-- skills:end -->
-
-## Enforced, not just written
-
-| Rule | Enforcer |
-|---|---|
-| Go data structs: no pointers, no `omitempty` | `go-code/scripts/structcheck` (Go tests; run by `make verify`) |
-| Python: no pydantic, no pandas | ruff `TID251` in the py-code template |
-| goose migrations: `CONCURRENTLY`, defaults, destructive markers | `db-migrations/scripts/check_migrations.py` |
-| API contract: `/v1`, `/docs`, `/healthz`, port 3000 | `api-contract/scripts/audit_api.py`, `probe_api.py` |
-| money-path: replay, duplicates, redelivery | `replay-test/scripts/replay.py` |
-| TypeScript: strict, no `any`, no `console` | the `ts-code` templates' `tsconfig.json` and ESLint config |
-| architecture: layers and imports | Go `archcheck`, Python `lint-imports` (both in `make verify`) |
-| a good submit: branch, title, body, issue, size, scope | `github/scripts/pr_lint.py` |
-| repo: squash only, protected `main`, labels | `project/scripts/setup_repo.sh` |
-| "done" means proven | `verify-create/assets/verify.mk` + the `verify` CI job in `deployment-setup` |
-
-## Make targets
-
-| Target | What it does |
-|---|---|
-| `make build` | render `dist/<name>/` from `src/` |
-| `make validate` | build, then validate (names, links, groups, portability, placeholders) |
-| `make install` | build, validate, install into every harness detected on this machine |
-| `make <harness>` | install into that harness only: `make claude`, `make codex omp hermes ...` |
-| `make harness` (`make list`) | list every supported harness (60+), detected ones marked |
-| `make skills` | list the skills |
-| `make <harness> REMOVE=1` | uninstall (only what this tool installed) |
-| `make cli` | link the `<name>-cli` command into `~/.local/bin` |
-| `make test` | build, enforcement, frontend and cli tests |
-| `make docs` | regenerate `docs/skills.md` from the skills |
-| `make package` | `dist/<name>-<version>.zip` |
-| `make publish` | release `dist/<name>/` into a publish repo, commit and tag (`PUSH=1` pushes) |
-
-## The command: `swe-cli`
-
-`make cli` links `<name>-cli` (default `swe-cli`) into `~/.local/bin`. A project is a directory:
-
-```bash
-mkdir orders && cd orders
-swe-cli init                          # AGENTS.md (the orchestrator), PROJECT.md, skills/, workflows/, roles.yaml, models.yaml, project.yaml;
-                                      # then asks for git URLs until you are done, and clones each one here
-swe-cli project add <git url>         # later, from the shell, or ask the orchestrator to do it
-swe-cli orchestrate orders            # start the manager agent (any CLI) in this directory
-
-swe-cli update                        # git pull main, rebuild, reinstall into every detected harness, relink the command
-swe-cli update claude codex           # the same, but only into these harnesses
-swe-cli project update                # refresh this project's AGENTS.md, workflows, roles, models and learn skill
-```
-
-`project update` replaces the files you did not edit and writes `<file>.new` next to the ones you did (`--force` replaces
-them after saving `<file>.bak`); `PROJECT.md`, `project.yaml` and the clones are never touched.
-
-The manager takes a request, picks a **workflow** and runs it (`swe-cli flow run orders feature --goal "..."`).
-A workflow is a YAML DAG: every node is one agent with only the skills its role needs, on the harness, model
-and effort that fit it (documentation runs on the smallest model). Nodes run in parallel, write a report to
-a tmp directory, and the last node reports to the manager, which merges the PRs through the gate and runs
-`swe-cli flow clean` so nothing stays on the machine. What the agents learn is folded into `PROJECT.md` (under 2000
-words) and project skills, so the next run starts smarter. Use `swe-cli init <new dir>` or run it in an existing directory. A reviewer agent resolves conflicts when a branch is behind.
-
-Design: [`docs/workflows.md`](docs/workflows.md) (the YAML, roles, reports), [`docs/architecture.md`](docs/architecture.md),
-[`docs/agents-and-skills.md`](docs/agents-and-skills.md). Commands: `cli/README.md`.
-
-## Layout
-
-```
-plugin.env           build settings (name, owner, version, domain, description)
-src/skills/          the skills; src/skills/router/ becomes /<name>
-src/agents/          Claude Code subagents (worker, adversary); models from cli/models.yaml
-src/manifests/       plugin manifests with placeholders
-scripts/             build.py, install.py, validate_skills.py, gen_docs.py, publish.sh
-cli/                 the `<name>-cli` command, workflows/, roles.yaml, models.yaml, briefs, tests
-docs/                architecture.md (the design), agents-and-skills.md (the recommended setup)
-tests/               build_test.sh, enforcement_test.sh, fixtures
-CHANGELOG.md         one entry per version (make publish requires it)
-dist/                build output (git-ignored); never edit it
-```
-
-Agents working in this repo: read `AGENTS.md`, then `docs/README.md`.

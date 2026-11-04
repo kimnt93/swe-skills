@@ -1,44 +1,43 @@
 # Changelog
 
-Versions follow semver: a new skill or a rule a skill newly enforces is a minor version; wording
-and fixes are a patch. `make publish` refuses a version without an entry here.
+`make publish` refuses a version without an entry here. This file holds the release notes of the current version only; it does
+not track changes between versions.
 
 ## 1.0.0
 
-First release.
+First release. What it is today.
 
-- 42 skills in six groups (start, process, language, data, platform, observability; nine of them are the roles of workflow agents) for the stack:
-  Go/Fiber APIs, Python ML, Rust performance, Next.js and Vite + React + TypeScript frontends.
-- Builds as the plugin `swe` (name, owner and version from `plugin.env`) for Claude Code, Codex and
-  oh-my-pi, and as plain skills for 28 more harnesses.
-- `swe-cli` (`<plugin>-cli`, linked by `make cli`): `swe-cli init` turns a directory into a project: `AGENTS.md` for the
-  orchestrator, `workflows/*.yaml`, `roles.yaml`, `models.yaml` and `project.yaml` (the repo URLs and their folders), then
-  asks for git URLs until you are done and clones them. `swe-cli project add <git url>` adds one later; the manager can too.
-- Projects improve themselves: `PROJECT.md` (under 2000 words, checked by `swe-cli project notes`) and `skills/` (with a `learn`
-  skill) are created by `init`; every node reads them, reports `## Learned` facts, and the manager folds them in. A node's brief
-  enables only its role's `swe` skills and disables the other `swe` skills; system skills stay available. Briefs and
-  `AGENTS.md` are structured markdown.
-- `make install` installs into every detected harness, `make <harness>` into one, `make harness` (`make list`) lists the 55+
-  supported harnesses with the detected ones marked, `make skills` lists the skills. `swe-cli update [harness ...]` pulls
-  `main`, rebuilds and reinstalls; `swe-cli project update` refreshes a project's AGENTS.md, workflows, roles and learn
-  skill without overwriting your edits.
-- Workflows: YAML DAGs run by a small Python runner (`swe-cli flow`). Each node is one agent with only the skills of its
-  role, on the harness, model and effort that fit it; nodes run in parallel and write reports to a tmp directory; the
-  manager merges the ready PRs through the gate and `flow clean` removes sessions, worktrees, branches and tmp files. A
-  reviewer agent brings a behind branch up to date and resolves conflicts. Shipped: feature, bugfix, docs, card, docs-card,
-  ci-fix, conflict, verify, changelog.
-- Change logs (`changelog` skill): every PR that changes behaviour adds its entry to the target repo's `CHANGELOG.md` before
-  merge; the merge gate (`swe-cli merge`) refuses one without it (docs, chore, ci, test, style, build PRs and the
-  `no-changelog` label are exempt); a `scribe` role and the `changelog` workflow add a missing entry; after each merge
-  `flow merge` records the PR in the project's `changelog/<repo>.md` and `changelog/project.md`. `swe-cli changelog
-  check|record|show`; `init` creates `changelog/`.
-- Data engineering skills: `data-pathway` (realtime pipelines on Kafka) and `data-dagster` (batch and scheduled assets), each
-  with a tested project template, shared OTel metrics and a Grafana dashboard whose queries are checked against the code.
-  `benchmark-checklist` is gone; its checks live in `principles/explain-the-number`.
-- `db-orm` is Go only: go-pg v10 behind the same port as raw SQL, with a live-tested adapter.
-- `STACK.md` describes the dev stack.
-- Agents start coding CLIs (Claude Code, Codex, oh-my-pi) in a tmux session or an Orca terminal and a git worktree per
-  card, refuse cards whose files overlap (also across projects that clone the same repo), keep branch names unique, and
-  merge only through the gate (`swe-cli merge`, which also refuses a branch behind `main`). `swe-cli doctor` checks
-  credentials first. Models, context limits, orchestrator and launcher live in `models.yaml`; Hermes is optional.
-- Tested scripts and templates ship with the skills; `make validate` and `make test` check them.
+**Skills (41, in six groups)**
+- Start and process: the `swe` router and its playbooks, principles, architect, how, why, tdd, deslop, blast-radius, interrogate,
+  verify-create, verify-maintain, replay-test, formal-verify, correct, ketchup, reflect, github, project, and the changelog skill
+  (a `CHANGELOG.md` entry in every PR, plus the project's `changelog/` directory).
+- Roles of workflow agents: manager, planner, developer, reviewer, documenter, intake, integrator, ci-fixer, verifier.
+- Languages: Go with Fiber v3 (default for APIs and services), Python (ML and data), Rust (performance), TypeScript (Next.js and
+  Vite + React).
+- Data: `db-migrations` (goose SQL files), `db-orm` (opt-in GORM for Go and SQLAlchemy 2 for Python behind the same port as raw SQL;
+  tested on SQLite and PostgreSQL), `api-contract`, `data-pathway` (realtime pipelines) and `data-dagster` (batch and scheduled
+  pipelines). Each of the two has a tested project template, an OTel metric contract, its timeframes and a Grafana dashboard
+  checked against the metrics the code emits.
+- Platform and observability: deployment-setup, service-logging, service-tracing, service-errors.
+
+**Install**
+- A plugin for Claude Code, Codex and oh-my-pi, and plain skills for 52 other harnesses (55 in all). `make install` installs into every detected
+  harness, `make <harness>` into one, `make harness` lists them, `swe-cli update` pulls `main` and reinstalls.
+- The plugin name, owner and version come from `plugin.env`; the default plugin is `swe`.
+
+**`swe-cli` (`<plugin>-cli`)**
+- `swe-cli init` makes a directory a project: `AGENTS.md` (the orchestrator's instructions), `PROJECT.md` (self-learned notes, under
+  2000 words), `models.yaml` (the one place that maps tiers top, mid, low to models), `roles.yaml`, `workflows/`, `changelog/`, a
+  `learn` skill and `project.yaml` (the repos); it asks for git URLs and clones them. `swe-cli project add` adds a repo later, and
+  `swe-cli project update` refreshes the shipped files without overwriting yours.
+- Any harness is the orchestrator (`swe-cli orchestrate`). Workflows are YAML DAGs, one agent per node, each with only the skills of its
+  role and the model of its tier: feature, bugfix, docs, card, docs-card, ci-fix, conflict, verify, changelog. Agents run in tmux or
+  Orca sessions, one git worktree per card, and write reports to a tmp directory.
+- The merge gate (`swe-cli merge`, run by `flow merge`) needs the verified head, green required checks, no conflict with `main` and a
+  `CHANGELOG.md` entry in the PR (docs, chore, ci, test, style and build PRs and the `no-changelog` label are exempt). After each merge the
+  PR is recorded in `changelog/<repo>.md` and `changelog/project.md`. `flow clean` removes every session, worktree, branch and tmp file.
+- Also: `delegate`, `lane`, `doctor`, `context`, `models`, `changelog check|record|show`.
+
+**Known limits**
+- The Pathway pipeline tests have not been run against a real `pathway` install (the pure-logic tests and the metric checker have).
+- The Dagster Dockerfile and compose stack have not been run.

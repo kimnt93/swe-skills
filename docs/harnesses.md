@@ -1,7 +1,7 @@
 # Harnesses
 
 The plugin installs into 55 agent harnesses with one command each: `make <harness>` (several at once:
-`make claude codex omp hermes`; everything found on the machine: `make install`; remove: add `REMOVE=1`).
+`make claude codex omp`; everything found on the machine: `make install`; remove: add `REMOVE=1`).
 Generated from the installer's table by `scripts/gen_docs.py`: do not edit by hand.
 
 ## Plugin harnesses
@@ -87,12 +87,12 @@ Claude Code, Codex and omp), `DRY_RUN=1` (show what would happen). A harness tha
 | Use | Harnesses |
 |---|---|
 | interactive coding with the skills | all of the above |
-| a **delegated session** (unattended, started by a project manager with `swe-cli delegate`) | Claude Code (`claude`) and oh-my-pi (`omp`) |
-| the **project's own agents** (root, project managers) | Hermes Agent (`make hermes` also copies the skills for its profiles) |
+| a **delegated session** (unattended, started by `swe-cli flow` or `swe-cli delegate`) | Claude Code (`claude`) and oh-my-pi (`omp`) |
+| the **orchestrator** of a project (`swe-cli orchestrate`) | any of Claude Code, Codex, oh-my-pi |
 
 Codex and the other harnesses use the same skills by hand; workflows drive only the coding CLIs.
 A new coding CLI needs a branch in `cli/bin/main` (`argv`) and an entry under `clis:` and
-`workers:` in `cli/models.yaml`.
+`workers:` in the project's `models.yaml`.
 
 ## Check an install
 

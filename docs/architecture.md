@@ -1,7 +1,7 @@
 # Architecture: the swe-skills agents
 
 How the plugin and its agents run several software projects with any CLI agent as the orchestrator
-(Claude Code, Codex, oh-my-pi; Hermes is optional), with GitHub as the place where all code lands. Written in the `architect` skill's rationale shape: usage first, then
+(Claude Code, Codex, oh-my-pi), with GitHub as the place where all code lands. Written in the `architect` skill's rationale shape: usage first, then
 the shape, then the decisions and what was rejected.
 
 ## Usage
@@ -9,7 +9,7 @@ the shape, then the decisions and what was rejected.
 What the human types, and what happens:
 
 ```text
-(in the orchestrator's CLI, or Telegram / Slack when Hermes is on)
+(in the orchestrator's CLI)
 "orders: add an endpoint to cancel an open order, and a Cancel button on the dashboard"
 
 orchestrator   → the agent started by `swe-cli orchestrate orders` in the project directory ~/work/orders
@@ -31,7 +31,6 @@ orchestrator   → swe-cli merge 41 --approved --sha <sha> → squash-merged; sw
 ```
  human ──► orchestrator  (any CLI agent: claude / codex / omp, one per project, started in the project dir)
            skills manager, project, github   issues, briefs, swe-cli delegate, status, merge gate
-           (optional: a Hermes manager profile pm-<project> on a cheap router model does the same job)
               │ swe-cli delegate start / status / send / review / cleanup
               ▼
    project directory  ~/work/<project>/
@@ -47,9 +46,8 @@ orchestrator   → swe-cli merge 41 --approved --sha <sha> → squash-merged; sw
 
 | Piece | Where it is defined | Writes code? | Merges? |
 |---|---|---|---|
-| orchestrator (any CLI) | `cli/models.yaml` `orchestrator`, per project `orchestrator:` in `projects.yaml`; started by `swe-cli orchestrate` | no | only with the human's approval (`swe-cli merge --approved`), or under autopilot for allowed risks |
-| Hermes root and managers (optional) | `board` (`board.enabled: true`) × `cli/projects.yaml` | no | same as the orchestrator |
-| coding CLIs (`claude`, `codex`, `omp`) | `cli/models.yaml` `clis`, started by `swe-cli delegate` | yes, in a worktree | no |
+| orchestrator (any CLI) | the project's `models.yaml` `orchestrator`, per project `orchestrator:` in `projects.yaml`; started by `swe-cli orchestrate` | no | only with the human's approval (`swe-cli merge --approved`), or under autopilot for allowed risks |
+| coding CLIs (`claude`, `codex`, `omp`) | the project's `models.yaml` `clis`, started by `swe-cli delegate` | yes, in a worktree | no |
 | worker models per tier | `workers` | — | — |
 | who reviews whom | `reviewers` | — | — |
 | session launcher | `launcher` (`tmux` or `orca`) | — | — |
@@ -84,7 +82,6 @@ orchestrator   → swe-cli merge 41 --approved --sha <sha> → squash-merged; sw
 ### Flows
 
 1. **Request → project.** You start the project's orchestrator (`swe-cli orchestrate <project>`) and tell it the goal.
-   With Hermes on, the root profile routes a chat request to the project's manager instead.
 2. **Plan.** The orchestrator reads `ARCHITECTURE.md`, splits the goal into one GitHub issue per feature function, stamps
    shared decisions into every brief, and lists each card's files.
 3. **Build.** `swe-cli delegate start` makes the worktree and a session, starts the project's CLI with the plugin,
@@ -105,32 +102,31 @@ orchestrator   → swe-cli merge 41 --approved --sha <sha> → squash-merged; sw
 - Code that breaches the project's layering fails `make verify` (`archcheck`, `lint-imports`).
 - A change to `ARCHITECTURE.md` comes with an ADR, in its own reviewed PR, approved by the human.
 - Orchestrators never edit repository files; the central clone is never edited.
-- Every model is named in exactly one place: `cli/models.yaml`.
+- Every model is named in exactly one place: the project's `models.yaml`.
 
 ## Decisions
 
 | # | Decision | Rejected alternative | Why |
 |---|---|---|---|
-| A1 | **One orchestrator per project, and it can be any CLI agent** (Claude Code, Codex, oh-my-pi), set in `models.yaml` or per project | a fixed Hermes manager for everyone | the orchestrator is the same skill (`fleet-manager`) on whatever agent you have a login for; a project can be added or removed without touching the others |
+| A1 | **One orchestrator per project, and it can be any CLI agent** (Claude Code, Codex, oh-my-pi), set in `models.yaml` or per project | a fixed manager product for everyone | the orchestrator is the same skill (`fleet-manager`) on whatever agent you have a login for; a project can be added or removed without touching the others |
 | A2 | **Coding CLIs are processes, not profiles:** the orchestrator starts them in sessions, one worktree per card | worker profiles shared by all projects, or per project | a worker profile holds memory that mixes projects; the CLI starts fresh per card and reads only its repo |
-| A3 | **Orchestrators split work themselves** (with Hermes: `kanban.auto_decompose: false`, `orchestrator_profile: ""`) | Hermes' built-in auto-decomposer | the decomposer sees every profile and has one global orchestrator, so it could route a project's work to another project's manager; the orchestrator reads the project's architecture first |
+| A3 | **Orchestrators split work themselves**  | a global auto-decomposer | it could route a project's work to another project; the orchestrator reads the project's architecture first |
 | A4 | **The orchestrator only orchestrates;** docs and repo changes are delegated cards too | let it edit docs directly | one write path (branch → PR → review → gate) for everything in a repo |
 | A5 | **The merge is a deterministic gate**, not an agent's judgment | a dedicated "merger" agent | merging needs facts, not judgment: the verified SHA, green required checks, an up-to-date branch, an allowed risk class or a human approval |
-| A6 | **One issue per card**, branch `<type>/<issue>-<slug>`, PR `Closes #issue` | cards only | the human sees and steers all work in GitHub; issues survive the board |
+| A6 | **One issue per card**, branch `<type>/<issue>-<slug>`, PR `Closes #issue` | cards only | the human sees and steers all work in GitHub; issues survive any run |
 | A7 | **The submit rules are enforced** (`pr_lint.py`, `archcheck`, `lint-imports`, the size limit) | rules in prose only | a rule that nothing checks is broken by the first agent in a hurry |
 | A8 | **Every agent uses the human's `gh` login** for now | a bot account from day one | simplest to start. Consequence: GitHub can't take an approval from the PR's own author, so required approvals are 0 and the gate enforces the review. Move to a bot account, then `setup_repo.sh --approvals 1`. |
 | A9 | **Sessions are named terminals you can attach to, send keys to and read:** tmux by default, or Orca terminals (`launcher: orca`) | headless `-p` runs only | the orchestrator can drive them, you can watch and take over (in tmux, or in the Orca UI next to the worktrees). `swe-cli lane` keeps the headless one-shot mode for scripts |
 | A10 | **A fetch that fails stops the delegation** | continue from the local `origin/main` | a stale base is worse than no work; `swe-cli doctor` finds the credentials problem first |
 | A11 | **A project is a directory of repos; duplicates across projects are solved in branches** | one repo per project, or a global registry of repos | real work spans several repos, and the same repo can serve two products. The overlap check and unique branch names keep their cards apart |
-| A12 | **Hermes is optional** (`board.enabled`, default off) | Hermes as the required manager layer | it adds chat access and cheap routing, but it cannot host Claude as an orchestrator, so the fleet must work without it |
 
 ## Risks
 
 | Risk | How we would notice | Mitigation |
 |---|---|---|
-| an orchestrator works outside its project | a card or PR in another project's repo | the brief names the one project directory; with Hermes, boards are isolated and root routes by project name |
+| an orchestrator works outside its project | a card or PR in another project's repo | the brief names the one project directory |
 | the shared `gh` token is too powerful (admin bypass) | a merge without the gate | `enforce_admins` on `main`; `swe-cli merge` is the documented path; a bot account with no admin rights is the fix |
-| one subscription runs out | `swe-cli delegate status` shows a stuck or blocked session | the orchestrator reports it and asks; switch the project's CLI (any of Claude Code, Codex, oh-my-pi) or wait. A Hermes manager runs on a non-Claude model so it keeps answering |
+| one subscription runs out | `swe-cli delegate status` shows a stuck or blocked session | the orchestrator reports it and asks; switch the project's CLI (any of Claude Code, Codex, oh-my-pi) or wait.|
 | two cards change the same behaviour in different files | green separately, red together | `sync-branch --verify` and the gate's up-to-date rule; serialize cards that depend on each other |
 | `ARCHITECTURE.md` drifts from the code | `archcheck` / `lint-imports` green while the doc says otherwise | the manager's weekly status checks the doc against the layering checks; changes need an ADR |
 | a self-review is weak | defects found after merge | cross-family review for risky cards; the human samples merged PRs; autopilot stays off until 20 clean merges (runbook 3) |
@@ -146,11 +142,11 @@ How the plugin and the repository are built (the table above covers the agents).
 | D2 | The plugin's name comes from the build (`PLUGIN_NAME`, default `swe`). The router skill carries the same name, so the entry command is `/<name>`. | One source, any name. Claude Code accepts a plugin skill named like its plugin as `/<name>` (tested). |
 | D3 | Org values are build settings (`PLUGIN_DOMAIN`, `PLUGIN_OWNER`, `PLUGIN_HOMEPAGE`); private ones live in `plugin.local.env`. No org name in tracked files (a test enforces it). | The plugin can be published or shared without leaking internal names. |
 | D4 | Skills are flat and grouped by `metadata.group`. | The installers and the Agent Skills spec need `skills/<name>/SKILL.md`. |
-| D5 | Skills name tiers (`top`, `mid`, `low`), never models. Every agent and model lives in `cli/models.yaml`. | A new model is one edit plus `swe-cli models apply`. |
+| D5 | Skills name tiers (`top`, `mid`, `low`), never models. Every agent and model lives in the project's `models.yaml`. | A new model is one edit plus `swe-cli models apply`. |
 | D6 | Three coding CLIs: Claude Code (Claude models), Codex (OpenAI models) and oh-my-pi (OpenAI and Google models). A project picks one as its default; another family reviews on request. | Cross-family review is available when it matters; every subscription you hold is used. |
-| D7 | The orchestrator is any CLI agent, started by `swe-cli orchestrate`. Optional Hermes profiles (root `default` and one `pm-<project>`) do the same job from chat. The coding CLIs are never profiles. | Claude cannot be the Hermes orchestrator, and a profile per CLI held memory that mixed projects. |
-| D8 | The orchestrator only routes: issues, briefs, `swe-cli delegate`, short results (tier `mid` by default; a Hermes manager runs on Gemini 3.8 Flash). Judgment lives in the coding CLIs, whose tier is chosen per card. | The coordinator's tokens stay a small share, and the project survives any one subscription running out. |
-| D9 | "Done" means `make verify` exits 0 on the committed head, and, on the board, required CI is green on the PR head. | Verification before parallelism. |
+| D7 | The orchestrator is any CLI agent, started by `swe-cli orchestrate`. The coding CLIs are never profiles. | A profile per CLI held memory that mixed projects. |
+| D8 | The orchestrator only routes: issues, briefs, `swe-cli delegate`, short results (tier `mid` by default). Judgment lives in the coding CLIs, whose tier is chosen per card. | The coordinator's tokens stay a small share, and the project survives any one subscription running out. |
+| D9 | "Done" means `make verify` exits 0 on the committed head, and, required CI is green on the PR head. | Verification before parallelism. |
 | D10 | Money-path (orders, fills, positions, balances, risk, P&L) is top tier, cross-family reviewed, replay-tested, and never auto-merged (`swe-cli merge` refuses it). | A wrong answer there is a loss. |
 | D11 | Merging is a deterministic gate (`swe-cli merge`), run by the orchestrator under autopilot or with the human's approval; there is no merging agent. | Merging needs facts (verified SHA, green checks, allowed risk or approval), not judgment. |
 | D12 | Git and GitHub follow one way (the `github` skill): issue → branch → small Conventional Commits → PR → gate → main; `pr_lint.py`, `archcheck` and `lint-imports` enforce the submit rules. | A rule nothing checks gets broken. |

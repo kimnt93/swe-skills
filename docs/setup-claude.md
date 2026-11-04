@@ -30,7 +30,7 @@ cd ~/code/orders && claude
 
 - The router picks the model tier for subagents: `swe:worker` runs on Sonnet (tier `mid`),
   `swe:adversary` (the reviewer in `/swe:interrogate`) on Opus (tier `top`). Both come from
-  `subagents` in `cli/models.yaml`; rebuild with `make claude` after changing them.
+  `subagents` in the project's `models.yaml`; rebuild with `make claude` after changing them.
 - Switch the main session's model with `/model`. Use Opus for money-path or hard design work, Sonnet
   for most code, Haiku for mechanical edits.
 - `claude update` moves the aliases `opus`, `sonnet`, `haiku` to the newest models; pin full ids in
@@ -74,7 +74,7 @@ swe-cli context apply      # adds "autoCompactWindow": 350000 to ~/.claude/setti
 
 `swe-cli delegate` also sets `CLAUDE_CODE_AUTO_COMPACT_WINDOW=350000` for each card, and one-off
 sessions can use `CLAUDE_CODE_AUTO_COMPACT_WINDOW=300000 claude`. Change the number under
-`context.families.claude` in `cli/models.yaml`. Details: [context-and-sync.md](context-and-sync.md).
+`context.families.claude` in the project's `models.yaml`. Details: [context.md](context.md).
 
 ## 6. Protect your quota
 

@@ -18,8 +18,8 @@ commands whose output proves it worked.
 ### Goal
 
 One real service has hands and eyes: `make verify` runs its static gates **and** a live probe, CI
-requires it, and it provably fails on real bugs. Nothing is parallelised on the board before this
-holds for the repo the board works on.
+requires it, and it provably fails on real bugs. Nothing is parallelised before this
+holds for the repo.
 
 ### Steps
 
@@ -53,17 +53,14 @@ PR → optional cross-family review → human merge. One card, then 3, then abou
 
 ### Steps
 
-1. `bash cli/tests/selftest.sh` passes (add `--hermes` only if you use Hermes). `make cli`.
+1. `bash cli/tests/selftest.sh` passes. `make cli`.
 2. **Human logins** (interactive), once each: `claude auth login`, `codex login`, `omp login openai-codex`, `gh auth login`
-   (whichever CLIs you use). Only with Hermes enabled: on the Hermes **default** profile `hermes auth add gemini`
-   (a non-Claude provider: Claude cannot be the Hermes orchestrator); `/sync` (or `swe-cli sync`) shares the keys
-   ([context-and-sync.md](context-and-sync.md)).
-3. Pick exact ids with `omp models ls`; edit `cli/models.yaml` (`orchestrator`, `launcher`, `workers`); then
+   (whichever CLIs you use).
+3. Pick exact ids with `omp models ls`; edit the project's `models.yaml` (`orchestrator`, `launcher`, `workers`); then
    `swe-cli models check` reports only logins.
-4. `swe-cli bootstrap` (projects, model roles, context limits; with Hermes also root, managers, board settings).
+4. `swe-cli bootstrap` (projects, model roles, context limits).
 5. **Add the pilot project:** `mkdir ~/work/<name> && cd ~/work/<name> && swe-cli init` and give it the pilot repo's git URL
-   (it writes `AGENTS.md`, `PROJECT.md`, `skills/`, `workflows/`, `roles.yaml`, `models.yaml`, `project.yaml` and clones the repo;
-   with Hermes also the manager `pm-<name>` and the board), then `swe-cli models check` = 0 problems. Start the orchestrator
+   (it writes `AGENTS.md`, `PROJECT.md`, `skills/`, `workflows/`, `roles.yaml`, `models.yaml`, `project.yaml` and clones the repo;), then `swe-cli models check` = 0 problems. Start the orchestrator
    with `swe-cli orchestrate <name>` and ask it to adopt the repo (the `project` skill: `setup_repo.sh`, templates,
    `ARCHITECTURE.md`) and to fill `PROJECT.md`.
 6. **One run:** `swe-cli doctor <name>` is clean, then ask the orchestrator for one small `risk: low` change. It runs
@@ -78,7 +75,6 @@ PR → optional cross-family review → human merge. One card, then 3, then abou
 
 ```bash
 swe-cli models check                                   # 0 problem(s)
-hermes kanban diagnostics --board <name>            # no errors, nothing stranded
 swe-cli flow status <name>                             # every run, node by node
 swe-cli project notes                                  # PROJECT.md under 2000 words
 gh pr list --state merged --repo <owner>/<repo>       # merged PRs
@@ -101,15 +97,15 @@ is a configuration change plus a sampling habit.
 - `swe-cli merge <pr> --risk <r> --sha <sha>`: merges only an allowed risk class, at the reviewer's
   verified SHA, with every required check passed; never money-path; never a PR without required
   checks. The manager calls it after a clean verdict, or with `--approved` when you say merge. It also refuses a branch that is behind or in conflict with `main`.
-- `autopilot.auto_merge` in `cli/models.yaml`, empty by default.
+- `autopilot.auto_merge` in `models.yaml`, empty by default.
 
 ### Steps
 
 1. Gate: runbook 2 is done (20 clean merges). If not, stop.
-2. Pin model ids in `cli/models.yaml` (replace the `opus` / `sonnet` / `haiku` aliases with full
+2. Pin model ids in `models.yaml` (replace the `opus` / `sonnet` / `haiku` aliases with full
    ids) so no model changes during an autopilot run. `swe-cli models check && swe-cli models apply`.
 3. **Human:** set `autopilot.auto_merge: [low]`.
-4. Add the sampling jobs with `hermes cron`: weekly, list the week's auto-merged PRs for the human to
+4. Add the sampling jobs (a scheduled `swe-cli flow run`, or cron): weekly, list the week's auto-merged PRs for the human to
    read; daily, a triage card for every red CI run on main.
 5. After two weeks with no blocking defect in the samples, ask the human about `[low, standard]`.
 
@@ -118,7 +114,6 @@ is a configuration change plus a sampling habit.
 ```bash
 bash cli/tests/selftest.sh          # the merge guard cases
 swe-cli models show | tail -1           # autopilot auto_merge: ['low']
-hermes cron list
 ```
 
 ## 4. A new model ships
@@ -130,17 +125,15 @@ A new model ships (say Opus 6), a model is retired, or a CLI's cost or quality c
 ### Steps
 
 1. `claude update`: the `claude` workers' `opus` / `sonnet` / `haiku` aliases now mean the newest
-   models, unless `cli/models.yaml` pins full ids.
-2. Edit `cli/models.yaml` where needed: pinned worker ids, the omp workers, the board
-   brains, `omp_roles`, the subagents' tiers.
+   models, unless `models.yaml` pins full ids.
+2. Edit `models.yaml` where needed: pinned worker ids, the omp workers, `omp_roles`, the subagents' tiers.
 3. `swe-cli models check`: 0 problems (each id exists where it runs, each provider is logged in).
 4. `swe-cli models apply`, then `swe-cli models show`.
-5. `make claude omp hermes`, so the plugin's subagents get the new models.
-6. For a change to the managers' model (`board.manager`), run the router's `eval` playbook first: 10 past goals
+5. `make claude codex omp`, so the plugin's subagents get the new models.
+6. For a change to the orchestrator's model, run the router's `eval` playbook first: 10 past goals
    through the old and the new model, card graphs scored blind. Switch only if the new one is not
    worse. **Human** approves.
-7. Clear per-card overrides that pin the old model: `hermes kanban set-model <id> none`.
-8. Commit `chore(agents): <model> for <agents>` with the `show` output in the body.
+7. Commit `chore(agents): <model> for <agents>` with the `show` output in the body.
 
 Skills never change in an upgrade: they name tiers, not models.
 
@@ -177,16 +170,15 @@ PUBLISH_DIR=$(mktemp -d) bash scripts/publish.sh    # release + tag; a second ru
 
 ### Goal
 
-The plugin is installed for the owner: `/swe` works in Claude Code and omp, and the skills are in
-Hermes.
+The plugin is installed for the owner: `/swe` works in Claude Code, Codex and omp.
 
 ### Steps
 
 1. Check for an older plugin that uses the same marketplace or skill names:
-   `claude plugin list`, `omp plugin list`, `ls ~/.hermes/skills`. Remove it from its own repo.
-2. `make claude omp hermes`.
+   `claude plugin list`, `omp plugin list`. Remove it from its own repo.
+2. `make claude codex omp`.
 3. In a fresh session in any git repo: `/swe` prints the grouped skill table (Claude Code),
-   `/skill:swe` (omp), `hermes skills list | grep swe` (Hermes).
+   `/skill:swe` (omp).
 
 ### Verify
 
@@ -198,7 +190,7 @@ claude plugin list | grep swe@swe-skills
 
 ### Undo
 
-`make claude codex omp hermes REMOVE=1`
+`make claude codex omp REMOVE=1`
 
 ### Notes
 

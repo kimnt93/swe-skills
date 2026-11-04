@@ -7,13 +7,13 @@ What to run, in what order, and what to keep switched off until it has earned tr
 | Layer | Recommendation |
 |---|---|
 | coding agents | any of **Claude Code** ([setup A](setup-claude.md)), **oh-my-pi** ([setup B](setup-omp.md)) and **Codex** ([setup C](setup-codex.md)): a default CLI per project, another family reviewing on request. One CLI works too, with a weaker review. |
-| plugin | built once, installed into every CLI you use: `make claude codex omp` (add `hermes` if you use it) |
-| models | tiers in `cli/models.yaml`: Opus / `gpt-6-sol` high for `top`, Sonnet / `gpt-6-sol` medium for `mid`, Haiku / Gemini Flash for `low`. Default every card to `mid`. |
+| plugin | built once, installed into every CLI you use: `make claude codex omp` |
+| models | tiers in the project's `models.yaml`: Opus / `gpt-6-sol` high for `top`, Sonnet / `gpt-6-sol` medium for `mid`, Haiku / Gemini Flash for `low`. Default every card to `mid`. |
 | orchestration | one orchestrator per project, any CLI agent started by `swe-cli orchestrate`; a project is a directory with its repo clones, and the orchestrator starts the coding CLIs in worktrees (tmux, or Orca terminals) ([delegation.md](delegation.md), [architecture.md](architecture.md)). Hermes managers on a cheap non-Claude model are optional. |
 | GitHub | `project/scripts/setup_repo.sh` per repo: squash only, protected `main`, required `verify` check, labels, PR and issue templates |
 | proof | `make verify` in every repo (`/swe:verify-create`), required in CI |
-| context | Claude 350k, every other model 245k (about the 272k price step), set once in `cli/models.yaml` and applied with `swe-cli context apply` and `swe-cli sync` ([context-and-sync.md](context-and-sync.md)) |
-| logins | log in to each CLI once (`claude auth login`, `codex login`, `omp login`) and `gh auth login`; with Hermes, log in on `default` only and `/sync` shares the rest |
+| context | Claude 350k, every other model 245k (about the 272k price step), set once in the project's `models.yaml` and applied with `swe-cli context apply` and `swe-cli sync` ([context.md](context.md)) |
+| logins | log in to each CLI once (`claude auth login`, `codex login`, `omp login`) and `gh auth login` |
 | autopilot | off. Turn on `low` after 20 clean merges; never `money-path` |
 
 ## Order of work
@@ -61,4 +61,4 @@ The step-by-step runbooks, with commands and exit checks, are in [runbooks.md](r
 - Let a manager or the root edit a repository, or edit the central clone: agents work in worktrees.
 - Run parallel cards on the same files: the manager refuses it for a reason.
 - Run `bypassPermissions` or `--approval-mode yolo` outside a card's worktree.
-- Put a model id in a skill: tiers only; ids live in `cli/models.yaml`.
+- Put a model id in a skill: tiers only; ids live in the project's `models.yaml`.

@@ -46,7 +46,7 @@ use this on a checkout you care about). It answers Codex's "trust this directory
 | `mid` | `gpt-6-sol`, effort medium | most cards |
 | `low` | `gpt-6-sol`, effort low | mechanical cards, docs, scouting |
 
-Put the model ids your login offers under `workers.codex` in `cli/models.yaml`. The prompt and busy markers
+Put the model ids your login offers under `workers.codex` in the project's `models.yaml`. The prompt and busy markers
 (`clis.codex.ready` and `busy`) were taken from one Codex version; if `swe-cli delegate` reports that Codex never
 showed its prompt, attach to the session, read what the prompt looks like and fix `ready`.
 

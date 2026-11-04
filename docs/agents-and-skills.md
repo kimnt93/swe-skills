@@ -1,18 +1,18 @@
 # Agents and skills: the recommended setup
 
 Which agent has which skills and tools, and why. `swe-cli bootstrap` and `swe-cli project add` apply
-the project directories (and, with Hermes on, the profiles) from `cli/models.yaml`; this page is the reference behind it.
+the project directories from the project's `models.yaml`; this page is the reference behind it.
 
 ## Roles and their skills
 
 Every role is one agent session started by a workflow node (or by the manager). The role names its skills in
-`cli/roles.yaml`; the brief tells the agent to use only those. Skills name tiers, never models; the model comes
-from `cli/models.yaml`.
+`roles.yaml`; the brief tells the agent to use only those. Skills name tiers, never models; the model comes
+from the project's `models.yaml` (the one place tiers are defined).
 
 | Role | Harness / tier | Skills it enables | Edits code? | Merges? |
 |---|---|---|---|---|
 | Manager (orchestrator, one per project) | any CLI, `mid`; started in the project directory with its `AGENTS.md` | `manager`, `project`, `github`, `ketchup` | no | through the gate (`flow merge`), with approval where required |
-| Intake (chat to goals) | cheap model or Hermes root | `intake`, `github` | no | no |
+| Intake (chat to goals) | any harness, `low` | `intake`, `github` | no | no |
 | Planner | project CLI, `mid`, high effort, read-only | `planner`, `architect`, `how`, `project`, `github` | no | no |
 | Developer | project CLI, `mid` (card tier decides), own worktree | `developer`, `swe`, `tdd`, `deslop`, `github` | yes, its files | no |
 | Documenter | project CLI, `low` (Haiku / gpt-6-luna), no effort flag | `documenter`, `deslop`, `github` | docs only | no |
@@ -24,28 +24,14 @@ from `cli/models.yaml`.
 | Merge gate | code (`swe-cli merge`) | n/a | no | yes, the only path |
 
 Not built yet: a supervisor daemon (the runner has timeouts and stuck detection only), a chat adapter for intake
-outside Hermes (the `SWE_NOTIFY` out-hook exists), and fork support in code (`github/references/fork.md` describes it).
+(the `SWE_NOTIFY` out-hook exists), and fork support in code (`github/references/fork.md` describes it).
 
 ## Orchestrators
 
 Every project has one orchestrator: any CLI agent (Claude Code, Codex, oh-my-pi) started in the project directory
 by `swe-cli orchestrate <project>`, running the `manager`, `project` and `github` skills. It creates issues, starts
 the coding sessions and merges through the gate; it never edits code. The default is `orchestrator:` in
-`cli/models.yaml`; a project overrides it. Hermes is an optional alternative (below).
-
-## Hermes profiles (optional: `board.enabled: true`)
-
-| Profile | Role | Skills to enable | Tools | Model (default) | Can |
-|---|---|---|---|---|---|
-| `default` (root) | general purpose: manages projects and profiles, routes requests, reports across projects | `intake`, `github` | kanban, terminal, memory (no file, code execution, browser, delegation) | Gemini 3.8 Flash | run `fleet` and `hermes` commands, read GitHub, create cards on any board |
-| `pm-<project>` | the project's manager: a router, orchestrator only | `manager`, `project`, `github` | kanban, terminal, memory (no file, code execution, web, browser, delegation) | Gemini 3.8 Flash (not Claude: it must survive Claude's quota) | create and label issues, run `swe-cli delegate` (start, status, send, review, cleanup), comment, report, merge with `--approved` when the human says so |
-
-The root profile also has the slash command `/sync` (`quick_commands.sync`): `swe-cli sync` with no model call, which shares the
-root's API keys with every profile and applies models, context limits and skills ([context-and-sync.md](context-and-sync.md)).
-
-Every profile's `skills.external_dirs` points at the built plugin: `dist/<plugin>/skills` (the plugin's skills, such as `manager`, `intake`, `github` and `project`).
-The coding CLIs are not Hermes profiles: they run in sessions (tmux or Orca terminals) that `swe-cli delegate` starts, with
-the plugin installed in the CLI itself ([delegation.md](delegation.md)).
+`models.yaml`; a project overrides it.
 
 ## Coding CLIs (started by the orchestrator in worktrees)
 

@@ -95,6 +95,13 @@ swe-cli flow merge <project> <run> [--approved]   # the merge gate for each read
 swe-cli flow clean <project> <run>                # sessions, worktrees, branches, records, tmp directory
 ```
 
+## Tiers: one place
+
+Roles and nodes name a **tier** (`top`, `mid`, `low`) and a harness, never a model. The project's `models.yaml` (template:
+`cli/templates/models.yaml`, copied by `swe-cli init`, refreshed by `swe-cli project update`) is the only file that says which model
+and effort a tier means on each harness, which harness reviews which, the launcher (tmux or Orca), the context policy and the
+autopilot switch. A new model is one edit there plus `swe-cli models check`.
+
 ## Change logs
 
 The merge gate refuses a PR that needs a `CHANGELOG.md` entry and has none (`docs`, `chore`, `ci`, `test`, `style`, `build`

@@ -7,7 +7,7 @@ repository (or several) with few conflicts. The commands are `swe-cli delegate` 
 ## Why sessions and worktrees
 
 - The orchestrator is any CLI agent (Claude Code, Codex, oh-my-pi) started in the project directory by
-  `swe-cli orchestrate <project>`; Hermes is optional. It does not code: it starts the coding CLIs as processes.
+  `swe-cli orchestrate <project>`. It does not code: it starts the coding CLIs as processes.
 - A **session** per card (a tmux session, or an Orca terminal with `launcher: orca`) is something the orchestrator
   can drive (start, hand over a brief, send keys, read the screen) and you can watch and take over.
 - A **git worktree** per card gives each agent its own checkout and branch from one clone, so many agents code at
@@ -82,7 +82,7 @@ catches them.
 
 ## Viewing the sessions with Orca
 
-Set `launcher: orca` in `cli/models.yaml`. `swe-cli project sync` registers each clone in Orca (`orca-ide repo add`),
+Set `launcher: orca` in the project's `models.yaml`. `swe-cli project sync` registers each clone in Orca (`orca-ide repo add`),
 Orca then lists the worktrees, and `swe-cli delegate start` opens each card as an Orca terminal in its worktree, titled
 `<project>-<card>`, so you see the sessions beside the branches. Orca must be running on the machine (`orca-ide open`);
 the terminal handle is kept in `~/.swe/orca-handles.json`. Sessions started over SSH on a machine without a running

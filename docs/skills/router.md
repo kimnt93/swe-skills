@@ -98,7 +98,7 @@ your go. One PR per phase. **You get** the phases, the proof per phase, the back
 **Use it when** the work spans services or releases. **Steps.** Skip it if one or two PRs suffice; settle
 open questions with prototypes; write the phase list with the goal, files, evidence and "must not break" per
 phase (deletions, then types/ports/migrations, then behaviour, then callers, then removal of the old path);
-each phase is one PR and never depends on a later one. On the board each phase is a card.
+each phase is one PR and never depends on a later one. In a `swe-cli` run each phase is a card.
 
 ### perf-issue
 
@@ -162,7 +162,7 @@ committed head; a body with Why, What changed, Scope, Blast radius, Verification
 
 **What it is.** Drive a long task to a checkable predicate without stopping. **Use it when** you say "going
 to bed" or "run until done". **Steps.** Write the exit predicate first; pick a wake mechanism for the harness
-(`/loop`, a `--goal` card, `hermes cron`); each iteration makes the smallest justified change, checks it,
+(`/loop`, `--max-time`, a scheduled `swe-cli flow run`); each iteration makes the smallest justified change, checks it,
 commits or reverts; fix blockers yourself in their own PR; log each iteration; stop at the predicate, never
 earlier, never by relaxing it. Follow with `ketchup`.
 
@@ -201,4 +201,4 @@ change only if it is not worse on any case that matters. See `docs/runbooks.md` 
 `mid`: the default; `low`: mechanical work with a deterministic check) and the escalation by cause (context
 limit: smaller scope; dropped connection: same brief; wrong approach: one tier up; two failures: replan).
 `harness.md` maps each abstract action (start a subagent, ask the human, todo list, wake later, project-local
-skill path) to Claude Code, oh-my-pi, Codex and Hermes.
+skill path) to Claude Code, oh-my-pi and Codex.

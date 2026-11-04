@@ -16,7 +16,7 @@ Ten minutes from a fresh clone to `/swe` working in your coding agent.
 
 ```bash
 cd swe-skills
-make validate          # renders dist/swe/ and checks it: 42 skills checked, 0 error(s)
+make validate          # renders dist/swe/ and checks it: 41 skills checked, 0 error(s)
 ```
 
 The plugin's name comes from `plugin.env` (`PLUGIN_NAME ?= swe`). Change it there, or per command
@@ -29,10 +29,9 @@ The plugin's name comes from `plugin.env` (`PLUGIN_NAME ?= swe`). Change it ther
 make claude            # Claude Code: /swe, /swe:<skill>, subagents swe:worker and swe:adversary
 make omp               # oh-my-pi:    /skill:swe, /skill:<skill>
 make codex             # Codex (optional): $swe:swe
-make hermes            # Hermes (optional): skills swe, swe-<skill>
 ```
 
-`make install` installs into every harness detected on the machine; `make harness` (or `make list`) lists the 55+
+`make install` installs into every harness detected on the machine; `make harness` (or `make list`) lists the 55
 supported ones with the detected ones marked; `make <harness>` installs into just that one.
 
 Any of 31 harnesses works the same way (`make cursor`, `make gemini-cli`, `make opencode`, ...): see
@@ -81,6 +80,6 @@ merges and cleans. Add a repo any time: `swe-cli project add <git url>`, or ask 
 |---|---|
 | `/swe` is unknown | start a new session; `claude plugin list` should show `swe@swe-skills` |
 | `make validate` fails on a placeholder or name | read the first ERROR line; the validator names the file and line |
-| `swe-cli models check` lists `omp has no model ...` | `omp login <provider>`, then `omp models ls` and put the exact id in `cli/models.yaml` |
+| `swe-cli models check` lists `omp has no model ...` | `omp login <provider>`, then `omp models ls` and put the exact id in the project's `models.yaml` |
 | `gh auth status` fails inside a delegated session | `gh auth login` for the user that runs the orchestrator |
-| old `kim` or other plugin still listed | `PLUGIN_NAME=<old> make claude codex omp hermes REMOVE=1` |
+| old `kim` or other plugin still listed | `PLUGIN_NAME=<old> make claude codex omp REMOVE=1` |

@@ -35,7 +35,7 @@ cd ~/code/orders && omp
 Useful flags: `--model <provider/id>`, `--thinking low|medium|high`, `-p` (print mode),
 `--max-time 45m`, `--approval-mode yolo` (only in a disposable worktree).
 The model roles omp uses for its own subagents (`default`, `smol`, `slow`) are written by
-`swe-cli models apply` from `omp_roles` in `cli/models.yaml`.
+`swe-cli models apply` from `omp_roles` in the project's `models.yaml`.
 
 ## 4. Run it unattended (the orchestrator starts it in a worktree)
 
@@ -75,7 +75,7 @@ swe-cli context apply      # writes compaction.thresholdTokens into ~/.omp/agent
 omp config get compaction.thresholdTokens
 ```
 
-Change it under `context.default` in `cli/models.yaml`. Details: [context-and-sync.md](context-and-sync.md).
+Change it under `context.default` in the project's `models.yaml`. Details: [context.md](context.md).
 
 ## 6. Plugin skills for omp's own agents
 

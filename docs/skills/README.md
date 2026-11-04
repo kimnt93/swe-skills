@@ -9,13 +9,13 @@ when to use it, what to say, what happens, what you get, and its files.
 | [process.md](process.md) | how, why, architect, principles, tdd, deslop, blast-radius, interrogate, verify-create, verify-maintain, replay-test, formal-verify, correct, ketchup, reflect, github, project |
 | [languages.md](languages.md) | go-code, py-code, rust-code, ts-code |
 | [data-platform.md](data-platform.md) | db-migrations, db-orm, api-contract, deployment-setup |
-| [observability.md](observability.md) | service-logging, service-tracing, service-errors, data-realtime-metrics |
+| [observability.md](observability.md) | service-logging, service-tracing, service-errors |
 | [principles.md](principles.md) | the 22 principles, one paragraph each |
 
 ## Skills
 
 <!-- skills:start -->
-42 skills in 6 groups. Click a skill for its detail.
+41 skills in 6 groups. Click a skill for its detail.
 
 ### Start here
 
@@ -71,7 +71,7 @@ when to use it, what to say, what happens, what you get, and its files.
 | [data-dagster](data-platform.md#data-dagster) | Dagster DAGs: assets, checks, schedules, template, dagster_* OTel metrics, dashboard |
 | [data-pathway](data-platform.md#data-pathway) | Realtime Pathway pipelines: Kafka in/out, windows, template, OTel metrics, dashboard |
 | [db-migrations](data-platform.md#db-migrations) | PostgreSQL schema changes as goose SQL files, safe by default |
-| [db-orm](data-platform.md#db-orm) | Opt-in go-pg v10 ORM adapter behind the same port as raw SQL |
+| [db-orm](data-platform.md#db-orm) | GORM (Go) and SQLAlchemy 2 (Python) adapters behind the same port as raw SQL |
 
 ### API and deployment
 
@@ -84,7 +84,6 @@ when to use it, what to say, what happens, what you get, and its files.
 
 | Skill | Description |
 |---|---|
-| [data-realtime-metrics](observability.md#data-realtime-metrics) | The same OTel metric set for every realtime pipeline, one Grafana dashboard |
 | [service-errors](observability.md#service-errors) | Unexpected errors to Sentry or GlitchTip, with nothing private leaving |
 | [service-logging](observability.md#service-logging) | One JSON log format in Go, Python, TypeScript and Rust, checked by logcheck |
 | [service-tracing](observability.md#service-tracing) | OpenTelemetry tracing: service dependencies by default, span detail on request |
@@ -129,6 +128,6 @@ when to use it, what to say, what happens, what you get, and its files.
 ## Conventions every skill follows
 
 - A short `SKILL.md` router, one topic per file in `references/`, tested files in `assets/` and `scripts/`.
-- A skill names a *tier* (`top`, `mid`, `low`), never a model; model ids live in `cli/models.yaml`.
+- A skill names a *tier* (`top`, `mid`, `low`), never a model; model ids live in the project's `models.yaml`.
 - A claim carries its evidence or a label (measured, inferred, guess); "done" means `make verify` passed.
 - Anything a skill ships that runs has a test (a `--self-test`, a Go test, or a case in `tests/`).

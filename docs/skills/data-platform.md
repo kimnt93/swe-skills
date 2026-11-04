@@ -23,12 +23,14 @@ checks naming, contiguity, Up and Down, concurrent indexes, NOT NULL defaults, l
 
 ### db-orm
 
-**What it is.** The go-pg v10 ORM (Go only; other languages use raw SQL) (`pg.DB.Model`) for Go services, but only when asked or already present. **Use it when**
-you say "use the ORM", or the project already uses it. Otherwise raw SQL on the same library stays. **Rules.** The ORM
-lives only inside the adapter and implements the same port and table as the raw SQL adapter; `use_zero` on every written
-column, no pointers; the schema belongs to goose files (no `orm.CreateTable`); no N+1, every list has a `LIMIT`, one
-transaction per business operation, raw SQL stays available for queries the builder makes unreadable.
-**References.** `orm-rules`, `go-pg` (go-pg v10.15); a live-tested adapter and zero-value test in `assets/go-pg`.
+**What it is.** A general-purpose ORM behind the same repository port as the raw SQL adapter: **GORM** for Go, **SQLAlchemy 2**
+(async) for Python. Each works with PostgreSQL, MySQL, SQLite and SQL Server (Python also Oracle): one line (the GORM dialector, the
+SQLAlchemy URL) picks the database. **Use it when** you say "use GORM" or "use SQLAlchemy", or the project already has one; otherwise
+raw SQL stays the default in every language. **Rules.** The ORM lives only inside the adapter and implements the same port and table
+as the raw adapter; zero values are values (GORM's struct `Updates` skips them: update with a map); no N+1, every list bounded, one
+transaction per business operation; the schema belongs to goose files (never `AutoMigrate` or `create_all` on a real database); raw SQL
+stays available for queries the builder makes unreadable. **Verified.** The adapters in `assets/go-gorm` and `assets/python-sqlalchemy`
+pass the same tests on in-memory SQLite and on PostgreSQL 16. **References.** `orm-rules`, `go-gorm`, `py-sqlalchemy`.
 
 ### data-pathway
 
@@ -36,9 +38,10 @@ transaction per business operation, raw SQL stays available for queries the buil
 or database out. **Use it when** you start or change a streaming pipeline that computes over events as they arrive. **Say.**
 `/swe:data-pathway a pipeline that reads trades from Kafka and writes one-minute VWAP per symbol`.
 **What you get.** A project template (`assets/template`): config from env, pure business logic in plain functions (tested with
-pytest alone), thin Pathway wiring, persistence for restarts, a Dockerfile and compose file, and the shared `stream_pipeline_*`
-OTel metrics (see **data-realtime-metrics**) with a Grafana dashboard (`assets/grafana-dashboard.json`, uid `pathway-pipelines`).
-**References.** `pipeline`, `metrics`, `deploy`. **Honest limit.** The pure-logic tests ran; the Pathway tests need the
+pytest alone), thin Pathway wiring, persistence for restarts, a Dockerfile and compose file, the `stream_pipeline_*` OTel
+**metric contract** (one `status` label, `received` / `dropped` / `published`, lag, freshness; checked by `scripts/otlp_check.py`),
+the **timeframes** (event time, windows, commit interval, export interval, query and alert windows) and a Grafana dashboard
+(`assets/grafana-dashboard.json`, uid `pathway-pipelines`). **References.** `pipeline`, `metric-contract`, `timeframes`, `metrics`, `deploy`. **Honest limit.** The pure-logic tests ran; the Pathway tests need the
 `pathway` package, which was not installed when this was written, so run them first.
 
 ### data-dagster
@@ -47,9 +50,10 @@ OTel metrics (see **data-realtime-metrics**) with a Grafana dashboard (`assets/g
 schedules, resources and backfills. **Use it when** data is produced on a schedule or on demand rather than per event.
 **Say.** `/swe:data-dagster a daily asset of closing prices from Postgres with a row-count check`.
 **What you get.** A project template (polars, PostgreSQL source, Docker, compose) whose tests run in process, `dagster_*` OTel
-metrics exported by a sensor with bounded labels (job, asset), and a Grafana dashboard (uid `dagster-orchestration`) checked by
-`scripts/check_dashboard.py`, which fails when the dashboard queries a metric the code does not emit.
-**References.** `assets`, `metrics`, `testing`, `deploy`. **Honest limit.** The compose stack and Dockerfile were not run.
+metrics exported by a sensor as a **metric contract** (labels are job and asset only), the **timeframes** (partition day, schedule
+delay, run time, freshness target, sensor and export interval, alert windows) and a Grafana dashboard (uid `dagster-orchestration`)
+checked by `scripts/check_dashboard.py`, which fails when the dashboard queries a metric the code does not emit.
+**References.** `assets`, `metric-contract`, `timeframes`, `metrics`, `testing`, `deploy`. **Honest limit.** The compose stack and Dockerfile were not run.
 
 ### api-contract
 

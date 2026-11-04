@@ -6,7 +6,7 @@ Read this file fully, then `docs/README.md` (and `docs/runbooks.md` for operatio
 
 The source of a software-engineering plugin. `scripts/build.py` renders it into
 `dist/<PLUGIN_NAME>/` (default name `swe`): a complete plugin for Claude Code, Codex and omp, and
-plain skills for every other harness. `cli/` is the `<name>-cli` command (`swe-cli`): `swe-cli init` makes a directory a project (AGENTS.md as the orchestrator, `workflows/*.yaml`, `roles.yaml`, `project.yaml` listing the repo clones); the orchestrator is any CLI agent that runs YAML workflows (`cli/bin/flow`), one agent per node, in worktrees (tmux or Orca); Hermes is optional; every agent and model is set in `cli/models.yaml`.
+plain skills for every other harness. `cli/` is the `<name>-cli` command (`swe-cli`): `swe-cli init` makes a directory a project (AGENTS.md as the orchestrator, `workflows/*.yaml`, `roles.yaml`, `project.yaml` listing the repo clones); the orchestrator is any CLI agent that runs YAML workflows (`cli/bin/flow`), one agent per node, in worktrees (tmux or Orca); every agent and model is set in the project's `models.yaml`.
 
 ## Rules
 
@@ -24,7 +24,7 @@ plain skills for every other harness. `cli/` is the `<name>-cli` command (`swe-c
    `observability`. The router index and the plugin README group by it.
 5. **Harness-neutral text.** Say "start a subagent at tier T", never a tool name or a model slug.
    The how-to lives in `src/skills/router/references/harness.md`. Model ids live only in
-   `cli/models.yaml`.
+   the project's `models.yaml`.
 6. **Skills describe this stack only:** no repository, project or tool-specific names (the validator
    flags them), a `metadata.summary` of one line (it becomes the skill's row in the docs tables), and
    no `**x** skill` or `**x** principle` reference without a file, broken link, missing group or
@@ -42,7 +42,6 @@ make validate                               # build + validate (after every chan
 make test                                   # build, enforcement, frontend and cli tests (selftest, flowtest, inittest)
 bash tests/frontend_test.sh --e2e --docker # also Playwright and the frontend images
 bash tests/build_test.sh --claude           # also load the built plugin in Claude Code (a few Haiku tokens)
-bash cli/tests/selftest.sh --hermes       # also bootstrap a scratch Hermes home (needs hermes)
 PLUGIN_NAME=acme PLUGIN_DOMAIN=acme.test make validate   # any name and domain must build too
 ```
 
