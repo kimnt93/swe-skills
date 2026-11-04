@@ -1,41 +1,23 @@
-# cli/models.yaml: every agent of the fleet, by level, and the model each one uses.
-# Projects (one manager profile and one board each) are listed in cli/projects.yaml.
+# models.yaml: the ONE place that says which model runs at which tier. It lives in the project directory
+# (`swe-cli init` copies it there; edit it freely). Roles (roles.yaml) and workflow nodes name only a tier
+# (top, mid, low) and a harness; this file turns that into a model and an effort level.
 #
 #   swe-cli models show      who uses what
 #   swe-cli models check     every model exists where it will run, every provider is logged in
-#   swe-cli models apply     push this file to Hermes and omp
-#   swe-cli bootstrap        create or update every profile, board and project binding
+#   swe-cli models apply     write omp's model roles
 #
-# Skills never name a model: they name a tier (top, mid, low). A new model (say Opus 6) is an edit
-# here plus `swe-cli models check && swe-cli models apply`.
+# A new model (say Opus 6) is an edit here plus `swe-cli models check`; nothing else names a model.
+# tiers:  top = design and review, mid = building (the default), low = docs, changelog, mechanical work.
 
-# Orchestrator: the agent that runs a project. It is any CLI agent (claude, codex, omp) started in the
-# project directory with the manager brief (`swe-cli orchestrate <project>`); a project may override it
-# (`orchestrator:` in projects.yaml). Hermes is optional: set board.enabled true to also use Hermes
-# profiles and boards (cheap router brains, chat from Telegram). The default is off.
+# Orchestrator: the agent that runs the project (`swe-cli orchestrate <project>`): any harness started in
+# the project directory with AGENTS.md. A project may override it in project.yaml (`orchestrator:`).
 orchestrator: {cli: claude, tier: mid}
 
 # Where CLI sessions run: tmux (attach with tmux), or orca (terminals inside the Orca app, which also
 # shows the worktrees). Both keep every session alive after you disconnect.
 launcher: tmux
 
-# Level 1. Board agents (optional): Hermes profiles that never write code. Used only when enabled.
-board:
-  enabled: false
-  root:
-    profile: default                 # the root profile: general purpose, manages profiles and projects,
-                                     # routes every request to the right project's manager
-    brain: {provider: gemini, model: gemini-3.8-flash}
-    tools: {enable: [kanban, terminal, memory], disable: [file, code_execution, browser, delegation]}
-    skills: [intake, github]
-    description: "Root. Manages projects and profiles, routes each request to its project's manager, reports across projects. Never edits repositories."
-  manager:                           # template for every project's manager profile (pm-<project>)
-    brain: {provider: gemini, model: gemini-3.8-flash}   # a router: cheap, and not Claude, so it still answers when Claude's quota runs out
-    tools: {enable: [kanban, terminal, memory], disable: [file, code_execution, web, browser, delegation]}
-    skills: [manager, project, github]
-    description: "Manager of project {project} only ({description}). Orchestrates: issues, cards, docs and repo upkeep through cards, merges only when the human approves. Never edits code."
-
-# Level 2. Coding CLIs. The orchestrator starts one in a session inside a git worktree
+# Coding CLIs. The orchestrator starts one in a session inside a git worktree
 # (`swe-cli delegate start`), hands it the brief and reads its result. Each project has a default CLI
 # (`cli:` in projects.yaml); the reviewer is another family (`reviewers`).
 clis:
@@ -53,7 +35,7 @@ clis:
     ready: "π >"                         # the status line is up
     busy: "⎋"                            # the "⎋ Running ..." line while a tool runs
 
-# Level 3. Workers: the model a CLI runs for a card, per tier.
+# Workers: the model a CLI runs for a card, per tier.
 # Claude aliases (opus, sonnet, haiku) follow the newest model after `claude update`;
 # pin a full id (claude-opus-5-5) to make upgrades explicit.
 workers:
@@ -70,7 +52,7 @@ workers:
     mid: {model: openai-codex/gpt-6-sol, thinking: medium}
     low: {model: google-antigravity/gemini-3.8-flash, thinking: low}
 
-# Level 4. Reviewers: which CLI reviews work written with each CLI (always the other family), at which tier.
+# Reviewers: which CLI reviews work written with each CLI (always the other family), at which tier.
 reviewers:
   claude: {cli: omp, tier: top}        # Claude-written code is broken by gpt-6-sol
   codex: {cli: claude, tier: top}      # Codex-written code is broken by Opus
@@ -88,26 +70,15 @@ omp_roles:
   slow: openai-codex/gpt-6-sol
 
 # Context policy: how many tokens a session may hold before its agent compacts it. `window` is the
-# cap (Codex model_context_window, Hermes model.context_length); `compact_at` is where compaction
+# cap (Codex model_context_window); `compact_at` is where compaction
 # starts. Claude models: 300-400k. Every other model follows the price break at about 272k, which
 # is where Codex and Gemini prices step up. `swe-cli context show` prints what each tool gets;
-# `swe-cli context apply` writes Claude Code, Codex and omp; `swe-cli sync` writes the Hermes profiles.
+# `swe-cli context apply` writes Claude Code, Codex and omp; 
 context:
   default: {window: 272000, compact_at: 245000}   # Codex, Gemini, GPT, and anything not listed
   families:
     claude: {window: 400000, compact_at: 350000}  # opus, sonnet, haiku, fable and claude-* ids
   models: {}                                      # exact overrides: "<model id>": {window: N, compact_at: N}
-
-# Hermes board settings (kanban.*). Each project's manager splits its own work (it reads the
-# project's ARCHITECTURE.md), so the global auto-decomposer is off and cards stay with their manager.
-kanban:
-  dispatch_in_gateway: true
-  review_dispatch: true
-  failure_limit: 2
-  max_in_progress: 6
-  max_in_progress_per_profile: 2
-  auto_decompose: false
-  orchestrator_profile: ""
 
 # Autopilot (Trust Ladder rung 5): card risk classes the manager may merge without the human.
 # Keep it empty until 20 cards merged cleanly. Money-path is refused even if listed; a human

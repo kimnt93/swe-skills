@@ -713,8 +713,6 @@ def cmd_orchestrate(args: list[str]) -> int:
     cfg, project = fleet.load(), project_of(pos[0])
     default = {**cfg["orchestrator"], **project["orchestrator"]}
     cli, tier = flag.get("--cli", default["cli"]), flag.get("--tier", default.get("tier", "mid"))
-    if cli == "hermes":
-        die(2, "this project's orchestrator is Hermes: use its manager profile (hermes -p pm-" + pos[0] + "), not a CLI session")
     if cli not in cfg["clis"]:
         die(2, f"unknown cli {cli!r}")
     session = f"{pos[0]}-orchestrator"

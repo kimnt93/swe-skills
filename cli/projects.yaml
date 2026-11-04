@@ -15,5 +15,4 @@
 #                                     that lists one holds it exclusively until it merges
 #   cli: claude | codex | omp         the coding CLI cards use by default (default claude)
 #   orchestrator: {cli: claude, tier: mid}   optional override of the orchestrator in models.yaml
-# Hermes (board.enabled: true) derives pm-<name> as the manager profile and <name> as board and project.
 projects: {}

@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 # selftest: prove the fleet command without touching the live setup.
-# Fake claude / omp / gh CLIs, a scratch git repo with an origin, a scratch omp config and Hermes home.
-#
-#   cli/tests/selftest.sh            everything except a real Hermes bootstrap
-#   cli/tests/selftest.sh --hermes   also bootstrap a scratch Hermes home (slow, needs hermes)
+# Fake claude / omp / gh CLIs, a scratch git repo with an origin and a scratch omp config.
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")/.." && pwd)"
@@ -29,15 +26,15 @@ mapfile -t cmd < <("$fleet" models cmd omp low)
 [ "$("$fleet" models subagent worker)" = "sonnet" ] || fail "subagent worker"
 [ "$("$fleet" models subagent adversary)" = "opus" ] || fail "subagent adversary"
 ! grep -q "^lane " "$tmp/show.txt" || fail "show still lists lane profiles"
-pass "models: board, workers, reviewers, subagents, omp roles (no lane profiles)"
+pass "models: workers, reviewers, subagents, omp roles (no lane profiles)"
 
 # 2. one edit in models.yaml reaches every agent that uses it
-sed 's/top: {model: opus,/top: {model: claude-opus-6,/' "$here/models.yaml" >"$tmp/models.yaml"
+sed 's/top: {model: opus,/top: {model: claude-opus-6,/' "$here/templates/models.yaml" >"$tmp/models.yaml"
 [ "$(SWE_MODELS="$tmp/models.yaml" "$fleet" models cmd claude top | sed -n 4p)" = "claude-opus-6" ] || fail "worker swap"
 [ "$(SWE_MODELS="$tmp/models.yaml" "$fleet" models subagent adversary)" = "claude-opus-6" ] || fail "subagent swap"
 pass "swap: a new model in workers reaches the next card and the plugin's adversary subagent"
 
-# 3. projects: a directory with repos; Hermes is off by default and only a Hermes-enabled models file creates profiles
+# 3. projects: a directory with repos
 git init -q "$tmp/demo-src"
 git -C "$tmp/demo-src" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
 export SWE_PROJECTS="$tmp/projects.yaml"
@@ -46,28 +43,10 @@ git clone -q "$tmp/demo-src" "$tmp/demo-dir/api"
 git clone -q "$tmp/demo-src" "$tmp/demo-dir/web"
 printf '# scratch registry\nprojects:\n  demo:\n    dir: %s\n    description: Demo API\n    repos:\n      api: {github: acme/demo-api}\n      web: {github: acme/demo-web, hotspots: [package-lock.json]}\n' "$tmp/demo-dir" >"$SWE_PROJECTS"
 "$fleet" project list | grep -q "^demo .*api,web .*$tmp/demo-dir" || fail "project list"
-"$fleet" models show | grep -q "hermes: off" || fail "hermes is not off by default"
-! "$fleet" models show | grep -q "manager demo" || fail "a manager row shows while hermes is off"
 "$fleet" bootstrap --dry-run >"$tmp/boot-off.txt"
-! grep -q "would run: hermes" "$tmp/boot-off.txt" || fail "bootstrap with hermes off still touches hermes"
 grep -q "repo api: cloned at $tmp/demo-dir/api" "$tmp/boot-off.txt" || fail "bootstrap does not check the clones"
-sed 's/^  enabled: false/  enabled: true/' "$here/models.yaml" >"$tmp/models-hermes.yaml"
-export HM="$tmp/models-hermes.yaml"
-SWE_MODELS="$HM" "$fleet" models show | grep -q "manager demo .*pm-demo .*gemini-3.8-flash" || fail "show manager (a non-Claude router)"
-SWE_MODELS="$HM" "$fleet" models apply --dry-run >"$tmp/apply.txt"
-grep -q "would run: hermes -p pm-demo config set model.default gemini-3.8-flash" "$tmp/apply.txt" || fail "apply manager"
-grep -q "would run: hermes config set model.default gemini-3.8-flash" "$tmp/apply.txt" || fail "apply root"
-! grep -qE "hermes -p (claude|codex|omp) " "$tmp/apply.txt" || fail "a lane profile is applied"
+"$fleet" models apply --dry-run >"$tmp/apply.txt"
 [ ! -e "$OMP_CONFIG" ] || fail "apply --dry-run wrote omp config"
-SWE_MODELS="$HM" "$fleet" bootstrap --dry-run >"$tmp/boot.txt"
-grep -q "hermes profile create pm-demo --no-alias --description Manager of project demo only (Demo API)" "$tmp/boot.txt" || fail "manager profile"
-grep -q "hermes -p pm-demo tools disable file code_execution web browser delegation" "$tmp/boot.txt" || fail "manager tools"
-! grep -qE "hermes -p (claude|codex|omp) |hermes profile create (claude|codex|omp) " "$tmp/boot.txt" || fail "bootstrap creates lane profiles"
-grep -q "hermes tools enable kanban terminal memory" "$tmp/boot.txt" || fail "root tools"
-grep -q "hermes config set kanban.auto_decompose false" "$tmp/boot.txt" || fail "manual decomposition"
-grep -q "hermes kanban boards create demo --default-workdir $tmp/demo-dir" "$tmp/boot.txt" || fail "board"
-grep -q "hermes -p pm-demo project create demo $tmp/demo-dir --slug demo --board demo" "$tmp/boot.txt" || fail "manager's project"
-grep -q "skills.external_dirs .*$plugin/skills" "$tmp/boot.txt" || fail "skills dirs"
 "$fleet" project add bad_name --dir "$tmp/x" --repo api=acme/x --dry-run >"$tmp/bad.txt" && fail "bad project name accepted"
 grep -q "name must match" "$tmp/bad.txt" || fail "bad name message"
 "$fleet" project add other --dir "$tmp/x" --repo api=nonsense --cli gemini --dry-run >"$tmp/bad.txt" && fail "bad repo/cli accepted"
@@ -76,7 +55,7 @@ grep -q "cli must be one of" "$tmp/bad.txt" || fail "bad cli message"
 grep -q "would create $tmp/fresh-dir" "$tmp/add-dry.txt" && grep -q "git clone $tmp/demo-src $tmp/fresh-dir/docs" "$tmp/add-dry.txt" || fail "project add does not plan the directory and the clones"
 "$fleet" project add fresh --dir "$tmp/fresh-dir" --repo api="$tmp/demo-src" --repo docs="$tmp/demo-src" --cli codex >"$tmp/add.txt" 2>&1 || { cat "$tmp/add.txt"; fail "project add"; }
 [ -d "$tmp/fresh-dir/api/.git" ] && [ -d "$tmp/fresh-dir/docs/.git" ] || fail "project add did not clone both repos"
-pass "projects: a directory with several repos, Hermes off by default, profiles only when enabled, add clones, bad input refused"
+pass "projects: a directory with several repos, add clones, bad input refused"
 
 # 3b. the example setups (Claude-only, oh-my-pi-only) are consistent
 for example in claude-only codex-only omp-only; do
@@ -90,7 +69,6 @@ for example in claude-only codex-only omp-only; do
     SWE_MODELS="$file" "$fleet" models cmd "$clis" "$tier" >/dev/null || fail "$example: cmd $clis $tier"
   done
   SWE_MODELS="$file" "$fleet" bootstrap --dry-run >"$tmp/ex-boot.txt" || fail "$example: bootstrap dry-run"
-  ! grep -qE "hermes -p (claude|omp) " "$tmp/ex-boot.txt" || fail "$example: a lane profile leaked in"
 done
 pass "examples: claude-only and omp-only each have one CLI, a same-CLI top reviewer, and bootstrap cleanly"
 
@@ -136,19 +114,17 @@ grep -qE "^Claude Code .* 400,000 +350,000" "$tmp/ctx3.txt" && grep -qE "^Codex 
   && grep -qE "^oh-my-pi .* 272,000 +245,000" "$tmp/ctx3.txt" || { cat "$tmp/ctx3.txt"; fail "context show"; }
 [ "$("$fleet" context env claude mid)" = "CLAUDE_CODE_AUTO_COMPACT_WINDOW=350000" ] || fail "context env claude"
 [ -z "$("$fleet" context env omp mid)" ] || fail "context env omp must be empty"
-sed -e 's/^  enabled: false/  enabled: true/' -e 's/  models: {}/  models:\n    gemini-3.8-flash: {window: 200000, compact_at: 150000}/' "$here/models.yaml" >"$tmp/ctx-models.yaml"
-SWE_MODELS="$tmp/ctx-models.yaml" "$fleet" context show | grep -qE "^Hermes default .*gemini-3.8-flash .* 200,000 +150,000" || fail "per-model override"
-sed 's/compact_at: 245000/compact_at: 300000/' "$here/models.yaml" >"$tmp/ctx-bad.yaml"
+sed 's/compact_at: 245000/compact_at: 300000/' "$here/templates/models.yaml" >"$tmp/ctx-bad.yaml"
 SWE_MODELS="$tmp/ctx-bad.yaml" "$fleet" models check >"$tmp/ctx-check.txt" 2>&1 || true
 grep -q "context.default: compact_at 300000 must be above 0 and below window 272000" "$tmp/ctx-check.txt" || fail "check rejects compact_at >= window"
 for example in claude-only codex-only omp-only; do
-  python3 - "$here/models.yaml" "$here/examples/models.$example.yaml" <<'PY' || fail "$example: context differs from models.yaml"
+  python3 - "$here/templates/models.yaml" "$here/examples/models.$example.yaml" <<'PY' || fail "$example: context differs from models.yaml"
 import sys, yaml
 base, example = (yaml.safe_load(open(p))["context"] for p in sys.argv[1:])
 assert base == example, (base, example)
 PY
 done
-pass "context: apply writes Claude Code, Codex and omp (other keys, tables and comments kept, backups made, idempotent); show; env; per-model override; invalid policy rejected"
+pass "context: apply writes Claude Code, Codex and omp (other keys, tables and comments kept, backups made, idempotent); show; env; invalid policy rejected"
 
 # 4. swe-cli lane run + review against fake CLIs
 mkdir -p "$tmp/bin"
@@ -172,7 +148,7 @@ printf 'verify:\n\ttest -f ok\n\ttest -z "$$(git status --porcelain)"\n' >Makefi
 git add Makefile && git commit -qm "chore: init" && git branch -M main && git push -q origin main
 git switch -qc wt/t1
 echo "goal: add ok" >"$tmp/card.md"
-HERMES_KANBAN_WORKSPACE="$tmp/repo" "$fleet" lane run claude mid "$tmp/card.md" || fail "lane run exit"
+SWE_WORKSPACE_DIR="$tmp/repo" "$fleet" lane run claude mid "$tmp/card.md" || fail "lane run exit"
 python3 - "$tmp/repo/.swe/evidence.json" <<'EOF' || fail "evidence.json"
 import json, sys
 e = json.load(open(sys.argv[1]))
@@ -183,7 +159,7 @@ EOF
 grep -q "Start with the $plugin skill" "$tmp/repo/.swe/run-agent.log" || fail "brief names the plugin router"
 [ "$(cat "$tmp/repo/.swe/compact-window.txt")" = 350000 ] || fail "claude lane exports CLAUDE_CODE_AUTO_COMPACT_WINDOW"
 pass "lane run: agent commits, make verify passes, .swe/ is not uncommitted, brief names /$plugin, Claude Code gets its compaction point (350000)"
-HERMES_KANBAN_WORKSPACE="$tmp/repo" "$fleet" lane review claude "$tmp/card.md" || fail "review exit"
+SWE_WORKSPACE_DIR="$tmp/repo" "$fleet" lane review claude "$tmp/card.md" || fail "review exit"
 python3 - "$tmp/repo/.swe/review.json" <<'EOF' || fail "review.json"
 import json, sys
 r = json.load(open(sys.argv[1]))
@@ -192,7 +168,7 @@ assert r["reviewer_edited_files"] is False and "no verified findings" in r["repo
 EOF
 pass "lane review: the other family (omp top), report captured, no edits"
 rm ok && git commit -qam "revert ok"
-HERMES_KANBAN_WORKSPACE="$tmp/repo" "$fleet" lane run omp low "$tmp/card.md" && fail "verify should fail"
+SWE_WORKSPACE_DIR="$tmp/repo" "$fleet" lane run omp low "$tmp/card.md" && fail "verify should fail"
 python3 -c "import json; assert json.load(open('$tmp/repo/.swe/evidence.json'))['verify_exit'] != 0" || fail "failing verify"
 pass "lane run: a failing make verify gives a non-zero exit and is recorded"
 cd "$here"
@@ -208,7 +184,7 @@ esac
 EOF
 chmod +x "$tmp/bin/gh"
 export GH_VIEW="$tmp/view.json" GH_CHECKS="$tmp/checks.json" GH_LOG="$tmp/gh.log"
-sed 's/auto_merge: \[\]/auto_merge: [low]/' "$here/models.yaml" >"$tmp/auto.yaml"
+sed 's/auto_merge: \[\]/auto_merge: [low]/' "$here/templates/models.yaml" >"$tmp/auto.yaml"
 echo '{"headRefOid":"abc","state":"OPEN","isDraft":false}' >"$GH_VIEW"
 echo '[{"name":"verify","bucket":"pass"}]' >"$GH_CHECKS"
 expect_refused() {  # <label> <models file> <risk> <sha>
@@ -216,7 +192,7 @@ expect_refused() {  # <label> <models file> <risk> <sha>
   SWE_MODELS="$2" "$fleet" merge 7 --risk "$3" --sha "$4" >"$tmp/merge.txt" || rc=$?
   [ "$rc" = 3 ] && grep -q REFUSED "$tmp/merge.txt" || { cat "$tmp/merge.txt"; fail "merge guard: $1"; }
 }
-expect_refused "autopilot off" "$here/models.yaml" low abc
+expect_refused "autopilot off" "$here/templates/models.yaml" low abc
 expect_refused "money-path" "$tmp/auto.yaml" money-path abc
 expect_refused "risk not allowed" "$tmp/auto.yaml" standard abc
 expect_refused "sha mismatch" "$tmp/auto.yaml" low def
@@ -253,7 +229,7 @@ rc=0; "$fleet" merge 7 --risk money-path --sha def --approved >"$tmp/merge.txt" 
 echo '[{"name":"verify","bucket":"fail"}]' >"$GH_CHECKS"
 rc=0; "$fleet" merge 7 --risk low --sha abc --approved >"$tmp/merge.txt" || rc=$?
 [ "$rc" = 3 ] && grep -q "not green" "$tmp/merge.txt" || fail "approval does not skip the checks"
-sed 's/auto_merge: \[\]/auto_merge: [low, money-path]/' "$here/models.yaml" >"$tmp/bad.yaml"
+sed 's/auto_merge: \[\]/auto_merge: [low, money-path]/' "$here/templates/models.yaml" >"$tmp/bad.yaml"
 SWE_MODELS="$tmp/bad.yaml" "$fleet" models check >"$tmp/check.txt" 2>&1 || true
 grep -q "never include money-path" "$tmp/check.txt" || fail "check rejects money-path autopilot"
 pass "merge: refuses off / money-path / other risk / stale sha / behind or conflicting branch / red or missing checks / closed; merges low at the sha; --approved merges money-path but never skips the SHA or the checks"
@@ -412,54 +388,4 @@ else
   echo "SKIP swe-cli delegate tests: tmux is not installed"
 fi
 
-# 6. optional: bootstrap a scratch Hermes home with a project, twice, then add a second project
-if [ "${1:-}" = "--hermes" ]; then
-  export HERMES_HOME="$tmp/hermes"
-  mkdir -p "$HERMES_HOME"
-  "$fleet" bootstrap >"$tmp/boot1.txt" 2>&1 || { cat "$tmp/boot1.txt"; fail "bootstrap"; }
-  "$fleet" bootstrap >"$tmp/boot2.txt" 2>&1 || { cat "$tmp/boot2.txt"; fail "bootstrap re-run"; }
-  grep -q "board demo exists" "$tmp/boot2.txt" && grep -q "project demo exists for pm-demo" "$tmp/boot2.txt" || fail "bootstrap not idempotent"
-  [ "$(hermes -p pm-demo config get model.default | tail -1)" = "gemini-3.8-flash" ] || fail "manager model"
-  ! hermes profile list | grep -qE "^ *(claude|omp) " || fail "a lane profile exists"
-  [ "$(hermes config get kanban.auto_decompose | tail -1)" = "False" ] || [ "$(hermes config get kanban.auto_decompose | tail -1)" = "false" ] || fail "auto_decompose"
-  hermes -p pm-demo config get skills.external_dirs | grep -q "dist/$plugin/skills" || fail "manager skills dir"
-  hermes kanban boards list | grep -qw demo || fail "board demo"
-  hermes project list | grep -qw demo || fail "root project demo"
-  git init -q "$tmp/web-repo"
-  "$fleet" project add web --repo "$tmp/web-repo" --github acme/web --description "Web app" >"$tmp/add.txt" 2>&1 || { cat "$tmp/add.txt"; fail "project add"; }
-  grep -q "^  web:" "$SWE_PROJECTS" && grep -q "^# scratch registry" "$SWE_PROJECTS" || fail "registry written (header kept)"
-  hermes profile list | grep -q "pm-web" || fail "pm-web profile"
-  hermes -p pm-web project list | grep -qw web || fail "pm-web project"
-  grep -q "gemini-3.8-flash" "$OMP_CONFIG" || fail "omp modelRoles"
-  pass "bootstrap on a scratch Hermes home with a project, twice; project add creates the second manager"
-
-  # sync: one login on default, one command for every profile
-  printf 'GEMINI_API_KEY=key-one\nTELEGRAM_BOT_TOKEN=bot-secret\nTERMINAL_ENV=local\nOPENROUTER_API_KEY=key-two\n' >"$HERMES_HOME/.env"
-  "$fleet" sync >"$tmp/sync1.txt" 2>&1 || { cat "$tmp/sync1.txt"; fail "sync"; }
-  for profile in pm-demo pm-web; do
-    env_file="$HERMES_HOME/profiles/$profile/.env"
-    grep -q '^GEMINI_API_KEY=key-one$' "$env_file" && grep -q '^OPENROUTER_API_KEY=key-two$' "$env_file" || fail "$profile: provider keys not copied"
-    ! grep -qE 'TELEGRAM|TERMINAL_ENV' "$env_file" || fail "$profile: a messaging or non-provider variable was copied"
-    [ "$(stat -c %a "$env_file")" = 600 ] || fail "$profile: .env is not mode 600"
-  done
-  ! grep -q 'key-one\|key-two\|bot-secret' "$tmp/sync1.txt" || fail "sync printed a secret value"
-  python3 - "$HERMES_HOME" <<'PY' || fail "sync: profile context settings"
-import sys, yaml
-root = sys.argv[1]
-def cfg(name):
-    path = f"{root}/config.yaml" if name == "default" else f"{root}/profiles/{name}/config.yaml"
-    return yaml.safe_load(open(path))
-manager = cfg("pm-demo")
-assert manager["model"]["context_length"] == 272000 and manager["compression"]["threshold_tokens"] == 245000, manager
-assert manager["compression"]["threshold"] == 0.91, manager["compression"]
-slash = cfg("default")["quick_commands"]["sync"]
-assert slash["type"] == "exec" and slash["command"].endswith("swe-cli sync"), slash
-PY
-  printf '{"credential_pool": {"gemini": [{"id": "own"}]}}' >"$HERMES_HOME/profiles/pm-web/auth.json"
-  "$fleet" sync >"$tmp/sync2.txt" 2>&1
-  grep -q "warning: pm-web has its own gemini login" "$tmp/sync2.txt" || { cat "$tmp/sync2.txt"; fail "sync did not report a shadowing login"; }
-  grep -qE "^(default|pm-demo): already in sync" "$tmp/sync2.txt" || { cat "$tmp/sync2.txt"; fail "second sync not idempotent"; }
-  "$fleet" sync --dry-run >/dev/null || fail "sync --dry-run"
-  pass "sync: provider keys (not messaging) copied at mode 600; context limits per model family; /sync registered; second run changes nothing; a shadowing login is reported; no secret printed"
-fi
 echo "all passed"

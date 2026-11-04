@@ -2,59 +2,15 @@
 # One CLI, so the reviewer is omp at tier top, in a fresh session that sees only the diff and the card.
 # The orchestrator is oh-my-pi itself (swe-cli orchestrate <project>).
 # Use it with: SWE_MODELS=cli/examples/models.omp-only.yaml swe-cli bootstrap
-# Hermes is off (board.enabled: false); set it true to also run Hermes managers (on Gemini, never Claude).
 orchestrator:
   cli: omp
   tier: mid
 launcher: tmux
-board:
-  enabled: false
-  root:
-    profile: default
-    brain:
-      provider: gemini
-      model: gemini-3.8-flash
-    tools:
-      enable:
-      - kanban
-      - terminal
-      - memory
-      disable:
-      - file
-      - code_execution
-      - browser
-      - delegation
-    skills:
-    - intake
-    - github
-    description: Root. Manages projects and profiles, routes each request to its project's manager, reports across
-      projects. Never edits repositories.
-  manager:
-    brain:
-      provider: gemini
-      model: gemini-3.8-flash
-    tools:
-      enable:
-      - kanban
-      - terminal
-      - memory
-      disable:
-      - file
-      - code_execution
-      - web
-      - browser
-      - delegation
-    skills:
-    - manager
-    - project
-    - github
-    description: 'Manager of project {project} only ({description}). Orchestrates: issues, cards, docs and repo
-      upkeep through cards, merges only when the human approves. Never edits code.'
 clis:
   omp:
     approval_mode: yolo
-    ready: "\u03C0 >"
-    busy: "\u238B"
+    ready: π >
+    busy: ⎋
 workers:
   omp:
     top:
@@ -84,13 +40,5 @@ context:
       window: 400000
       compact_at: 350000
   models: {}
-kanban:
-  dispatch_in_gateway: true
-  review_dispatch: true
-  failure_limit: 2
-  max_in_progress: 6
-  max_in_progress_per_profile: 2
-  auto_decompose: false
-  orchestrator_profile: ''
 autopilot:
   auto_merge: []

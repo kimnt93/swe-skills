@@ -47,7 +47,7 @@ for line in sys.stdin:
         json.dump({"summary": "s", "cards": cards}, open(plan, "w"))
         open(report, "w").write("planned\n")
         print(f"NODE DONE {len(cards)} card(s) planned", flush=True)
-    elif role in ("developer", "documenter", "ci-fixer", "integrator"):
+    elif role in ("developer", "documenter", "ci-fixer", "integrator", "scribe"):
         first = files.group(1).split(",")[0].strip() if files else "note.txt"
         target = first + "item.txt" if first.endswith("/") else first
         os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
@@ -73,7 +73,9 @@ for line in sys.stdin:
             if f.startswith("behind-"):
                 os.unlink(os.path.join(state, f))
         verdict, n = "PASS", 0
-        if os.path.exists(os.path.join(state, "fail-once")) and not os.path.exists(".swe/failed-once"):
+        if os.path.exists(os.path.join(state, "always-fail")):
+            verdict, n = "FAIL", 2
+        elif os.path.exists(os.path.join(state, "fail-once")) and not os.path.exists(".swe/failed-once"):
             open(".swe/failed-once", "w").write("1")
             verdict, n = "FAIL", 1
         open(report, "w").write(f"review {verdict}\n")
@@ -90,6 +92,7 @@ s="$FAKE_STATE"; args="$*"
 case "$1 $2" in
   "pr view")
     if [[ "$args" == *"--json state"* ]]; then [ -e "$s/merged-any" ] && echo '{"state":"MERGED"}' || echo '{"state":"OPEN"}'; exit 0; fi
+    if [[ "$args" == *headRefName* ]]; then echo "{\"headRefName\":\"$(cat "$s/prbranch-$3")\"}"; exit 0; fi
     n="$3"; head="$(cat "$s/head-$n" 2>/dev/null || true)"; m=CLEAN; [ -e "$s/behind-$n" ] && m=BEHIND
     files='[{"path":"CHANGELOG.md"}]'; [ -e "$s/nolog-$n" ] && files='[{"path":"a.py"}]'
     echo "{\"headRefOid\":\"$head\",\"state\":\"OPEN\",\"isDraft\":false,\"mergeStateStatus\":\"$m\",\"title\":\"feat: card $n\",\"url\":\"https://github.com/o/r/pull/$n\",\"files\":$files,\"labels\":[]}";;
@@ -175,4 +178,34 @@ log="$tmp/proj/changelog/project.md"
 ! tmux ls 2>/dev/null | grep -q '^ft-' || fail "sessions remain"
 [ "$(git -C "$tmp/proj/app" branch --show-current)" = main ] && [ -z "$(git -C "$tmp/proj/app" status --porcelain)" ] || fail "central clone not clean"
 pass "flow merge + clean: the manager merges the ready PRs (a behind branch is updated by the reviewer first), then no session, worktree, branch, record or tmp directory is left"
+
+# 5. a review that keeps failing exhausts its fix rounds: the run needs attention, the card is not ready, nothing merges
+touch "$FAKE_STATE/always-fail"
+"$fleet" flow run ft feature --goal "two files" >"$tmp/run3.txt" 2>&1 && fail "a run whose reviews always FAIL reported success"
+rm -f "$FAKE_STATE/always-fail"
+r3="$(sed -n 's/^run \(r[0-9]*\):.*/\1/p' "$tmp/run3.txt" | tail -1)"
+python3 - "$SWE_TMP/swe/ft/$r3/run.json" <<'PY' || { tail -20 "$tmp/run3.txt"; fail "exhausted review state"; }
+import json, sys
+d = json.load(open(sys.argv[1])); n = d["nodes"]
+assert d["status"] == "attention", d["status"]
+assert n["c1/review"]["status"] == "failed" and n["c1/review"].get("rounds") == 2, n["c1/review"]
+assert not d.get("ready"), d.get("ready")
+PY
+"$fleet" flow merge ft "$r3" --approved >/dev/null 2>&1 && fail "flow merge merged a run with nothing ready"
+"$fleet" flow clean ft "$r3" >/dev/null 2>&1 || fail "clean r3"
+pass "flow review FAIL: two fix rounds then the node fails, the run needs attention, nothing is ready to merge"
+
+# 6. the changelog workflow works on an existing PR branch (workspace pr), runs its checks on that PR and a review
+git -C "$tmp/proj/app" push -q origin main:refs/heads/feat/existing
+echo feat/existing >"$FAKE_STATE/prbranch-9"; echo 0000 >"$FAKE_STATE/head-9"
+"$fleet" flow run ft changelog --input pr=9 --input repo=acme/app >"$tmp/run4.txt" 2>&1 || { tail -30 "$tmp/run4.txt"; fail "changelog run"; }
+r4="$(sed -n 's/^run \(r[0-9]*\):.*/\1/p' "$tmp/run4.txt" | tail -1)"
+python3 - "$SWE_TMP/swe/ft/$r4/run.json" <<'PY' || { tail -20 "$tmp/run4.txt"; fail "changelog state"; }
+import json, sys
+d = json.load(open(sys.argv[1])); n = d["nodes"]
+assert all(n[k]["status"] == "done" for k in ("add", "checks", "review", "report")), {k: v["status"] for k, v in n.items()}
+assert n["add"]["cli"] == "claude" and n["add"]["tier"] == "low" and n["review"]["cli"] == "omp", (n["add"]["cli"], n["add"]["tier"])
+PY
+"$fleet" flow clean ft "$r4" >/dev/null 2>&1 || fail "clean r4"
+pass "flow changelog: a scribe on the low tier works on an existing PR branch, checks run on that PR, another family reviews"
 echo "all passed"

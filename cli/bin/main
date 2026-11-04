@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""swe-cli: run the plugin's agents on Hermes Kanban. Agents and models come from cli/models.yaml,
+"""swe-cli: run a project of coding agents. Tiers and models come from the project directory's models.yaml,
 projects from the project directory's project.yaml (see init).
 
     swe-cli models show                     every agent, its level and its model
     swe-cli models check                    models exist where they run, providers are logged in, projects are sound
-    swe-cli models apply [--dry-run]        push the models to every Hermes profile and to omp
+    swe-cli models apply [--dry-run]        write omp's model roles
     swe-cli models cmd <cli> <tier>         the CLI argv for a card (headless), one argument per line
     swe-cli models reviewer <cli>           "<cli> <tier>" that reviews work written with <cli>
     swe-cli models subagent <name>          the Claude Code model for a plugin subagent (used by the build)
@@ -24,10 +24,8 @@ projects from the project directory's project.yaml (see init).
     swe-cli orchestrate <project> [--cli X] [--tier T]   start the project's manager agent (any CLI) in its directory
     swe-cli flow run <project> <workflow> [--goal ..] [--input k=v] ...   run a YAML workflow (a DAG of agent nodes)
     swe-cli flow list|validate|status|retry|merge|clean|stop|graph ...      see cli/bin/flow
-    swe-cli bootstrap [--dry-run]           apply models and context; with board.enabled also the Hermes profiles and boards
-    swe-cli sync [--dry-run]                Hermes: share the root login and API keys with every profile, apply models,
-                                          context limits and skills; also the Hermes slash command /sync
-    swe-cli context show                    context window and compaction point per tool and per Hermes profile
+    swe-cli bootstrap [--dry-run]           clone the projects' repos, apply models and context
+    swe-cli context show                    context window and compaction point per tool
     swe-cli context apply [--dry-run]       write them into Claude Code, Codex and oh-my-pi
     swe-cli context env <cli> <tier>        KEY=value lines exported before a CLI runs
     swe-cli delegate ...                    start coding CLIs in tmux worktrees and read their results (see delegate)
@@ -41,14 +39,13 @@ projects from the project directory's project.yaml (see init).
                                           the merge gate, then gh pr merge --squash --auto
     swe-cli name                            the plugin name ($PLUGIN_NAME, else plugin.env, default swe)
 
-Environment: SWE_MODELS, SWE_PROJECTS, OMP_CONFIG, CLAUDE_SETTINGS, CODEX_CONFIG (file paths), HERMES_HOME.
+Environment: SWE_MODELS, SWE_PROJECTS, OMP_CONFIG, CLAUDE_SETTINGS, CODEX_CONFIG (file paths).
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
-import math
 import os
 import re
 import shutil
@@ -76,7 +73,7 @@ def find_workspace() -> Path | None:
 
 WORKSPACE = None if os.environ.get("SWE_PROJECTS") else find_workspace()
 MODELS = Path(os.environ.get("SWE_MODELS") or (WORKSPACE / "models.yaml" if WORKSPACE and (WORKSPACE / "models.yaml").is_file()
-                                              else FLEET / "models.yaml"))
+                                              else FLEET / "templates" / "models.yaml"))
 PROJECTS = Path(os.environ.get("SWE_PROJECTS", FLEET / "projects.yaml"))
 HOME_DIR = Path(os.environ.get("SWE_HOME", Path.home() / ".swe"))
 REGISTRY = HOME_DIR / "workspaces.yaml"
@@ -87,17 +84,11 @@ CLAUDE_ALIASES = {"opus", "sonnet", "haiku", "fable"}
 CLI_NAMES = ("claude", "codex", "omp")
 LAUNCHERS = ("tmux", "orca")
 TIERS = ("top", "mid", "low")
-LEVELS = ("board", "clis", "workers", "reviewers", "subagents", "omp_roles", "context", "kanban", "autopilot")
+LEVELS = ("clis", "workers", "reviewers", "subagents", "omp_roles", "context", "autopilot")
 NOTES_LIMIT = 2000
 NEVER_AUTO_MERGE = {"money-path"}
 NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 GITHUB_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
-# Root .env variables a profile receives on sync: provider API keys and base URLs, never messaging
-# credentials (each bot token belongs to one gateway; Hermes strips the same set when it clones).
-SHARED_ENV_SUFFIXES = ("_API_KEY", "_API_KEYS", "_BASE_URL")
-CHANNEL_PREFIXES = ("TELEGRAM_", "DISCORD_", "SLACK_", "WHATSAPP_", "MATRIX_", "MATTERMOST_", "SIGNAL_", "WECOM_",
-                    "FEISHU_", "DINGTALK_", "LINE_", "BLUEBUBBLES_", "SMS_", "TWILIO_", "EMAIL_", "HASS_", "QQ_",
-                    "GATEWAY_", "API_SERVER_", "WEBHOOK_")
 
 
 # ------------------------------------------------------------------------------------------------ config
@@ -110,12 +101,7 @@ def load() -> dict:
         sys.exit(f"swe-cli: {MODELS} is missing: {', '.join(missing)}")
     cfg.setdefault("orchestrator", {"cli": "claude", "tier": "mid"})
     cfg.setdefault("launcher", "tmux")
-    cfg["board"].setdefault("enabled", False)
     return cfg
-
-
-def hermes_on(cfg: dict) -> bool:
-    return bool(cfg["board"].get("enabled"))
 
 
 def workspace_entry(root: Path) -> tuple[str, dict]:
@@ -190,10 +176,6 @@ def plugin_name() -> str:
     return "swe"
 
 
-def manager_profile(project: str) -> str:
-    return f"pm-{project}"
-
-
 def worker(cfg: dict, lane: str, tier: str) -> dict:
     try:
         return cfg["workers"][lane][tier]
@@ -233,41 +215,8 @@ def argv(cfg: dict, cli: str, tier: str, interactive: bool = False, override: di
     sys.exit(f"swe-cli: unknown cli {cli!r} ({', '.join(CLI_NAMES)})")
 
 
-def profiles(cfg: dict, projects: dict[str, dict]) -> dict[str, dict]:
-    """Every Hermes profile: name -> spec with level, role, brain, tools, skills, description."""
-    result: dict[str, dict] = {}
-    if not hermes_on(cfg):
-        return result
-    root = cfg["board"]["root"]
-    result[root["profile"]] = {**root, "level": "board", "role": "root"}
-    template = cfg["board"]["manager"]
-    for name, project in projects.items():
-        if (project.get("orchestrator") or {}).get("cli", "hermes") != "hermes":
-            continue   # this project is run by a CLI agent, not a Hermes manager
-        description = template["description"].format(project=name, description=project.get("description", ""))
-        result[manager_profile(name)] = {**template, "description": description, "level": "board",
-                                         "role": "manager", "project": name}
-    return result
-
-
-# ------------------------------------------------------------------------------------------------ hermes
-
-
 def run(args: list[str], timeout: int = 180) -> subprocess.CompletedProcess:
     return subprocess.run(args, capture_output=True, text=True, timeout=timeout)
-
-
-def hermes(profile: str, *args: str) -> list[str]:
-    return (["hermes"] if profile == "default" else ["hermes", "-p", profile]) + list(args)
-
-
-def hermes_profiles() -> set[str]:
-    names = set()
-    for line in run(["hermes", "profile", "list"]).stdout.splitlines():
-        first = line.strip().lstrip("◆").split()
-        if first:
-            names.add(first[0])
-    return names
 
 
 def execute(commands: list[list[str]], dry: bool) -> int:
@@ -282,10 +231,6 @@ def execute(commands: list[list[str]], dry: bool) -> int:
     return 0
 
 
-def listed(output: str, name: str) -> bool:
-    return re.search(rf"(^|\s){re.escape(name)}(\s|$)", output, re.M) is not None
-
-
 # ------------------------------------------------------------------------------------------------ models
 
 
@@ -298,15 +243,8 @@ def subagent_model(cfg: dict, name: str) -> str:
 
 def models_show(cfg: dict, projects: dict[str, dict]) -> int:
     rows = []
-    for name, spec in profiles(cfg, projects).items():
-        if spec["level"] == "board":
-            agent = "root" if spec["role"] == "root" else f"manager {spec['project']}"
-            rows.append(("board", agent, name, spec["brain"]["model"], spec["brain"]["provider"]))
     orch = cfg["orchestrator"]
     rows.append(("orchestr", "default orchestrator", orch["cli"], worker(cfg, orch["cli"], orch["tier"])["model"] if orch["cli"] in cfg["workers"] else "", orch["tier"]))
-    if hermes_on(cfg) and not projects:
-        template = cfg["board"]["manager"]["brain"]
-        rows.append(("board", "manager (template)", "pm-<project>", template["model"], template["provider"]))
     for lane, tiers in cfg["workers"].items():
         for tier in TIERS:
             spec = tiers[tier]
@@ -320,7 +258,7 @@ def models_show(cfg: dict, projects: dict[str, dict]) -> int:
     print(f"{'level':<10}{'agent':<24}{'runs as':<16}{'model':<40}extra")
     for row in rows:
         print(f"{row[0]:<10}{row[1]:<24}{row[2]:<16}{row[3]:<40}{row[4]}")
-    print(f"launcher: {cfg['launcher']}; hermes: {'on' if hermes_on(cfg) else 'off'}")
+    print(f"launcher: {cfg['launcher']}")
     print(f"projects: {', '.join(sorted(projects)) or 'none (swe-cli project add)'}")
     print(f"autopilot auto_merge: {cfg['autopilot'].get('auto_merge') or 'off'}")
     return 0
@@ -374,8 +312,8 @@ def project_problems(name: str, project: dict, clones: bool = True) -> list[str]
     if project.get("cli", "claude") not in CLI_NAMES:
         problems.append(f"project {name}: cli must be one of {', '.join(CLI_NAMES)}, got {project.get('cli')!r}")
     orch = project.get("orchestrator") or {}
-    if orch.get("cli") and orch["cli"] not in CLI_NAMES + ("hermes",):
-        problems.append(f"project {name}: orchestrator.cli must be one of {', '.join(CLI_NAMES)} or hermes")
+    if orch.get("cli") and orch["cli"] not in CLI_NAMES:
+        problems.append(f"project {name}: orchestrator.cli must be one of {', '.join(CLI_NAMES)}")
     if orch.get("tier") and orch["tier"] not in TIERS:
         problems.append(f"project {name}: orchestrator.tier must be one of {', '.join(TIERS)}")
     return problems
@@ -446,14 +384,12 @@ def models_check(cfg: dict, projects: dict[str, dict]) -> int:
                 if w["model"] not in CLAUDE_ALIASES and not w["model"].startswith("claude-"):
                     problems.append(f"workers.{cli}.{tier}: {w['model']!r} is not a Claude model")
     orch = cfg["orchestrator"]
-    if orch.get("cli") not in cfg["clis"] and orch.get("cli") != "hermes":
+    if orch.get("cli") not in cfg["clis"]:
         problems.append(f"orchestrator.cli {orch.get('cli')!r} is not in clis")
     if orch.get("tier") not in TIERS:
         problems.append(f"orchestrator.tier must be one of {', '.join(TIERS)}")
     if cfg["launcher"] not in LAUNCHERS:
         problems.append(f"launcher must be one of {', '.join(LAUNCHERS)}")
-    if hermes_on(cfg) and (cfg["board"]["manager"]["brain"]["model"].startswith("claude") or cfg["board"]["manager"]["brain"]["provider"] == "anthropic"):
-        problems.append("board.manager must not run on Claude: Claude cannot be the Hermes orchestrator, and a manager on Claude stops when Claude's quota does")
     for name, spec in cfg["subagents"].items():
         if spec["tier"] not in TIERS:
             problems.append(f"subagents.{name}: tier must be one of {', '.join(TIERS)}")
@@ -467,16 +403,6 @@ def models_check(cfg: dict, projects: dict[str, dict]) -> int:
         for model in sorted(set(used)):
             if model not in available:
                 problems.append(f"omp has no model {model} (log in: omp login <provider>; list: omp models ls)")
-    if hermes_on(cfg):
-        existing = hermes_profiles()
-        for profile in profiles(cfg, projects):
-            if profile != "default" and profile not in existing:
-                problems.append(f"hermes profile {profile} does not exist (run: swe-cli bootstrap)")
-        for provider in sorted({spec["brain"]["provider"] for spec in profiles(cfg, projects).values()}):
-            result = run(["hermes", "auth", "status", provider])
-            status = result.stdout + result.stderr
-            if "logged in" not in status or "logged out" in status:
-                problems.append(f"hermes provider {provider} is logged out (hermes auth add {provider})")
     if shutil.which("gh") and run(["gh", "auth", "status"]).returncode != 0:
         problems.append("gh is not logged in (gh auth login): agents cannot push, open PRs or manage issues")
     problems += context_problems(cfg)
@@ -494,9 +420,7 @@ def backup_and_write(path: Path, text: str) -> None:
 
 
 def models_apply(cfg: dict, projects: dict[str, dict], dry: bool) -> int:
-    """Hermes profiles (through sync, when Hermes is on) and omp's model roles."""
-    if hermes_on(cfg) and sync(cfg, projects, dry):
-        return 1
+    """omp's model roles."""
     data = (yaml.safe_load(OMP_CONFIG.read_text(encoding="utf-8")) if OMP_CONFIG.exists() else None) or {}
     data.setdefault("setupVersion", 2)
     wanted = {**(data.get("modelRoles") or {}), **cfg["omp_roles"]}
@@ -546,12 +470,6 @@ def context_problems(cfg: dict) -> list[str]:
         if not 0 < compact < window:
             problems.append(f"context.{name}: compact_at {compact} must be above 0 and below window {window}")
     return problems
-
-
-def hermes_threshold(window: int, compact: int) -> float:
-    """compression.threshold that lets compression.threshold_tokens decide: Hermes floors the ratio
-    at 0.75 for windows under 512K, so a higher ratio is needed to compact later than that."""
-    return math.ceil(compact / window * 100) / 100
 
 
 def top_level_toml(path: Path) -> dict:
@@ -608,7 +526,6 @@ def context_apply(cfg: dict, dry: bool) -> int:
         data.setdefault("compaction", {})["thresholdTokens"] = compact
         if not dry:
             backup_and_write(OMP_CONFIG, yaml.safe_dump(data, sort_keys=False))
-    print("Hermes profiles: swe-cli sync")
     return 0
 
 
@@ -619,9 +536,6 @@ def context_show(cfg: dict, projects: dict[str, dict]) -> int:
     rows = [("Claude Code", "autoCompactWindow", "claude", claude_window, claude_compact),
             ("Codex", "model_context_window", "default", window, compact),
             ("oh-my-pi", "compaction.thresholdTokens", "default", window, compact)]
-    for name, spec in profiles(cfg, projects).items():
-        w, c = context_for(cfg, spec["brain"]["model"])
-        rows.append((f"Hermes {name}", f"{spec['brain']['model']}", "claude" if is_claude(spec["brain"]["model"]) else "default", w, c))
     print(f"{'agent':<24}{'model / key':<34}{'policy':<9}{'window':>9}{'compacts at':>13}")
     for agent, key, policy, w, c in rows:
         print(f"{agent:<24}{key:<34}{policy:<9}{w:>9,}{c:>13,}")
@@ -635,185 +549,7 @@ def context_env(cfg: dict, lane: str, tier: str) -> int:
     return 0
 
 
-# ------------------------------------------------------------------------------------------------ sync
-
-
-def hermes_root() -> Path:
-    home = Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes"))
-    return home.parent.parent if home.parent.name == "profiles" else home
-
-
-def profile_dir(name: str) -> Path:
-    return hermes_root() if name == "default" else hermes_root() / "profiles" / name
-
-
-def nested(data: dict, dotted: str):
-    for part in dotted.split("."):
-        if not isinstance(data, dict) or part not in data:
-            return None
-        data = data[part]
-    return data
-
-
-def same_value(current, wanted) -> bool:
-    if isinstance(wanted, list):
-        return isinstance(current, list) and [str(x) for x in current] == [str(x) for x in wanted]
-    try:
-        return float(current) == float(wanted)
-    except (TypeError, ValueError):
-        return str(current) == str(wanted)
-
-
-def env_values(path: Path) -> dict[str, str]:
-    values = {}
-    if path.exists():
-        for line in path.read_text(encoding="utf-8").splitlines():
-            match = re.match(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$", line)
-            if match:
-                values[match.group(1)] = match.group(2)
-    return values
-
-
-def shared_env_keys(names) -> list[str]:
-    return sorted(n for n in names if n.endswith(SHARED_ENV_SUFFIXES) and not n.startswith(CHANNEL_PREFIXES))
-
-
-def sync_env(profile: str, dry: bool) -> list[str]:
-    """Copy provider keys from the root .env into a profile's .env; returns the names added or updated."""
-    source = env_values(hermes_root() / ".env")
-    target_path = profile_dir(profile) / ".env"
-    target = env_values(target_path)
-    changed = [k for k in shared_env_keys(source) if target.get(k) != source[k]]
-    if changed and not dry:
-        lines = target_path.read_text(encoding="utf-8").splitlines() if target_path.exists() else []
-        for key in changed:
-            pattern = re.compile(rf"^\s*(?:export\s+)?{re.escape(key)}\s*=")
-            index = next((i for i, line in enumerate(lines) if pattern.match(line)), None)
-            if index is None:
-                lines.append(f"{key}={source[key]}")
-            else:
-                lines[index] = f"{key}={source[key]}"
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        target_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        target_path.chmod(0o600)
-    return changed
-
-
-def desired_settings(cfg: dict, name: str, spec: dict) -> dict[str, object]:
-    model = spec["brain"]["model"]
-    window, compact = context_for(cfg, model)
-    wanted: dict[str, object] = {
-        "model.default": model,
-        "model.provider": spec["brain"]["provider"],
-        "model.context_length": window,
-        "compression.threshold": hermes_threshold(window, compact),
-        "compression.threshold_tokens": compact,
-        "skills.external_dirs": skill_dirs(),
-    }
-    if name == "default":
-        wanted["quick_commands.sync.type"] = "exec"
-        wanted["quick_commands.sync.command"] = f"{sys.executable} {FLEET / 'bin' / 'main'} sync"
-    return wanted
-
-
-def sync(cfg: dict, projects: dict[str, dict], dry: bool) -> int:
-    """Make every Hermes profile follow the root: login, API keys, models, context limits, skills.
-
-    Logins need no copy: Hermes reads the root auth.json as a per-provider fallback in every
-    profile (and copying an OAuth token would break it, since refresh tokens are single use).
-    Fast on purpose (it is the /sync slash command, which Hermes cuts off after 30 s): it reads
-    each profile's config.yaml and runs `hermes config set` only for what differs."""
-    if not hermes_on(cfg):
-        print("hermes integration is off (board.enabled: false in models.yaml): nothing to sync")
-        return 0
-    started = time.time()
-    specs = profiles(cfg, projects)
-    present = {"default"} | ({d.name for d in (hermes_root() / "profiles").iterdir() if d.is_dir()}
-                             if (hermes_root() / "profiles").is_dir() else set())
-    failures, lines = 0, []
-    missing = [n for n in specs if n not in present and not dry]
-    # logins: report what the root has and which profiles shadow it with their own entries
-    providers = sorted({spec["brain"]["provider"] for spec in specs.values()})
-    out, shadows = [], []
-    for provider in providers:
-        status = run(["hermes", "auth", "status", provider]) if not dry else None
-        text = (status.stdout + status.stderr) if status else ""
-        out.append(f"{provider} {'logged in' if status and 'logged in' in text and 'logged out' not in text else 'not logged in on default' if status else '(dry run)'}")
-    for name in specs:
-        auth_file = profile_dir(name) / "auth.json"
-        if name != "default" and auth_file.exists():
-            try:
-                store = json.loads(auth_file.read_text(encoding="utf-8"))
-            except ValueError:
-                continue
-            own = sorted((set((store.get("providers") or {})) | set((store.get("credential_pool") or {}))) & set(providers))
-            if own:
-                shadows.append(f"{name} has its own {', '.join(own)} login (it hides the one on default)")
-    lines.append("login: " + "; ".join(out) + ("  [log in with: hermes auth add <provider>, on the default profile]" if any("not logged" in o for o in out) else ""))
-    lines += [f"warning: {s}" for s in shadows]
-    for name, spec in specs.items():
-        if name in missing:
-            lines.append(f"{name}: missing, run: swe-cli bootstrap")
-            continue
-        notes = []
-        if name != "default":
-            keys = sync_env(name, dry)
-            if keys:
-                notes.append("env " + ", ".join(f"+{k}" for k in keys))
-        config_file = profile_dir(name) / "config.yaml"
-        current = (yaml.safe_load(config_file.read_text(encoding="utf-8")) or {}) if config_file.exists() else {}
-        changed = []
-        for key, value in desired_settings(cfg, name, spec).items():
-            if same_value(nested(current, key), value):
-                continue
-            rendered = json.dumps(value) if isinstance(value, list) else str(value)
-            command = hermes(name, "config", "set", key, rendered)
-            if dry:
-                print("would run: " + " ".join(command))
-                changed.append(key)
-                continue
-            result = run(command)
-            if result.returncode != 0:
-                failures += 1
-                lines.append(f"{name}: FAILED {key}: {(result.stdout + result.stderr).strip().splitlines()[-1:]}")
-            else:
-                changed.append(key)
-        if changed:
-            notes.append(f"{len(changed)} setting(s): " + ", ".join(changed))
-        lines.append(f"{name}: " + ("; ".join(notes) if notes else "already in sync"))
-    lines.append(f"{'dry run' if dry else 'done'} in {time.time() - started:.1f}s")
-    print("\n".join(lines))
-    return 1 if failures else 0
-
-
 # ------------------------------------------------------------------------------------------------ bootstrap
-
-
-def skill_dirs() -> list[str]:
-    name = plugin_name()
-    return [str((REPO / "dist" / name / "skills").resolve())]
-
-
-def profile_commands(name: str, spec: dict, existing: set[str]) -> list[list[str]]:
-    commands = []
-    if name != "default" and name not in existing:
-        commands.append(["hermes", "profile", "create", name, "--no-alias", "--description", spec["description"]])
-    elif name != "default":
-        commands.append(["hermes", "profile", "describe", name, "--text", spec["description"]])
-    commands.append(hermes(name, "config", "set", "skills.external_dirs", json.dumps(skill_dirs())))
-    tools = spec.get("tools") or {}
-    if tools.get("enable"):
-        commands.append(hermes(name, "tools", "enable", *tools["enable"]))
-    if tools.get("disable"):
-        commands.append(hermes(name, "tools", "disable", *tools["disable"]))
-    return commands
-
-
-def build_plugin() -> int:
-    build = run([sys.executable, str(REPO / "scripts" / "build.py")], timeout=300)
-    if build.returncode != 0:
-        print(build.stdout + build.stderr, file=sys.stderr)
-    return build.returncode
 
 
 def orca_register(path: str, dry: bool) -> None:
@@ -857,29 +593,6 @@ def project_sync(cfg: dict, projects: dict[str, dict], name: str, dry: bool) -> 
             return 1
         if cfg["launcher"] == "orca":
             orca_register(spec["path"], dry)
-    if hermes_on(cfg):
-        manager = manager_profile(name)
-        spec = profiles(cfg, projects).get(manager)
-        if spec:
-            existing = set() if dry else hermes_profiles()
-            commands = profile_commands(manager, spec, existing)
-            commands.append(hermes(manager, "config", "set", "model.default", spec["brain"]["model"]))
-            commands.append(hermes(manager, "config", "set", "model.provider", spec["brain"]["provider"]))
-            if execute(commands, dry):
-                return 1
-            boards = "" if dry else run(["hermes", "kanban", "boards", "list"]).stdout
-            if listed(boards, name):
-                print(f"board {name} exists")
-            elif execute([["hermes", "kanban", "boards", "create", name, "--default-workdir", view["dir"],
-                           "--description", view["description"]]], dry):
-                return 1
-            for profile in ("default", manager):
-                known = "" if dry else run(hermes(profile, "project", "list")).stdout
-                if listed(known, name):
-                    print(f"project {name} exists for {profile}")
-                    continue
-                if execute([hermes(profile, "project", "create", name, view["dir"], "--slug", name, "--board", name)], dry):
-                    return 1
     print(f"project {name}: dir {view['dir']}, repos {', '.join(view['repos'])}, cli {view['cli']}")
     return 0
 
@@ -927,8 +640,6 @@ def project_add(cfg: dict, args: list[str], dry: bool) -> int:
     else:
         save_projects(projects)
         print(f"added project {name} to {PROJECTS}")
-        if hermes_on(cfg) and build_plugin():
-            return 1
     return project_sync(cfg, projects, name, dry)
 
 
@@ -992,8 +703,8 @@ def shipped_files(name: str, with_notes: bool = False) -> dict[str, str]:
         files["PROJECT.md"] = fill((FLEET / "templates" / "PROJECT.md").read_text(encoding="utf-8"))
         files["changelog/project.md"] = fill("# {project} change log\n\nMerged pull requests of every repo, newest first "
                                              "(`{cli} flow merge` writes them; the manager adds cross-repo lines).\n")
-    for rel in ("roles.yaml", "models.yaml"):
-        files[rel] = (FLEET / rel).read_text(encoding="utf-8")
+    files["roles.yaml"] = (FLEET / "roles.yaml").read_text(encoding="utf-8")
+    files["models.yaml"] = (FLEET / "templates" / "models.yaml").read_text(encoding="utf-8")
     for wf in sorted((FLEET / "workflows").glob("*.yaml")):
         files[f"workflows/{wf.name}"] = wf.read_text(encoding="utf-8")
     return files
@@ -1171,22 +882,7 @@ def project_notes(root: Path | None) -> int:
 
 
 def bootstrap(cfg: dict, projects: dict[str, dict], dry: bool) -> int:
-    """Projects (directories and clones), then, when Hermes is on, its profiles and boards, then models and context."""
-    if hermes_on(cfg):
-        if not dry and build_plugin():
-            return 1
-        existing = set() if dry else hermes_profiles()
-        commands: list[list[str]] = []
-        for name, spec in profiles(cfg, projects).items():
-            if spec.get("role") != "manager":
-                commands += profile_commands(name, spec, existing)
-        for key, value in cfg["kanban"].items():
-            rendered = str(value).lower() if isinstance(value, bool) else str(value)
-            commands.append(["hermes", "config", "set", f"kanban.{key}", rendered])
-        if execute(commands, dry):
-            return 1
-    else:
-        print("hermes integration is off (board.enabled: false): projects, models and context only")
+    """Projects (directories and clones), then models and context."""
     for name in sorted(projects):
         if project_sync(cfg, projects, name, dry):
             return 1
@@ -1430,8 +1126,6 @@ def main() -> int:
         return doctor(cfg, projects, rest[0] if rest else "")
     if command == "bootstrap":
         return bootstrap(cfg, projects, dry)
-    if command == "sync":
-        return sync(cfg, projects, dry)
     if command == "context" and rest:
         if rest[0] == "show":
             return context_show(cfg, projects)
