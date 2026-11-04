@@ -1,0 +1,3 @@
+go get gorm.io/gorm@v1.25.12 gorm.io/driver/postgres@v1.5.11
+# tests only (in-memory SQLite, pure Go): go get github.com/glebarez/sqlite github.com/google/uuid
+# other databases: gorm.io/driver/mysql, gorm.io/driver/sqlserver, gorm.io/driver/sqlite
