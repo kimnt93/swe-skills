@@ -1,8 +1,8 @@
 # Model tiers
 
 Skills and cards name a **tier**, never a model id. The ids live in one file, `fleet/models.yaml`
-in the stack's repository. `fleet models show` prints the current mapping, and `fleet models cmd <lane> <tier>`
-prints the exact command a lane runs. When a new model ships, only that file changes.
+in the stack's repository. `fleet models show` prints the current mapping, and `fleet models cmd <cli> <tier>`
+prints the exact command a coding CLI runs. When a new model ships, only that file changes.
 
 | Tier | Use it for | Never for |
 |---|---|---|
@@ -21,6 +21,6 @@ prints the exact command a lane runs. When a new model ships, only that file cha
 
 ## Families
 
-The lanes are families: `claude` (Claude models) and `omp` (OpenAI and Google models). A
+The two coding CLIs are families: `claude` (Claude models) and `omp` (OpenAI and Google models). A
 review is always done by the other family than the one that wrote the code. Inside one harness
 you usually can't switch family, so ask for a cross-family review (see [harness](harness.md)).

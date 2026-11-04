@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# fleet lane: run one kanban card through a coding CLI, then prove it.
+# fleet lane: headless one-shot, one card through a coding CLI (-p), then prove it. Interactive sessions
+# in tmux worktrees are `fleet delegate`.
 #
-#   fleet lane run <lane> <top|mid|low> <card-file>   implement the card, then make verify
-#   fleet lane review <author-lane> <card-file>       the other family breaks the diff
+#   fleet lane run <cli> <top|mid|low> <card-file>    implement the card, then make verify
+#   fleet lane review <author-cli> <card-file>        the other family breaks the diff
 #
 # The worker model comes from fleet/models.yaml on every call. Evidence goes to .fleet/ in the
 # workspace: evidence.json (run) or review.json (review). Exit code = make verify.
@@ -20,11 +21,11 @@ out="$ws/.fleet"
 mkdir -p "$out"
 exclude="$(git rev-parse --git-path info/exclude)"
 grep -qxF '.fleet/' "$exclude" 2>/dev/null || echo '.fleet/' >>"$exclude"
-git fetch -q origin 2>/dev/null || echo "fleet lane: git fetch failed, using the local $base" >&2
+git fetch -q origin 2>/dev/null || { echo "fleet lane: cannot fetch origin: a stale base is worse than no work (fleet doctor)" >&2; exit 4; }
 
 case "$mode" in
   run)
-    lane="${2:?lane}"
+    lane="${2:?cli}"
     tier="${3:?tier}"
     card="${4:?card file}"
     brief="Start with the $plugin skill (/$plugin in Claude Code, /skill:$plugin in omp).
@@ -34,7 +35,7 @@ Work only inside this worktree. Commit in small conventional commits.
 Do not push to main. Done means: make verify exits 0 on the committed head."
     ;;
   review)
-    author="${2:?author lane}"
+    author="${2:?author cli}"
     card="${3:?card file}"
     read -r lane tier <<<"$("$fleet" models reviewer "$author")"
     brief="You are reviewing, not fixing. Do not edit, commit or push.
@@ -68,7 +69,7 @@ out, mode, lane, tier, agent_rc, verify_rc, base, before, after, command = sys.a
 def git(*a):
     return subprocess.run(["git", *a], capture_output=True, text=True).stdout.strip()
 evidence = {
-    "mode": mode, "lane": lane, "tier": tier, "command": command,
+    "mode": mode, "cli": lane, "tier": tier, "command": command,
     "head": git("rev-parse", "HEAD"),
     "commits": git("log", "--oneline", f"{base}..HEAD").splitlines(),
     "changed_files": git("diff", "--name-only", f"{base}...HEAD").splitlines(),

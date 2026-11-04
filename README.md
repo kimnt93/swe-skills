@@ -39,6 +39,7 @@ variable always wins.
 | [docs/usage.md](docs/usage.md) | what to say for each kind of task; skills; GitHub; the fleet |
 | [docs/recommended-setup.md](docs/recommended-setup.md) | the order of work, tiers, the daily routine, what never to do |
 | [docs/architecture.md](docs/architecture.md) | the design: roles, flows, invariants, decisions, risks |
+| [docs/delegation.md](docs/delegation.md) | tmux sessions in git worktrees: the commands, keeping conflicts small, viewing sessions |
 | [docs/agents-and-skills.md](docs/agents-and-skills.md) | which agent gets which skills and GitHub rights |
 | [docs/skills/](docs/skills/README.md) | **each skill in detail**: when to use it, what to say, what happens, what you get |
 | [docs/skills.md](docs/skills.md) | quick reference for every skill (generated) |
@@ -157,14 +158,14 @@ variable always wins.
 
 ## The fleet
 
-`fleet/` runs the plugin's agents on Hermes Agent, one project per manager:
+`fleet/` runs the plugin's agents, one directory per project (`fleet project add`: a directory that holds one or more repo clones):
 
-- **root** (`default` profile): general purpose; manages projects and profiles, routes each request
-  to its project, reports across projects.
-- **`pm-<project>`**: one manager per project (`fleet project add`); an orchestrator that turns goals
-  into GitHub issues and cards that respect the project's `ARCHITECTURE.md`. It never edits code.
-- **lanes `claude` and `omp`**: shared by all projects; they implement cards in worktrees through
-  Claude Code or oh-my-pi with this plugin, open PRs, and review each other.
+- **orchestrator**: any CLI agent (Claude Code, Codex, oh-my-pi), started in the project directory by
+  `fleet orchestrate <project>`. It turns goals into GitHub issues and cards that respect the project's
+  `ARCHITECTURE.md`, and never edits code. Hermes managers are an optional alternative (`board.enabled`).
+- **coding sessions**: the orchestrator starts Claude Code, Codex or oh-my-pi in a session (tmux, or an Orca terminal)
+  and a git worktree per card (`fleet delegate`), so several agents code in one repo with few conflicts; another CLI
+  family reviews on request. Two projects may clone the same GitHub repo; their cards are kept apart by branches.
 - **the merge gate** (`fleet merge`): squash-merges only at the reviewed SHA with green required
   checks, and only for risk classes autopilot allows or with the human's approval.
 

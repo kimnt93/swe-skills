@@ -34,7 +34,7 @@ fleet sync                  # write the Hermes profiles (also part of fleet boot
 | Tool | Setting | Value | File |
 |---|---|---|---|
 | Claude Code | `autoCompactWindow` | 350000 | `~/.claude/settings.json` |
-| Claude Code in a fleet lane | env `CLAUDE_CODE_AUTO_COMPACT_WINDOW` | 350000 (exported by `fleet lane` for each card) | none: per card |
+| Claude Code in a delegated session | env `CLAUDE_CODE_AUTO_COMPACT_WINDOW` | 350000 (set by `fleet delegate` and `fleet lane` for each card) | none: per card |
 | Codex | `model_context_window`, `model_auto_compact_token_limit` | 272000, 245000 | `~/.codex/config.toml` (top level; tables and comments kept) |
 | oh-my-pi | `compaction.thresholdTokens` | 245000 | `~/.omp/agent/config.yml` |
 | Hermes, each profile | `model.context_length`, `compression.threshold_tokens`, `compression.threshold` | by the profile's model: 400000 / 350000 / 0.88 for Claude, 272000 / 245000 / 0.91 for the rest | `<profile>/config.yaml` |

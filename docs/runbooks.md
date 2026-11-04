@@ -48,37 +48,37 @@ gh api repos/<owner>/<repo>/branches/main/protection --jq '.required_status_chec
 
 ### Goal
 
-Hermes Kanban runs real cards on the pilot repo: card → lane → `make verify` → cross-family review
-→ PR → human merge. One card, then 3, then about 10 in parallel.
+The project's orchestrator runs real cards on the pilot repo: card → delegated session in a worktree → `make verify` →
+PR → optional cross-family review → human merge. One card, then 3, then about 10 in parallel.
 
 ### Steps
 
-1. `bash fleet/tests/selftest.sh --hermes` passes. `ln -sf "$PWD"/fleet/bin/fleet ~/.local/bin/fleet`.
-2. **Human logins** (interactive), once each: `omp login openai-codex`, and on the Hermes **default**
-   profile only `hermes auth add anthropic`, `hermes auth add gemini` (or put the keys in
-   `~/.hermes/.env`; or point the brains at another provider in `fleet/models.yaml`). Profiles
-   inherit the default's logins; `/sync` (or `fleet sync`) shares the `.env` API keys with them
+1. `bash fleet/tests/selftest.sh` passes (add `--hermes` only if you use Hermes). `ln -sf "$PWD"/fleet/bin/fleet ~/.local/bin/fleet`.
+2. **Human logins** (interactive), once each: `claude auth login`, `codex login`, `omp login openai-codex`, `gh auth login`
+   (whichever CLIs you use). Only with Hermes enabled: on the Hermes **default** profile `hermes auth add gemini`
+   (a non-Claude provider: Claude cannot be the Hermes orchestrator); `/sync` (or `fleet sync`) shares the keys
    ([context-and-sync.md](context-and-sync.md)).
-3. Pick exact ids with `hermes model` and `omp models ls`; edit `fleet/models.yaml`; then
-   `fleet models check` reports only missing profiles.
-4. `fleet bootstrap` (root, lanes, board settings, context limits, the `/sync` command).
-5. **Add the pilot project:** `fleet project add <name> --repo <clone> --github <owner>/<repo> --description "..."`
-   (the manager `pm-<name>`, the board `<name>`, the Hermes project), then `fleet models check` = 0 problems,
-   and the human runs `hermes gateway restart`. Ask `pm-<name>` to adopt the repo (the `project` skill:
-   `setup_repo.sh`, templates, `ARCHITECTURE.md`).
-6. **One card:** a small `risk: low`, `tier: mid` card on lane `claude` (body per `fleet-manager`),
-   created by the manager (issue first, then the card with `--skill fleet-worker --skill github`).
-   Watch with `hermes kanban watch --board <name>`. Check `.fleet/evidence.json`, the PR, the omp
-   review and its verdict SHA. **Human** merges.
+3. Pick exact ids with `omp models ls`; edit `fleet/models.yaml` (`orchestrator`, `launcher`, `workers`); then
+   `fleet models check` reports only logins.
+4. `fleet bootstrap` (projects, model roles, context limits; with Hermes also root, managers, board settings).
+5. **Add the pilot project:** `fleet project add <name> --dir ~/work/<name> --repo <repo>=<owner>/<repo> --description "..."`
+   (it creates the directory and clones the repo; with Hermes also the manager `pm-<name>` and the board), then
+   `fleet models check` = 0 problems. Start the orchestrator with `fleet orchestrate <name>` and ask it to adopt the
+   repo (the `project` skill: `setup_repo.sh`, templates, `ARCHITECTURE.md`).
+6. **One card:** `fleet doctor <name>` is clean, then a small `risk: low`, `tier: mid` card started by the orchestrator
+   (issue first, then `fleet delegate start`; see [delegation.md](delegation.md)). Watch with
+   `tmux attach -t <name>-<card>` (or the Orca terminal) and `fleet delegate status <name>`. Check the PR, `make verify`, and the
+   cross-family review (`fleet delegate review`) and its verdict SHA. **Human** merges.
 7. Fix whatever broke, with a test in `fleet/tests/selftest.sh`, before the next step.
-8. Three independent cards across both lanes, then about ten; then one rough goal given to the root profile, routed to the manager and split by it.
+8. Three independent cards with disjoint files, across two CLIs, then about five; then one rough goal given to the orchestrator and split by it.
 
 ### Verify
 
 ```bash
 fleet models check                                   # 0 problem(s)
 hermes kanban diagnostics --board <name>            # no errors, nothing stranded
-gh pr list --state merged --repo <owner>/<repo>       # merged lane PRs
+fleet delegate status <name>                         # every card: state, outcome, behind main
+gh pr list --state merged --repo <owner>/<repo>       # merged PRs
 ```
 
 ### Done when
@@ -97,7 +97,7 @@ is a configuration change plus a sampling habit.
 
 - `fleet merge <pr> --risk <r> --sha <sha>`: merges only an allowed risk class, at the reviewer's
   verified SHA, with every required check passed; never money-path; never a PR without required
-  checks. The `fleet-worker` review step calls it after a clean verdict.
+  checks. The manager calls it after a clean verdict, or with `--approved` when you say merge. It also refuses a branch that is behind or in conflict with `main`.
 - `autopilot.auto_merge` in `fleet/models.yaml`, empty by default.
 
 ### Steps
@@ -122,13 +122,13 @@ hermes cron list
 
 ### When
 
-A new model ships (say Opus 6), a model is retired, or a lane's cost or quality changes.
+A new model ships (say Opus 6), a model is retired, or a CLI's cost or quality changes.
 
 ### Steps
 
-1. `claude update`: the claude lane's `opus` / `sonnet` / `haiku` aliases now mean the newest
+1. `claude update`: the `claude` workers' `opus` / `sonnet` / `haiku` aliases now mean the newest
    models, unless `fleet/models.yaml` pins full ids.
-2. Edit `fleet/models.yaml` where needed: pinned worker ids, the omp lane, the board and lane
+2. Edit `fleet/models.yaml` where needed: pinned worker ids, the omp workers, the board
    brains, `omp_roles`, the subagents' tiers.
 3. `fleet models check`: 0 problems (each id exists where it runs, each provider is logged in).
 4. `fleet models apply`, then `fleet models show`.

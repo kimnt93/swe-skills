@@ -1,12 +1,14 @@
-# Setup B: oh-my-pi is the only coding agent. Workers and reviewers can be any provider omp is logged
-# in to (omp login openai-codex | google-antigravity | anthropic ...; omp models ls lists the ids).
-# One lane, so the reviewer is the same lane at tier top (gpt-6-sol high) while most cards run on
-# tier mid or low: pick a reviewer model from a different family than the one that wrote the card.
-# Use it with:
-#   FLEET_MODELS=fleet/examples/models.omp-only.yaml fleet bootstrap
-# The project managers' brain (board.manager.brain) still names Anthropic: change it to a provider
-# Hermes is logged in to (hermes auth add <provider>; hermes model lists the ids).
+# Setup B: oh-my-pi is the only coding agent, on OpenAI (omp login openai-codex) and Google (omp login google-antigravity) logins.
+# One CLI, so the reviewer is omp at tier top, in a fresh session that sees only the diff and the card.
+# The orchestrator is oh-my-pi itself (fleet orchestrate <project>).
+# Use it with: FLEET_MODELS=fleet/examples/models.omp-only.yaml fleet bootstrap
+# Hermes is off (board.enabled: false); set it true to also run Hermes managers (on Gemini, never Claude).
+orchestrator:
+  cli: omp
+  tier: mid
+launcher: tmux
 board:
+  enabled: false
   root:
     profile: default
     brain:
@@ -25,12 +27,12 @@ board:
     skills:
     - fleet-admin
     - github
-    description: Root. Manages projects and profiles, routes each request to its project's manager, reports across projects.
-      Never edits repositories.
+    description: Root. Manages projects and profiles, routes each request to its project's manager, reports across
+      projects. Never edits repositories.
   manager:
     brain:
-      provider: anthropic
-      model: claude-sonnet-5-5
+      provider: gemini
+      model: gemini-3.8-flash
     tools:
       enable:
       - kanban
@@ -46,23 +48,13 @@ board:
     - fleet-manager
     - project
     - github
-    description: 'Manager of project {project} only ({description}). Orchestrates: issues, cards, docs and repo upkeep through
-      cards, merges only when the human approves. Never edits code.'
-lanes:
+    description: 'Manager of project {project} only ({description}). Orchestrates: issues, cards, docs and repo
+      upkeep through cards, merges only when the human approves. Never edits code.'
+clis:
   omp:
-    cli: omp
-    brain:
-      provider: gemini
-      model: gemini-3.8-flash
-    tools:
-      disable:
-      - web
-      - browser
-    skills:
-    - fleet-worker
-    - github
-    description: 'Lane: runs cards with oh-my-pi for any project. Implements cards and reviews its own earlier work at the
-      reviewer tier, on another model.'
+    approval_mode: yolo
+    ready: "\u03C0 >"
+    busy: "\u238B"
 workers:
   omp:
     top:
@@ -76,13 +68,22 @@ workers:
       thinking: low
 reviewers:
   omp:
-    lane: omp
+    cli: omp
     tier: top
 subagents: {}
 omp_roles:
   default: google-antigravity/gemini-3.8-flash
   smol: google-antigravity/gemini-3.8-flash
   slow: openai-codex/gpt-6-sol
+context:
+  default:
+    window: 272000
+    compact_at: 245000
+  families:
+    claude:
+      window: 400000
+      compact_at: 350000
+  models: {}
 kanban:
   dispatch_in_gateway: true
   review_dispatch: true
@@ -93,12 +94,3 @@ kanban:
   orchestrator_profile: ''
 autopilot:
   auto_merge: []
-context:
-  default:
-    window: 272000
-    compact_at: 245000
-  families:
-    claude:
-      window: 400000
-      compact_at: 350000
-  models: {}

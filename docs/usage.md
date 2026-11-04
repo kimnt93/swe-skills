@@ -69,27 +69,29 @@ code, only the files the task allows, and the project's `ARCHITECTURE.md` respec
 
 ## With the fleet (several projects, unattended)
 
-You talk to the **root** Hermes profile (Telegram, Slack or the CLI); it routes to the project's
-**manager**, which turns the goal into GitHub issues and cards; the **lanes** build them in worktrees
-with Claude Code and/or oh-my-pi and review each other; the **gate** merges.
+You talk to the project's **orchestrator**: any CLI agent started with `fleet orchestrate <project>` in the project
+directory (with Hermes on, the root profile routes a chat message to the project's manager instead). It turns the goal
+into GitHub issues and briefs; it starts Claude Code, Codex or oh-my-pi in a session and worktree per card
+(`fleet delegate`, see [delegation.md](delegation.md)); the **gate** merges.
 
 ```text
-you → root:      "orders: add cancel-order and a Cancel button"
-pm-orders:       issues #41, #42; cards with risk, tier, may-write, evidence
-lanes:           PRs "feat(orders): cancel an open order" (Closes #41) ...
-you → pm-orders: "merge 41"      (money-path always waits for you)
+you → orchestrator: "add cancel-order and a Cancel button"
+orchestrator:    issues #41, #42; two delegated sessions with risk, tier, files, evidence
+sessions:        PRs "feat(orders): cancel an open order" (Closes #41) ...
+you → orchestrator: "merge 41"      (money-path always waits for you)
 ```
 
 Your commands:
 
 ```bash
-fleet project add <name> --repo <clone> --github <owner/repo> --description "..."
+fleet project add <name> --dir <path> --repo api=<owner/repo> [--repo web=<owner/repo2>] --description "..."
+fleet orchestrate <name>                 # start the project's orchestrator (any CLI) in its directory
 fleet models show | check | apply        # who runs on which model
 fleet context show | apply               # context limits per tool
-fleet sync                               # (or /sync in Hermes) log in once on default, share with every profile
-hermes kanban watch --board <project>    # live cards
-hermes kanban diagnostics --board <project>
-fleet merge <pr> --repo <owner/repo> --risk <r> --sha <verified sha> --approved   # or ask the manager
+fleet sync                               # Hermes only (or /sync): log in once on default, share with every profile
+fleet delegate status <project>          # live cards: state, outcome, behind main
+tmux attach -t <project>-<card>          # watch or take over a session (or open it in Orca)
+fleet merge <pr> --repo <owner/repo> --risk <r> --sha <verified sha> --approved   # or ask the orchestrator
 ```
 
 Risk classes decide what waits for you: `money-path` always; `standard` until you turn on

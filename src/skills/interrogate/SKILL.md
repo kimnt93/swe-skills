@@ -1,6 +1,6 @@
 ---
 name: interrogate
-description: "Adversarial review of a diff or a design: adversaries try to break it, and only findings proven by a run survive. Use before shipping a contested or risky change, for 'challenge this', 'find blind spots', 'review this branch', and as the brief of the cross-family reviewer lane."
+description: "Adversarial review of a diff or a design: adversaries try to break it, and only findings proven by a run survive. Use before shipping a contested or risky change, for 'challenge this', 'find blind spots', 'review this branch', and as the brief of the cross-family reviewer."
 metadata:
   group: process
   summary: "Adversarial review where only findings proven by a run survive"
@@ -20,8 +20,8 @@ findings; don't fix them.
 
 - **In one harness:** 2–3 adversaries (in Claude Code, `subagent_type: "@PLUGIN@:adversary"`), each
   in its own worktree, on tiers `top` and `mid`.
-- **Cross-family (preferred for a PR):** the other lane reviews (`fleet lane review <author lane> <card>`).
-- **Wide or risky change:** a Hermes swarm card with both lanes as adversaries.
+- **Cross-family (preferred for a PR):** the other CLI reviews (`fleet delegate review <project> <card>`, started by the project's manager).
+- **Wide or risky change:** both CLIs as adversaries on the same diff, each read-only.
 
 Brief each adversary with the scope, the intent, and:
 

@@ -78,7 +78,7 @@ safety fact with code that runs. **You get** the fact and its proof, confirmed r
 
 **What it is.** Adversarial review: only findings proven by a run survive. **Use it when** before shipping a
 contested or risky change. **Say.** `/swe:interrogate review this branch`. **What happens.** The scope and
-intent are restated; 2 to 3 adversaries (Claude Code: `swe:adversary`; or the other fleet lane) try to break
+intent are restated; 2 to 3 adversaries (Claude Code: `swe:adversary`; or the other CLI) try to break
 the change and must report the exact command and its output; attacks in this stack include duplicate or
 out-of-order Kafka messages, a crash between the DB commit and the offset commit, NULL or zero in new columns,
 a different ML seed, overflow and panic paths, API error envelopes in the UI. You re-run every finding and

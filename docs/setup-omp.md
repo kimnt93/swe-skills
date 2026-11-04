@@ -1,7 +1,7 @@
 # Setup B: oh-my-pi (omp)
 
 oh-my-pi is the coding agent. It can use several providers (OpenAI through a Codex login, Google
-through Antigravity, Anthropic, ...), so one lane can run strong and cheap models from different
+through Antigravity, Anthropic, ...), so one CLI can run strong and cheap models from different
 families.
 
 ## 1. Sign in to the providers you want
@@ -37,16 +37,18 @@ Useful flags: `--model <provider/id>`, `--thinking low|medium|high`, `-p` (print
 The model roles omp uses for its own subagents (`default`, `smol`, `slow`) are written by
 `fleet models apply` from `omp_roles` in `fleet/models.yaml`.
 
-## 4. Run it unattended as a lane (Hermes)
+## 4. Run it unattended (the orchestrator starts it in a worktree)
 
-A lane runs `omp -p --model <id> --thinking <level> --approval-mode yolo --max-time 45m` in a
-worktree for each card.
+A project's orchestrator runs `fleet delegate start --cli omp`, which starts `omp --model <id> --thinking <level>
+--approval-mode yolo` interactively in a session (tmux or an Orca terminal) inside a git worktree for each card
+([delegation.md](delegation.md)). `fleet lane` keeps the headless one-shot form (`omp -p ... --max-time 45m`).
 
 ```bash
-export FLEET_MODELS=fleet/examples/models.omp-only.yaml    # one lane: omp
+export FLEET_MODELS=fleet/examples/models.omp-only.yaml    # one CLI: omp
 fleet models check          # every id must exist in `omp models ls`; fix models.yaml if not
-fleet bootstrap
-fleet project add orders --repo ~/code/orders --github acme/orders --description "Orders API"
+fleet project add orders --dir ~/work/orders --repo api=acme/orders-api --cli omp
+fleet doctor orders
+fleet orchestrate orders --cli omp    # omp as the orchestrator too
 ```
 
 Tiers in the default file:
@@ -57,7 +59,7 @@ Tiers in the default file:
 | `mid` | `openai-codex/gpt-6-sol`, thinking medium | most cards |
 | `low` | `google-antigravity/gemini-3.8-flash`, thinking low | mechanical cards, docs, scouting |
 
-**The reviewer's family:** with one lane, the reviewer is the same lane at tier `top`. Make it a
+**The reviewer's family:** with one CLI, the reviewer is omp at tier `top`. Make it a
 different model from the one that wrote the card: write `mid` and `low` cards with Gemini or GPT
 and review with the other, by editing `workers.omp` in `models.yaml` (for example `mid` on
 `google-antigravity/gemini-3.8-flash` high and `top` on `openai-codex/gpt-6-sol`). Run `fleet models

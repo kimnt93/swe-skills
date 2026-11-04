@@ -1,9 +1,19 @@
 # fleet/projects.yaml: one entry per project. `fleet project add` writes it; edit it freely, then
-# `fleet project sync <name>` (or `fleet bootstrap`) applies it.
+# `fleet project sync <name>` (or `fleet bootstrap`) applies it: creates the directory, clones the repos.
+#
+# A project is a directory that holds one or more repo clones. Two projects may clone the same GitHub
+# repo (each in its own directory); cards of both are kept apart by branches and by the overlap check.
 #
 # <name>:
-#   repo: <local clone path>          worktrees for cards are created from it
-#   github: <owner>/<repo>            PR completion contracts, issues, branch protection
-#   description: <one line>           shown to the manager and the router
-# Derived: the manager profile is pm-<name>, the kanban board and the Hermes project are <name>.
+#   dir: ~/work/<name>                the project directory; clones live in <dir>/<repo>, worktrees in <dir>/.wt
+#   description: <one line>
+#   repos:
+#     <repo>:                         the clone's folder name; also the --repo value
+#       github: <owner>/<repo>        PRs, issues, branch protection, cross-project overlap checks
+#       url: <clone url>              optional, when it is not github.com
+#       hotspots: [schemas/, go.sum]  repo-relative paths that collide even between unrelated features: a card
+#                                     that lists one holds it exclusively until it merges
+#   cli: claude | codex | omp         the coding CLI cards use by default (default claude)
+#   orchestrator: {cli: claude, tier: mid}   optional override of the orchestrator in models.yaml
+# Hermes (board.enabled: true) derives pm-<name> as the manager profile and <name> as board and project.
 projects: {}

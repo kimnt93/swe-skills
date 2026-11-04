@@ -10,7 +10,7 @@ Ten minutes from a fresh clone to `/swe` working in your coding agent.
 | Claude Code and/or oh-my-pi (`omp`) | the coding agents | `claude --version`, `omp --version` |
 | `gh` (GitHub CLI), logged in | PRs, issues, merges | `gh auth status` |
 | Go, `uv`, Node 22 | only to run the template checks and tests | `go version`, `uv --version`, `node --version` |
-| Hermes Agent | only for the multi-project fleet (step 5) | `hermes --version` |
+| tmux (or Orca) | only for the multi-project fleet (step 5) | `tmux -V` |
 
 ## 2. Build and validate
 
@@ -53,18 +53,19 @@ In oh-my-pi the same request is `/skill:swe ...`.
 A project needs `make verify` for "done" to mean something: run `/swe:verify-create` once in it
 ([usage.md](usage.md#give-a-project-proof)).
 
-## 5. Optional: run several projects with Hermes
+## 5. Optional: run several projects with the fleet
 
-Only once step 4 works well on one repo by hand.
+Only once step 4 works well on one repo by hand. A project is a directory holding one or more repo clones; its
+orchestrator is any CLI agent (Claude Code, Codex or oh-my-pi). Hermes is optional (`board.enabled`).
 
 ```bash
 ln -sf "$PWD"/fleet/bin/fleet ~/.local/bin/fleet
-bash fleet/tests/selftest.sh --hermes      # proves the fleet against fakes and a scratch Hermes home
-hermes auth add anthropic                  # and the other providers your models.yaml names
+bash fleet/tests/selftest.sh               # proves the fleet against fake CLIs, a scratch repo and a fake Orca
 fleet models check                         # fix what it lists
-fleet bootstrap
-fleet project add orders --repo ~/code/orders --github acme/orders --description "Orders API and dashboard"
-hermes gateway restart
+fleet project add orders --dir ~/work/orders --repo api=acme/orders-api --repo web=acme/orders-web \
+  --description "Orders API and dashboard"      # creates the directory and clones both repos
+fleet doctor orders                        # git credentials, CLIs, tmux or Orca, the clones
+fleet orchestrate orders                   # start the orchestrator (default claude) in ~/work/orders
 ```
 
 Which models and which agents: [recommended-setup.md](recommended-setup.md). The design:
@@ -77,5 +78,5 @@ Which models and which agents: [recommended-setup.md](recommended-setup.md). The
 | `/swe` is unknown | start a new session; `claude plugin list` should show `swe@swe-skills` |
 | `make validate` fails on a placeholder or name | read the first ERROR line; the validator names the file and line |
 | `fleet models check` lists `omp has no model ...` | `omp login <provider>`, then `omp models ls` and put the exact id in `fleet/models.yaml` |
-| `gh auth status` fails inside a lane | `gh auth login` for the user the Hermes gateway runs as |
+| `gh auth status` fails inside a delegated session | `gh auth login` for the user that runs the orchestrator |
 | old `kim` or other plugin still listed | `PLUGIN_NAME=<old> make claude codex omp hermes REMOVE=1` |

@@ -40,5 +40,5 @@ Reopen when a merged fix turns out not to meet the acceptance: `gh issue reopen 
 
 ## Labels (set up by the `project` skill)
 
-`type:feat|fix|refactor|perf|docs|chore`, `risk:low|standard|money-path`, `lane:claude|omp`,
+`type:feat|fix|refactor|perf|docs|chore`, `risk:low|standard|money-path`, `cli:claude|omp`,
 `tier:low|mid|top`, `size:large` (lifts the PR size limit; needs a reason in the PR).

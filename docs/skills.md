@@ -181,7 +181,7 @@ Explain how a part of the codebase works, like a senior engineer onboarding onto
 
 ### interrogate
 
-Adversarial review of a diff or a design: adversaries try to break it, and only findings proven by a run survive. Use before shipping a contested or risky change, for 'challenge this', 'find blind spots', 'review this branch', and as the brief of the cross-family reviewer lane.
+Adversarial review of a diff or a design: adversaries try to break it, and only findings proven by a run survive. Use before shipping a contested or risky change, for 'challenge this', 'find blind spots', 'review this branch', and as the brief of the cross-family reviewer.
 
 - **Invoke:** `/swe:interrogate`
 - **Detail:** [process.md](skills/process.md#interrogate) · **Source:** [SKILL.md](../src/skills/interrogate/SKILL.md)

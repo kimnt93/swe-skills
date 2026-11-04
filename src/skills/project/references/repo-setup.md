@@ -6,7 +6,7 @@
 |---|---|
 | merge methods | squash only; delete the branch on merge; PR title as the squash subject |
 | `main` protection | PR required, the required status check (default `verify`), up-to-date branch, linear history, no force push, no deletion, admins included; approvals `--approvals` (default 0) |
-| labels | from `assets/labels.json`: `type:*`, `risk:*`, `lane:*`, `tier:*`, `size:large`, `blocked` |
+| labels | from `assets/labels.json`: `type:*`, `risk:*`, `cli:*`, `tier:*`, `size:large`, `blocked` |
 
 Then copy `assets/github/pull_request_template.md` and `assets/github/ISSUE_TEMPLATE/` into the
 repo's `.github/`.

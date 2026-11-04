@@ -9,8 +9,19 @@
 # Skills never name a model: they name a tier (top, mid, low). A new model (say Opus 6) is an edit
 # here plus `fleet models check && fleet models apply`.
 
-# Level 1. Board agents: Hermes profiles that never write code.
+# Orchestrator: the agent that runs a project. It is any CLI agent (claude, codex, omp) started in the
+# project directory with the fleet-manager brief (`fleet orchestrate <project>`); a project may override it
+# (`orchestrator:` in projects.yaml). Hermes is optional: set board.enabled true to also use Hermes
+# profiles and boards (cheap router brains, chat from Telegram). The default is off.
+orchestrator: {cli: claude, tier: mid}
+
+# Where CLI sessions run: tmux (attach with tmux), or orca (terminals inside the Orca app, which also
+# shows the worktrees). Both keep every session alive after you disconnect.
+launcher: tmux
+
+# Level 1. Board agents (optional): Hermes profiles that never write code. Used only when enabled.
 board:
+  enabled: false
   root:
     profile: default                 # the root profile: general purpose, manages profiles and projects,
                                      # routes every request to the right project's manager
@@ -19,28 +30,30 @@ board:
     skills: [fleet-admin, github]
     description: "Root. Manages projects and profiles, routes each request to its project's manager, reports across projects. Never edits repositories."
   manager:                           # template for every project's manager profile (pm-<project>)
-    brain: {provider: anthropic, model: claude-sonnet-5-5}
+    brain: {provider: gemini, model: gemini-3.8-flash}   # a router: cheap, and not Claude, so it still answers when Claude's quota runs out
     tools: {enable: [kanban, terminal, memory], disable: [file, code_execution, web, browser, delegation]}
     skills: [fleet-manager, project, github]
     description: "Manager of project {project} only ({description}). Orchestrates: issues, cards, docs and repo upkeep through cards, merges only when the human approves. Never edits code."
 
-# Level 2. Lanes: Hermes profiles that each drive one coding CLI, shared by every project. The brain
-# only runs `fleet lane`, copies evidence and re-runs findings, so it is cheap.
-lanes:
+# Level 2. Coding CLIs. The orchestrator starts one in a session inside a git worktree
+# (`fleet delegate start`), hands it the brief and reads its result. Each project has a default CLI
+# (`cli:` in projects.yaml); the reviewer is another family (`reviewers`).
+clis:
   claude:
-    cli: claude                      # Claude Code: Claude models only
-    brain: {provider: gemini, model: gemini-3.8-flash}
-    tools: {disable: [web, browser]}
-    skills: [fleet-worker, github]
-    description: "Lane: runs cards with Claude Code for any project. Implements cards, and reviews cards written in the omp lane."
+    permission_mode: bypassPermissions   # Claude Code: Claude models only
+    ready: "❯"                           # text in the pane when the prompt is ready for a brief
+    busy: "esc to interrupt"             # text in the pane while it works
+  codex:
+    approval_policy: never               # Codex CLI: OpenAI models; sandbox danger-full-access inside a worktree
+    sandbox: danger-full-access
+    ready: "›"                           # the composer prompt
+    busy: "esc to interrupt"
   omp:
-    cli: omp                         # oh-my-pi: OpenAI models (Codex login) and Google models (Antigravity login)
-    brain: {provider: gemini, model: gemini-3.8-flash}
-    tools: {disable: [web, browser]}
-    skills: [fleet-worker, github]
-    description: "Lane: runs cards with oh-my-pi for any project. Implements cards, and reviews cards written in the claude lane."
+    approval_mode: yolo                  # oh-my-pi: OpenAI models (Codex login) and Google models (Antigravity login)
+    ready: "π >"                         # the status line is up
+    busy: "⎋"                            # the "⎋ Running ..." line while a tool runs
 
-# Level 3. Workers: the model a lane's CLI runs for a card, per tier.
+# Level 3. Workers: the model a CLI runs for a card, per tier.
 # Claude aliases (opus, sonnet, haiku) follow the newest model after `claude update`;
 # pin a full id (claude-opus-5-5) to make upgrades explicit.
 workers:
@@ -48,17 +61,22 @@ workers:
     top: {model: opus, effort: xhigh}
     mid: {model: sonnet, effort: high}       # the default for most cards
     low: {model: haiku}
+  codex:
+    top: {model: gpt-6-sol, effort: high}
+    mid: {model: gpt-6-sol, effort: medium}
+    low: {model: gpt-6-sol, effort: low}
   omp:
     top: {model: openai-codex/gpt-6-sol, thinking: high}
     mid: {model: openai-codex/gpt-6-sol, thinking: medium}
     low: {model: google-antigravity/gemini-3.8-flash, thinking: low}
 
-# Level 4. Reviewers: who reviews work written in each lane (always the other family), at which tier.
+# Level 4. Reviewers: which CLI reviews work written with each CLI (always the other family), at which tier.
 reviewers:
-  claude: {lane: omp, tier: top}       # Claude-written code is broken by gpt-6-sol
-  omp: {lane: claude, tier: mid}       # GPT/Gemini-written code is broken by Sonnet
+  claude: {cli: omp, tier: top}        # Claude-written code is broken by gpt-6-sol
+  codex: {cli: claude, tier: top}      # Codex-written code is broken by Opus
+  omp: {cli: claude, tier: mid}        # GPT/Gemini-written code is broken by Sonnet
 
-# Claude Code subagents shipped inside the plugin, as a tier of the claude lane's workers.
+# Claude Code subagents shipped inside the plugin, as a tier of the claude workers.
 subagents:
   worker: {tier: mid}
   adversary: {tier: top}
@@ -91,7 +109,7 @@ kanban:
   auto_decompose: false
   orchestrator_profile: ""
 
-# Autopilot (Trust Ladder rung 5): card risk classes the review lane may merge without the human.
+# Autopilot (Trust Ladder rung 5): card risk classes the manager may merge without the human.
 # Keep it empty until 20 cards merged cleanly. Money-path is refused even if listed; a human
 # approval (`fleet merge --approved`) is the only way money-path merges.
 autopilot:

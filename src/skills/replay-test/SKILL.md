@@ -37,7 +37,7 @@ python3 $R --self-test                        # the script proves it can catch a
 ```
 
 Add the three `check` runs to the service's `make verify` (a `replay` target called from
-`verify-static`), so CI and every lane run them.
+`verify-static`), so CI and every agent run them.
 
 ## Rules
 

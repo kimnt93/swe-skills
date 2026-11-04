@@ -1,7 +1,7 @@
 # Architecture: the swe-skills fleet
 
-How the plugin and its agents run several software projects on Hermes Agent, with GitHub as the
-place where all code lands. Written in the `architect` skill's rationale shape: usage first, then
+How the plugin and its agents run several software projects with any CLI agent as the orchestrator
+(Claude Code, Codex, oh-my-pi; Hermes is optional), with GitHub as the place where all code lands. Written in the `architect` skill's rationale shape: usage first, then
 the shape, then the decisions and what was rejected.
 
 ## Usage
@@ -9,105 +9,132 @@ the shape, then the decisions and what was rejected.
 What the human types, and what happens:
 
 ```text
-(Telegram / Slack / CLI to the root profile)
+(in the orchestrator's CLI, or Telegram / Slack when Hermes is on)
 "orders: add an endpoint to cancel an open order, and a Cancel button on the dashboard"
 
-root           → routes it to project "orders": a card on board "orders", assigned to pm-orders
-pm-orders      → reads ARCHITECTURE.md; creates issues #41 (API) and #42 (UI); two cards:
-                 #41 → lane claude, tier mid, risk money-path, may write internal/orders/**
-                 #42 → lane omp,    tier mid, risk standard,   may write web/src/orders/**, after #41
-claude lane    → Claude Code (/swe) in a worktree on feat/41-cancel-order: test first, code,
-                 make verify, PR "feat(orders): cancel an open order" (Closes #41), pr_lint clean
-omp lane       → reviews #41's PR with gpt-6-sol: re-runs make verify, interrogates the diff,
-                 posts "Verdict: PASS at <sha>"; fleet merge refuses (money-path) → waits for the human
-human          → "merge #41"
-pm-orders      → fleet merge 41 --approved --sha <sha> → squash-merged, issue closed, branch deleted
-                 → card #42 unblocks; the same loop for the dashboard
+orchestrator   → the agent started by `fleet orchestrate orders` in the project directory ~/work/orders
+                 (repos api/ and web/): reads ARCHITECTURE.md; creates issues #41 (API) and #42 (UI) and,
+                 for each, the files it may touch; checks that no open card overlaps them
+                 fleet delegate start orders c41 --repo api --files internal/orders/ --branch feat/41-cancel-order
+                 fleet delegate start orders c42 --repo web --files src/orders/ --cli codex
+sessions       → orders-c41: Claude Code (/swe) in its own worktree ~/work/orders/.wt/api/feat-41-cancel-order:
+                 test first, code, sync-branch, make verify, PR "feat(orders): cancel an open order"
+                 (Closes #41), last line "CARD DONE <sha> <pr>"
+orchestrator   → fleet delegate status orders c41 → short result; fleet delegate review orders c41
+                 (another CLI family, read-only) → "Verdict: PASS at <sha>"
+human          → "merge #41"        (conflicts and money-path reviews are also yours, in the CLI)
+orchestrator   → fleet merge 41 --approved --sha <sha> → squash-merged; fleet delegate cleanup orders c41
 ```
 
 ## Shape
 
 ```
-                    ┌────────────────────────── Hermes Agent (one host) ──────────────────────────┐
- human ──chat──►    │  root (default)       fleet-admin, github      routes requests, manages     │
-                    │                                                 projects and profiles       │
-                    │      │ card on the project's board                                           │
-                    │      ▼                                                                       │
-                    │  pm-<project>  ×N     fleet-manager, project,   one per project: issues,     │
-                    │  (orchestrators)      github                    cards, docs and repo upkeep  │
-                    │      │ cards (issue · risk · tier · may write · decisions · evidence)        │
-                    │      ▼                                                                       │
-                    │  claude lane ◄──────── review each other ────────► omp lane                  │
-                    │  fleet-worker, github                         fleet-worker, github           │
-                    │      │ fleet lane run / review                     │                         │
-                    └──────┼─────────────────────────────────────────────┼─────────────────────────┘
-                           ▼                                             ▼
-                 Claude Code + the swe plugin                  oh-my-pi + the swe plugin
-                 (opus / sonnet / haiku by tier)               (gpt-6-sol / gemini-3.8-flash by tier)
-                           │ git worktree per card, branch <type>/<issue>-<slug>
-                           ▼
-                 GitHub: PR → required check "verify" → fleet merge (the gate) → main
+ human ──► orchestrator  (any CLI agent: claude / codex / omp, one per project, started in the project dir)
+           skills fleet-manager, project, github   issues, briefs, fleet delegate, status, merge gate
+           (optional: a Hermes manager profile pm-<project> on a cheap router model does the same job)
+              │ fleet delegate start / status / send / review / cleanup
+              ▼
+   project directory  ~/work/<project>/
+        api/  web/  …      central clones (main, never edited): one project may hold several repos
+        .wt/<repo>/<branch>   one git worktree per card
+              │
+   session <project>-<card>  ──  Claude Code, Codex or oh-my-pi + the swe plugin
+   (tmux: tmux attach -t <project>-<card>;  launcher orca: a terminal in the Orca app, next to the worktree)
+              │ branch <type>/<issue>-<slug>, sync-branch before the PR
+              ▼
+   GitHub: PR → required check "verify" → fleet merge (the gate) → main
 ```
 
 | Piece | Where it is defined | Writes code? | Merges? |
 |---|---|---|---|
-| root profile (`default`) | `fleet/models.yaml` `board.root` | no | no |
-| project managers (`pm-<project>`) | `board.manager` template × `fleet/projects.yaml` | no | only with the human's approval (`fleet merge --approved`) |
-| lanes (`claude`, `omp`) | `fleet/models.yaml` `lanes` | through their CLI, in a worktree | as reviewer, through the gate, when autopilot allows the risk |
+| orchestrator (any CLI) | `fleet/models.yaml` `orchestrator`, per project `orchestrator:` in `projects.yaml`; started by `fleet orchestrate` | no | only with the human's approval (`fleet merge --approved`), or under autopilot for allowed risks |
+| Hermes root and managers (optional) | `board` (`board.enabled: true`) × `fleet/projects.yaml` | no | same as the orchestrator |
+| coding CLIs (`claude`, `codex`, `omp`) | `fleet/models.yaml` `clis`, started by `fleet delegate` | yes, in a worktree | no |
 | worker models per tier | `workers` | — | — |
 | who reviews whom | `reviewers` | — | — |
+| session launcher | `launcher` (`tmux` or `orca`) | — | — |
 | plugin subagents (`swe:worker`, `swe:adversary`) | `subagents` | inside Claude Code | no |
 | the merge gate | `fleet merge` | — | the only path to `main` |
 
+### Repositories and worktrees
+
+- A **project is a directory** (`dir:` in `fleet/projects.yaml`) that holds one or more **central clones**
+  (`repos:`; `fleet project sync` clones them). Each stays on `main`, clean, and nobody edits it.
+- **Projects may share a repo.** Two projects can clone the same GitHub repo into their own directories. The
+  duplicate is resolved in branches, not by forbidding it: the overlap check also covers every open card of any
+  project on the same GitHub repo, and a branch name is used once.
+- One **worktree per card** at `<project dir>/.wt/<repo>/<branch>`, created from `origin/main` after a fetch that
+  must succeed. The base SHA is recorded. Many agents work at once without sharing a checkout.
+- With launcher `orca`, `fleet project sync` registers the clones in Orca, so the worktrees and the card terminals
+  show up in its UI.
+- `fleet delegate cleanup` removes the worktree and branch after the PR merges.
+
+### Keeping conflicts small
+
+1. **Cards declare their files** (`--files`). `fleet delegate start` refuses a card whose files overlap an open card,
+   or that touches a **hotspot** (`hotspots:` in `projects.yaml`: migrations, lockfiles, generated clients, route
+   registries) another open card holds. The manager waits for the merge instead of running both.
+2. **Small cards** (about 400 changed lines, one feature function) on short-lived branches.
+3. **Re-sync at fixed points:** at the start (fetch, then branch from `origin/main`), before the PR
+   (`fleet delegate sync-branch --verify`: fetch, rebase, `make verify`) and at the merge (`fleet merge` refuses a
+   branch that is behind or in conflict with `main`).
+4. **Conflicts go to a person:** `sync-branch` aborts the rebase, leaves the branch unchanged and names the files.
+5. Git sees text conflicts only; `make verify` after the rebase is what catches behaviour conflicts.
+
 ### Flows
 
-1. **Request → project.** The root profile matches the request to a project and creates one card on
-   its board, assigned to the manager. Fleet requests (new project, model change) stay with the root.
-2. **Plan.** The manager reads `ARCHITECTURE.md`, splits the goal into one GitHub issue and one card
-   per feature function, stamps shared decisions into every card, and links dependencies.
-3. **Build.** The dispatcher spawns the card's lane in a worktree of the project's repo. The lane runs
-   its CLI with the plugin; the CLI writes tests and code inside the card's scope; `make verify` must
-   pass; the lane lints and opens the PR (`Closes #issue`).
-4. **Review.** Hermes moves the card to review on the other lane, which re-runs `make verify`,
-   interrogates the diff with the other model family, checks the submit rules, and posts a verdict
-   for one head SHA.
-5. **Merge.** The gate (`fleet merge`) merges only at the verified SHA with every required check
-   green, and only for a risk class autopilot allows, or with the human's approval. Money-path never
-   merges without the human.
-6. **Close.** The merge closes the issue and deletes the branch; the manager checks `main`'s CI and
-   closes the card's goal when every child is done.
+1. **Request → project.** You start the project's orchestrator (`fleet orchestrate <project>`) and tell it the goal.
+   With Hermes on, the root profile routes a chat request to the project's manager instead.
+2. **Plan.** The orchestrator reads `ARCHITECTURE.md`, splits the goal into one GitHub issue per feature function, stamps
+   shared decisions into every brief, and lists each card's files.
+3. **Build.** `fleet delegate start` makes the worktree and a session, starts the project's CLI with the plugin,
+   and hands it the brief (a file, named in one line). The CLI writes tests and code inside the card's files, syncs the branch, makes `make verify`
+   pass, opens the PR (`Closes #issue`) and prints `CARD DONE <sha> <pr>` or `CARD BLOCKED <reason>`.
+4. **Read.** The orchestrator reads `fleet delegate status` (state, commits, files, behind-main, outside-scope files and
+   the last pane lines), never the whole session.
+5. **Review.** On request, `fleet delegate review` starts the other CLI read-only on the same worktree
+   (`interrogate`). You can also review, merge and resolve conflicts yourself in a CLI.
+6. **Merge.** The gate (`fleet merge`) merges only at the verified SHA with every required check green and the branch
+   up to date, for a risk class autopilot allows or with the human's approval. Money-path never merges without the human.
+7. **Close.** The merge closes the issue and deletes the branch; `fleet delegate cleanup` removes the worktree.
 
 ### Invariants
 
 - Nobody pushes to `main`; every change is a PR with a passing `verify` check.
-- A review is by the other model family than the author's, and covers one SHA.
+- A cross-family review covers one SHA. A new push needs a new review.
 - Code that breaches the project's layering fails `make verify` (`archcheck`, `lint-imports`).
 - A change to `ARCHITECTURE.md` comes with an ADR, in its own reviewed PR, approved by the human.
-- Managers and the root never edit repository files.
+- Orchestrators never edit repository files; the central clone is never edited.
 - Every model is named in exactly one place: `fleet/models.yaml`.
 
 ## Decisions
 
 | # | Decision | Rejected alternative | Why |
 |---|---|---|---|
-| A1 | **One manager profile per project**, plus a root profile for the fleet | one chef for every project | a manager's memory, skills and descriptions stay about one product; a project can be added or removed without touching the others |
-| A2 | **Lanes shared by all projects** | lanes per project (`claude-orders`, `omp-orders`, ...) | lanes hold no project state (each card carries its brief and worktree); per-project lanes multiply profiles without changing behaviour; per-lane limits match subscriptions, which are shared anyway |
-| A3 | **Managers split work themselves** (`kanban.auto_decompose: false`, `orchestrator_profile: ""`) | Hermes' built-in auto-decomposer | the decomposer sees every profile and has one global orchestrator, so it could route a project's work to another project's manager; the manager reads the project's architecture first |
-| A4 | **The manager only orchestrates;** docs and repo changes are cards | let the manager edit docs directly | one write path (branch → PR → review → gate) for everything in a repo |
-| A5 | **The merge is a deterministic gate**, not an agent's judgment | a dedicated "merger" agent | merging needs facts, not judgment: the verified SHA, green required checks, an allowed risk class or a human approval. The review lane runs the gate; the manager runs it with `--approved`. |
+| A1 | **One orchestrator per project, and it can be any CLI agent** (Claude Code, Codex, oh-my-pi), set in `models.yaml` or per project | a fixed Hermes manager for everyone | the orchestrator is the same skill (`fleet-manager`) on whatever agent you have a login for; a project can be added or removed without touching the others |
+| A2 | **Coding CLIs are processes, not profiles:** the orchestrator starts them in sessions, one worktree per card | worker profiles shared by all projects, or per project | a worker profile holds memory that mixes projects; the CLI starts fresh per card and reads only its repo |
+| A3 | **Orchestrators split work themselves** (with Hermes: `kanban.auto_decompose: false`, `orchestrator_profile: ""`) | Hermes' built-in auto-decomposer | the decomposer sees every profile and has one global orchestrator, so it could route a project's work to another project's manager; the orchestrator reads the project's architecture first |
+| A4 | **The orchestrator only orchestrates;** docs and repo changes are delegated cards too | let it edit docs directly | one write path (branch → PR → review → gate) for everything in a repo |
+| A5 | **The merge is a deterministic gate**, not an agent's judgment | a dedicated "merger" agent | merging needs facts, not judgment: the verified SHA, green required checks, an up-to-date branch, an allowed risk class or a human approval |
 | A6 | **One issue per card**, branch `<type>/<issue>-<slug>`, PR `Closes #issue` | cards only | the human sees and steers all work in GitHub; issues survive the board |
 | A7 | **The submit rules are enforced** (`pr_lint.py`, `archcheck`, `lint-imports`, the size limit) | rules in prose only | a rule that nothing checks is broken by the first agent in a hurry |
 | A8 | **Every agent uses the human's `gh` login** for now | a bot account from day one | simplest to start. Consequence: GitHub can't take an approval from the PR's own author, so required approvals are 0 and the gate enforces the review. Move to a bot account, then `setup_repo.sh --approvals 1`. |
+| A9 | **Sessions are named terminals you can attach to, send keys to and read:** tmux by default, or Orca terminals (`launcher: orca`) | headless `-p` runs only | the orchestrator can drive them, you can watch and take over (in tmux, or in the Orca UI next to the worktrees). `fleet lane` keeps the headless one-shot mode for scripts |
+| A10 | **A fetch that fails stops the delegation** | continue from the local `origin/main` | a stale base is worse than no work; `fleet doctor` finds the credentials problem first |
+| A11 | **A project is a directory of repos; duplicates across projects are solved in branches** | one repo per project, or a global registry of repos | real work spans several repos, and the same repo can serve two products. The overlap check and unique branch names keep their cards apart |
+| A12 | **Hermes is optional** (`board.enabled`, default off) | Hermes as the required manager layer | it adds chat access and cheap routing, but it cannot host Claude as an orchestrator, so the fleet must work without it |
 
 ## Risks
 
 | Risk | How we would notice | Mitigation |
 |---|---|---|
-| a manager routes work outside its project | a card on another board, a PR in another repo | descriptions name the one project; boards are isolated; root routes by project name |
+| an orchestrator works outside its project | a card or PR in another project's repo | the brief names the one project directory; with Hermes, boards are isolated and root routes by project name |
 | the shared `gh` token is too powerful (admin bypass) | a merge without the gate | `enforce_admins` on `main`; `fleet merge` is the documented path; a bot account with no admin rights is the fix |
-| lanes overload one subscription | rate-limit errors, `respawn_guarded` events | `kanban.max_in_progress_per_profile`; spread cards across lanes |
+| one subscription runs out | `fleet delegate status` shows a stuck or blocked session | the orchestrator reports it and asks; switch the project's CLI (any of Claude Code, Codex, oh-my-pi) or wait. A Hermes manager runs on a non-Claude model so it keeps answering |
+| two cards change the same behaviour in different files | green separately, red together | `sync-branch --verify` and the gate's up-to-date rule; serialize cards that depend on each other |
 | `ARCHITECTURE.md` drifts from the code | `archcheck` / `lint-imports` green while the doc says otherwise | the manager's weekly status checks the doc against the layering checks; changes need an ADR |
-| a lane's review is weak | defects found after merge | the human samples merged PRs; autopilot stays off until 20 clean merges (runbook 3) |
+| a self-review is weak | defects found after merge | cross-family review for risky cards; the human samples merged PRs; autopilot stays off until 20 clean merges (runbook 3) |
+| a session hangs or exits | `fleet delegate status` says stopped or unchanged | tmux `remain-on-exit` keeps the last output; `send` a nudge or `stop` and restart the card |
 
 ## Plugin decisions
 
@@ -120,10 +147,10 @@ How the plugin and the repository are built (the table above covers the fleet).
 | D3 | Org values are build settings (`PLUGIN_DOMAIN`, `PLUGIN_OWNER`, `PLUGIN_HOMEPAGE`); private ones live in `plugin.local.env`. No org name in tracked files (a test enforces it). | The plugin can be published or shared without leaking internal names. |
 | D4 | Skills are flat and grouped by `metadata.group`. | The installers and the Agent Skills spec need `skills/<name>/SKILL.md`. |
 | D5 | Skills name tiers (`top`, `mid`, `low`), never models. Every agent and model lives in `fleet/models.yaml`. | A new model is one edit plus `fleet models apply`. |
-| D6 | Two coding lanes: `claude` (Claude models) and `omp` (OpenAI and Google models). Each reviews the other. | Cross-family review comes free; two subscriptions are used. |
-| D7 | Hermes profiles: the root `default` (fleet admin and router), one `pm-<project>` manager per project (orchestrator only), and the shared lanes `claude` and `omp`. Scout, reviewer and reconciler are cards, not profiles. | A profile only for a different scope, tools, permissions or rate limits. |
-| D8 | Managers run on a judgment model (Sonnet 5.5; Opus pinned per card for money-path) and split work themselves (auto-decompose off). The root and the lane brains are cheap. | Card quality spreads to every worker; coordinator tokens are a small share. |
+| D6 | Three coding CLIs: Claude Code (Claude models), Codex (OpenAI models) and oh-my-pi (OpenAI and Google models). A project picks one as its default; another family reviews on request. | Cross-family review is available when it matters; every subscription you hold is used. |
+| D7 | The orchestrator is any CLI agent, started by `fleet orchestrate`. Optional Hermes profiles (root `default` and one `pm-<project>`) do the same job from chat. The coding CLIs are never profiles. | Claude cannot be the Hermes orchestrator, and a profile per CLI held memory that mixed projects. |
+| D8 | The orchestrator only routes: issues, briefs, `fleet delegate`, short results (tier `mid` by default; a Hermes manager runs on Gemini 3.8 Flash). Judgment lives in the coding CLIs, whose tier is chosen per card. | The coordinator's tokens stay a small share, and the project survives any one subscription running out. |
 | D9 | "Done" means `make verify` exits 0 on the committed head, and, on the board, required CI is green on the PR head. | Verification before parallelism. |
 | D10 | Money-path (orders, fills, positions, balances, risk, P&L) is top tier, cross-family reviewed, replay-tested, and never auto-merged (`fleet merge` refuses it). | A wrong answer there is a loss. |
-| D11 | Merging is a deterministic gate (`fleet merge`), run by the review lane under autopilot or by the manager with the human's approval; there is no merging agent. | Merging needs facts (verified SHA, green checks, allowed risk or approval), not judgment. |
+| D11 | Merging is a deterministic gate (`fleet merge`), run by the orchestrator under autopilot or with the human's approval; there is no merging agent. | Merging needs facts (verified SHA, green checks, allowed risk or approval), not judgment. |
 | D12 | Git and GitHub follow one way (the `github` skill): issue → branch → small Conventional Commits → PR → gate → main; `pr_lint.py`, `archcheck` and `lint-imports` enforce the submit rules. | A rule nothing checks gets broken. |

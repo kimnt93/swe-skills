@@ -45,14 +45,14 @@
     "description": "Orders, fills, positions, balances, risk, P&L: never auto-merged"
   },
   {
-    "name": "lane:claude",
+    "name": "cli:claude",
     "color": "5319e7",
-    "description": "Worked by the claude lane"
+    "description": "Worked with Claude Code"
   },
   {
-    "name": "lane:omp",
+    "name": "cli:omp",
     "color": "0e8a16",
-    "description": "Worked by the omp lane"
+    "description": "Worked with oh-my-pi"
   },
   {
     "name": "tier:low",

@@ -10,8 +10,8 @@ metadata:
 
 Read-only. Assume the human remembers their last message and nothing after it.
 
-1. **Gather:** your work since then, subagent and lane reports, and the live state of every PR,
-   card and CI run this work touched (`gh pr view`, `gh pr checks`, `hermes kanban list`). Check every
+1. **Gather:** your work since then, subagent and delegated-session reports, and the live state of every PR,
+   card and CI run this work touched (`gh pr view`, `gh pr checks`, `fleet delegate status <project>`). Check every
    number against its source.
 2. **Open with one sentence** naming what waits on the human, or that nothing does.
 3. **What happened:** under 100 words. One plain line per thing they asked for: what came of it and

@@ -6,8 +6,8 @@ Read this file fully, then `docs/README.md` (and `docs/runbooks.md` for operatio
 
 The source of a software-engineering plugin. `scripts/build.py` renders it into
 `dist/<PLUGIN_NAME>/` (default name `swe`): a complete plugin for Claude Code, Codex and omp, and
-plain skills for every other harness. `fleet/` runs the plugin's agents on Hermes Kanban with two
-coding lanes (`claude`, `omp`); every agent and model is set in `fleet/models.yaml`.
+plain skills for every other harness. `fleet/` runs the plugin's agents: each project is a directory of repo clones, its orchestrator is any CLI agent
+(`claude`, `codex`, `omp`), and the coding CLIs are started in worktrees (tmux or Orca); Hermes is optional; every agent and model is set in `fleet/models.yaml`.
 
 ## Rules
 
@@ -43,7 +43,7 @@ make validate                               # build + validate (after every chan
 make test                                   # build, enforcement, frontend and fleet tests
 bash tests/frontend_test.sh --e2e --docker # also Playwright and the frontend images
 bash tests/build_test.sh --claude           # also load the built plugin in Claude Code (a few Haiku tokens)
-bash fleet/tests/selftest.sh --hermes       # also bootstrap a scratch Hermes home
+bash fleet/tests/selftest.sh --hermes       # also bootstrap a scratch Hermes home (needs hermes)
 PLUGIN_NAME=acme PLUGIN_DOMAIN=acme.test make validate   # any name and domain must build too
 ```
 

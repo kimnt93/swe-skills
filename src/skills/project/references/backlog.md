@@ -2,7 +2,7 @@
 
 - **One issue per unit of work, one card per issue.** The card body carries `issue: #N`; the branch is
   `<type>/N-<slug>`; the PR says `Closes #N`.
-- **Labels mirror the card:** `type:*`, `risk:*`, `tier:*`, `lane:*`. The manager sets them when it
+- **Labels mirror the card:** `type:*`, `risk:*`, `tier:*`, `cli:*`. The manager sets them when it
   creates the card (the `github` skill's issues reference has the commands).
 - **Milestones** group issues for a release or a goal; a goal from the human becomes a milestone with
   its issues.

@@ -63,11 +63,11 @@ Claude Code, Codex and omp), `DRY_RUN=1` (show what would happen). A harness tha
 | Use | Harnesses |
 |---|---|
 | interactive coding with the skills | all of the above |
-| a **fleet lane** (unattended, started by Hermes with `fleet lane`) | Claude Code (`claude`) and oh-my-pi (`omp`) |
+| a **delegated session** (unattended, started by a project manager with `fleet delegate`) | Claude Code (`claude`) and oh-my-pi (`omp`) |
 | the **fleet's own agents** (root, project managers) | Hermes Agent (`make hermes` also copies the skills for its profiles) |
 
-Codex and the other harnesses use the same skills by hand; the fleet drives only the two lane CLIs.
-A new lane needs a `cli` branch in `fleet/bin/fleet` (`argv`) and an entry under `lanes:` and
+Codex and the other harnesses use the same skills by hand; the fleet drives only the two coding CLIs.
+A new coding CLI needs a branch in `fleet/bin/fleet` (`argv`) and an entry under `clis:` and
 `workers:` in `fleet/models.yaml`.
 
 ## Check an install

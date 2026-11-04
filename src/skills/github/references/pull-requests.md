@@ -28,7 +28,7 @@ Closes #42
 python3 <github skill>/scripts/pr_lint.py local --body pr.md --allow 'internal/orders/**'
 gh pr create --base main --head "$(git branch --show-current)" \
   --title "feat(orders): cancel an open order" --body-file pr.md \
-  --label "risk:standard" --label "lane:claude"
+  --label "risk:standard" --label "cli:claude"
 ```
 
 The title is the squash commit's subject: same Conventional Commit rules. Open it ready (not draft).
