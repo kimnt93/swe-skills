@@ -143,7 +143,7 @@ def load_projects() -> dict[str, dict]:
 def save_workspace(name: str, entry: dict) -> None:
     root = Path(entry["dir"])
     data = {"name": name, **{k: v for k, v in entry.items() if k != "dir"}}
-    header = "# Project directory of {0}: written by `swe-cli init` / `swe-cli project add`; edit freely.\n".format(name)
+    header = "# Project directory of {0}: written by `swe-cli project create` or `init` / `swe-cli project <name> add`; edit freely.\n".format(name)
     (root / "project.yaml").write_text(header + yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
 
 

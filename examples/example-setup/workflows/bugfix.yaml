@@ -1,0 +1,22 @@
+name: bugfix
+description: "A defect with a reproduction: plan one fix, test first, build, check, review; the report lists the PR."
+inputs:
+  goal: {required: true}
+  repo: {default: ""}
+  risk: {default: standard}
+nodes:
+  plan:
+    role: planner
+    agent: developer-strong
+    goal: >-
+      Diagnose this defect before planning (evidence first, the how and why skills) and plan the smallest fix as one
+      card whose goal starts with the failing test that reproduces it, with "type": "fix". More than one card only
+      if the defect has independent causes. Defect: ${inputs.goal}
+  cards:
+    needs: [plan]
+    map: "${nodes.plan.cards}"
+    workflow: "${item.workflow|card}"
+  report:
+    type: report
+    needs: [cards]
+    always: true

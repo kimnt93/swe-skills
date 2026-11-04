@@ -1,0 +1,36 @@
+name: docs-card
+description: "One documentation card on a small model, checked, then reviewed."
+nodes:
+  build:
+    role: documenter
+    goal: "${item.goal}"
+    files: "${item.files}"
+    agent: "${item.agent|documenter}"
+    issue: "${item.issue}"
+    risk: low
+    branch_type: docs
+  checks:
+    type: checks
+    needs: [build]
+    timeout: 30
+    on_fail: {run: ci-fix, rounds: 1}
+  ci-fix:
+    role: ci-fixer
+    manual: true
+    workspace: "same:build"
+    agent: documenter
+    goal: "A required check on the PR is red. Fix the cause on this branch (ci-fixer skill)."
+  review:
+    role: reviewer
+    needs: [checks]
+    reviews: build
+    workspace: "same:build"
+    goal: >-
+      Review this documentation PR at its head against the goal: ${item.goal}. Run every command it shows and open
+      every path it names. Bring the branch up to date with origin/main first if it is behind (integrator skill).
+    on_fail: {run: fix, rounds: 1}
+  fix:
+    role: documenter
+    manual: true
+    workspace: "same:build"
+    goal: "Fix the verified review findings in this documentation. Original goal: ${item.goal}"

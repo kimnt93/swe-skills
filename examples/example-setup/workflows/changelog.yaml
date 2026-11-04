@@ -1,0 +1,28 @@
+name: changelog
+description: "A PR that needs a CHANGELOG.md entry and has none: a scribe adds it on the PR branch, checks run again, a reviewer re-reviews the new head."
+inputs:
+  pr: {required: true}
+  repo: {default: ""}
+  goal: {default: "Add the missing CHANGELOG.md entry for this PR (changelog skill)."}
+nodes:
+  add:
+    role: scribe
+    workspace: pr
+    pr: "${inputs.pr}"
+    goal: "${inputs.goal}"
+  checks:
+    type: checks
+    needs: [add]
+    pr_from: add
+    timeout: 30
+  review:
+    role: reviewer
+    needs: [checks]
+    reviews: add
+    workspace: "same:add"
+    goal: "Review the new head: the changelog entry is true to the diff, under the right heading, and nothing else changed."
+  report:
+    type: report
+    needs: [review]
+    build: add
+    always: true

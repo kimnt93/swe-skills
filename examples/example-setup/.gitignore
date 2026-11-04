@@ -1,0 +1,4 @@
+# the upstream clones and per-run state are made by swe-cli, not committed
+/jlogger/
+/.wt/
+/.swe/runs/
