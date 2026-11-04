@@ -46,7 +46,7 @@ swe-cli orchestrate orders    # start the manager (any harness) in this director
 swe-cli update                # later: pull main, reinstall everywhere; `swe-cli project update` refreshes this project
 ```
 
-Tiers (`top`, `mid`, `low`) and the model each one uses are defined in one file, the project's `models.yaml`. How workflows,
+Agents (`cli`, `model`, `reasoning`) are defined in one file, the project's `models.yaml`; the manager is an agent too. How workflows,
 roles, reports, change logs and merging work: [docs/workflows.md](docs/workflows.md).
 
 ## Documentation

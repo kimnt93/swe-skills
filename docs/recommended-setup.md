@@ -51,8 +51,8 @@ The step-by-step runbooks, with commands and exit checks, are in [runbooks.md](r
   author's family, so keep autopilot off and read PRs yourself.
 - **oh-my-pi only** (setup B): flexible providers; make the reviewer a different family from the author.
 - **Both** (recommended): independent review for free; spread projects across the two CLIs so both quotas are used.
-- Tier policy: `top` for money-path, cross-service design, races and bugs without a repro; `mid` by default;
-  `low` only for deterministic work (lint, renames, dependency bumps, docs, scouting).
+- Agent policy: `developer-strong` for money-path, cross-service design, races and bugs without a repro; `developer` by
+  default; `documenter` only for deterministic work (lint, renames, dependency bumps, docs, scouting).
 
 ## Never
 
