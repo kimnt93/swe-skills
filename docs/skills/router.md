@@ -247,3 +247,7 @@ A `play-*` skill starts one workflow and hands the run to the manager; it does n
 
 **What it is.** Starts `land`: updates, checks, reviews and merges an existing PR, including a human's, without a human. **When.** Give the PR and repo; `money-path` waits for the requester.
 
+### play-solo
+
+**What it is.** No workflow and no subagent: this chat takes one goal or issue through plan, branch, code, docs, verify, PR, its own review, checks and the merge gate; `mode=plan` stops after the plan. **When.** One task you want done in the current harness. The review is the author's own, and `money-path` waits for the human.
+

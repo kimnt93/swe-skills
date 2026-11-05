@@ -15,7 +15,7 @@ when to use it, what to say, what happens, what you get, and its files.
 ## Skills
 
 <!-- skills:start -->
-52 skills in 6 groups. Click a skill for its detail.
+53 skills in 6 groups. Click a skill for its detail.
 
 ### Start here
 
@@ -30,6 +30,7 @@ when to use it, what to say, what happens, what you get, and its files.
 | [play-land](router.md#play-land) | Run the land workflow: update, check, review and merge an existing PR without a human |
 | [play-rebase](router.md#play-rebase) | Run the conflict workflow: bring a PR up to date with main and resolve its conflicts |
 | [play-review](router.md#play-review) | Run the review workflow: judge a PR at its head, read-only, and post the verdict |
+| [play-solo](router.md#play-solo) | Solo: plan only, or issue, code, commit, push, PR and merge, all in this chat with no delegation |
 | [play-verify](router.md#play-verify) | Run the verify workflow: drive the real app against the feature map and file regressions |
 | [swe](router.md#router) | Entry point: picks language and playbook, delegates by agent, finishes only when make verify passes |
 

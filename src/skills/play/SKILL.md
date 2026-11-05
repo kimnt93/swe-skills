@@ -9,7 +9,8 @@ metadata:
 # Play
 
 With no argument, run `swe-cli flow list` and show each workflow with its inputs, plus the dedicated shortcuts:
-the play-deliver, play-bugfix, play-docs, play-cifix, play-rebase, play-changelog, play-verify, play-review and play-land skills.
+the play-deliver, play-bugfix, play-docs, play-cifix, play-rebase, play-changelog, play-verify, play-review and play-land skills,
+and play-solo, which runs no workflow: you do the steps yourself in this chat.
 
 With a name, follow the manager skill: restate the goal and its proof, check the project, then
 `swe-cli flow run <project> <name> --goal "..." [--input k=v ...]`. A project's own workflows in its
