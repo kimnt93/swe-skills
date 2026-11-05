@@ -202,3 +202,48 @@ change only if it is not worse on any case that matters. See `docs/runbooks.md` 
 limit: smaller scope; dropped connection: same brief; wrong approach: one tier up; two failures: replan).
 `harness.md` maps each abstract action (start a subagent, ask the human, todo list, wake later, project-local
 skill path) to Claude Code, oh-my-pi and Codex.
+
+## Play shortcuts
+
+A `play-*` skill starts one workflow and hands the run to the manager; it does no step itself.
+
+### play
+
+**What it is.** Dispatcher: lists the project's workflows, or starts one by name through the manager. **When.** Use when no dedicated `play-*` shortcut fits, or to see the choices.
+
+### play-deliver
+
+**What it is.** Starts the `delivery` workflow for a goal: one repo or several, merged to main without a human. **When.** Needs `autopilot.auto_merge` for the card's risk; `money-path` waits for the requester.
+
+### play-bugfix
+
+**What it is.** Starts `bugfix`: the failing test first, the smallest fix, checks, review. **When.** Give the defect and how to reproduce it.
+
+### play-docs
+
+**What it is.** Starts `docs`: no planner; `follow` the code changes or `rewrite` docs/ from the code. **When.** Give the repo, and `rewrite` for a stale or missing docs/.
+
+### play-cifix
+
+**What it is.** Starts `ci-fix` on an open PR whose required check is red. **When.** Give the PR and repo.
+
+### play-rebase
+
+**What it is.** Starts `conflict`: brings a PR up to date with main and resolves its conflicts, then a review. **When.** Give the PR and repo.
+
+### play-changelog
+
+**What it is.** Starts `changelog`: adds a missing change log entry to a PR. **When.** Give the PR and repo.
+
+### play-verify
+
+**What it is.** Starts `verify`: drives the real app against the feature map and files regressions; edits nothing. **When.** Give the repo.
+
+### play-review
+
+**What it is.** Starts `review`: judges any PR at its head, read-only, and posts PASS or FAIL with proven findings. **When.** Give the PR and repo; it edits and merges nothing.
+
+### play-land
+
+**What it is.** Starts `land`: updates, checks, reviews and merges an existing PR, including a human's, without a human. **When.** Give the PR and repo; `money-path` waits for the requester.
+

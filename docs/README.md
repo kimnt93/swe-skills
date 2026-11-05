@@ -16,6 +16,7 @@
 | [architecture.md](architecture.md) | the design: roles, flows, invariants, decisions, risks |
 | [delegation.md](delegation.md) | sessions in git worktrees (tmux or Orca): the commands, project directories, keeping conflicts small |
 | [agents-and-skills.md](agents-and-skills.md) | which manager and coding agent gets which skills and GitHub rights |
+| [playbooks.md](playbooks.md) | every playbook and its `/swe:play-*` shortcut, inputs and DAG |
 | [workflows.md](workflows.md) | project directory, YAML workflows, roles, reports, merge and clean |
 | [skills/](skills/README.md) | **each skill in detail**: what it is, when to use it, what to say, what happens, what you get, its files; the router's 18 playbooks; the 22 principles; which skill for which situation |
 | [skills.md](skills.md) | the quick reference for every skill (generated from the skills) |

@@ -222,6 +222,13 @@ and posts `Verdict: PASS|FAIL at <sha>`. When a branch is behind, it also update
 **What it is.** Writes and corrects documentation on the smallest model. **What happens.** Every command it
 documents is run; a command that fails is a finding in the PR, not hidden. Touches no code.
 
+### docs-sync
+
+**What it is.** The docs step after every implementation: compares the card's diff with the repo's `docs/` and
+updates `docs/README.md` (summary and index) and `docs/references/*.md`. **What happens.** It never plans and never edits
+source; every command it writes is run; it commits in the card's worktree and hands back to the developer, who opens the PR.
+A dependent repo reads `docs/README.md` first.
+
 ### intake
 
 **What it is.** Turns chat feedback (Telegram, Slack, Discord, email, issue comments) into one clear goal for the

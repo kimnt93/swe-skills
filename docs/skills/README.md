@@ -15,12 +15,22 @@ when to use it, what to say, what happens, what you get, and its files.
 ## Skills
 
 <!-- skills:start -->
-41 skills in 6 groups. Click a skill for its detail.
+52 skills in 6 groups. Click a skill for its detail.
 
 ### Start here
 
 | Skill | Description |
 |---|---|
+| [play](router.md#play) | List the project's workflows, or start one by name through the manager |
+| [play-bugfix](router.md#play-bugfix) | Run the bugfix workflow: failing test first, smallest fix, checks, review |
+| [play-changelog](router.md#play-changelog) | Run the changelog workflow: add the missing change log entry to a PR |
+| [play-cifix](router.md#play-cifix) | Run the ci-fix workflow on a PR whose required check is red |
+| [play-deliver](router.md#play-deliver) | Run the delivery workflow for a goal (one or more repos, merged to main) |
+| [play-docs](router.md#play-docs) | Run the docs workflow: follow the code changes, or rewrite docs/ from the code |
+| [play-land](router.md#play-land) | Run the land workflow: update, check, review and merge an existing PR without a human |
+| [play-rebase](router.md#play-rebase) | Run the conflict workflow: bring a PR up to date with main and resolve its conflicts |
+| [play-review](router.md#play-review) | Run the review workflow: judge a PR at its head, read-only, and post the verdict |
+| [play-verify](router.md#play-verify) | Run the verify workflow: drive the real app against the feature map and file regressions |
 | [swe](router.md#router) | Entry point: picks language and playbook, delegates by agent, finishes only when make verify passes |
 
 ### Process and proof
@@ -34,6 +44,7 @@ when to use it, what to say, what happens, what you get, and its files.
 | [correct](process.md#correct) | Make a repeated agent mistake impossible with a check, not a sentence |
 | [deslop](process.md#deslop) | Clean a diff before review: debug output, dead code, noisy comments |
 | [developer](process.md#developer) | Developer: one card in one worktree, test first, verify on the head, push and open the PR |
+| [docs-sync](process.md#docs-sync) | Docs sync: compare a change with docs/, update the README index and references, hand back |
 | [documenter](process.md#documenter) | Documenter: update docs true to the code, check every command and path, open the PR |
 | [formal-verify](process.md#formal-verify) | Check state machines, races and retries across every case in a bounded scope |
 | [github](process.md#github) | Branch, commit, PR, issue, review and merge the one way, with a check after each step |

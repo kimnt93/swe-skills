@@ -68,13 +68,16 @@ nodes:
 | `map` + `workflow` | fan out over a list (the plan's cards) into a sub-workflow, in parallel |
 | `type: report` | write the run report for the manager |
 | `type: shell` | a command, no agent |
+| `type: merge` | merges the PR of `build` (reviewed at `review`) to main through the merge gate, during the run, and waits until it is on main |
+| `type: wait`, `lanes` | blocks until the named sibling lanes of the map have merged; fails when one cannot |
+| `moves_head: true` | an agent node on `same:<node>` that pushed a new head (a sync): checks and review look at it |
 | `needs`, `when`, `always`, `manual` | order, a condition, run even after a failure, run only as a fix target |
 | `workspace` | `new` own worktree and branch, `same:<node>` reuse that node's worktree, `scratch` read-only, `pr` an open PR's branch |
 | `reviews: <node>` | marks a review node and the node it judges; the review depth follows the agent (`reviewer-junior` fast, `reviewer-senior` deep) |
 | `agent`, `cli`, `model`, `reasoning` | override the role's agent per node (`agent:` picks another from `config.yaml`; the others change one field) |
 
 Values can use `${inputs.x}`, `${item.y|default}` and `${nodes.n.field}`. Shipped: `feature`, `bugfix`, `docs`,
-`card` (build, checks, review with fix rounds), `docs-card`, `ci-fix`, `conflict`, `verify`, `changelog`.
+`delivery` (several repos, merged in dependency order) with its `lane`, `review` (read-only check of a PR), `land` (a PR to main), `card` (code, docs, PR, checks, review with fix rounds), `ci-fix`, `conflict`, `verify`, `changelog`.
 `swe-cli flow validate` checks roles, skills, agents, cycles and `when` expressions; `swe-cli flow graph <wf>` prints
 the DAG with each node's agent, cli, model and reasoning.
 
@@ -126,3 +129,23 @@ A branch that is behind `main` or conflicts is not merged by force: a reviewer a
 conflicts, re-runs the checks and re-reviews, then the merge is retried. After `flow clean` nothing of the run
 is left on the machine. Several runs can go at once; cards that touch the same files or a hotspot wait for each
 other, also across projects that clone the same repo.
+
+## Docs follow every implementation
+
+Every code card runs `code -> docs -> build`: the developer codes and commits (phase `code`, no push), the `docsync`
+role (the `docs-sync` skill, agent `documenter`) compares the diff with `docs/` and updates `docs/README.md` (summary and
+index) and `docs/references/*.md` without planning anything, then the developer verifies, pushes and opens the PR
+(`build`, phase `pr`) with the docs commit in it. `docs/`, `README.md` and `CHANGELOG.md` are never outside a card's
+scope. A repo that depends on another reads that repo's `docs/README.md` first; the `lane` sync step compares it with the
+interface it assumed. A docs-only goal is the `docs` workflow: no planner, one documenter node (`mode: follow` compares the code changes since
+the newest commit that touched `docs/`; `mode: rewrite` writes `docs/` again from the code), then checks, review and the PR.
+
+## delivery: several repos, no human
+
+`delivery` is `plan -> cards (map of lane) -> report`. The planner reads the `# Map` of `PROJECT.md`, writes the
+interface between repos once and gives each card `waits_for` (the cards it needs merged to main). Every `lane` starts
+at once; a lane with `waits_for` builds against the interface, then its `wait` node blocks until those lanes have
+merged, `sync` pulls main and replaces stubs with the real code, then `checks`, `review` and `merge` run. A failed
+provider cancels the lanes that wait for it. `waits_for` ids that are unknown or form a cycle fail the plan before any
+agent starts. Merging needs `autopilot.auto_merge` to list the card's risk, or `--merge --approved`; `money-path`
+is never merged without the requester.
