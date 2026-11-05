@@ -84,6 +84,13 @@ for f in sorted((root / "src/skills").glob("play*/SKILL.md")):
         bad.append(f"{f.parent.name}: group must be start")
     if f.parent.name == "play":
         continue
+    if f.parent.name == "play-solo":
+        # the one shortcut that runs no workflow: the current harness does every step, with no delegation
+        if "swe-cli flow run" in text or "swe-cli delegate" in text:
+            bad.append("play-solo: must not start a workflow or delegate")
+        if "Start a subagent or a workflow" not in text:
+            bad.append("play-solo: its Never section must forbid subagents and workflows")
+        continue
     wf = re.search(r"swe-cli flow run <project> ([\w-]+)", text)
     if not wf or not (root / "cli/workflows" / f"{wf.group(1)}.yaml").is_file():
         bad.append(f"{f.parent.name}: names no existing workflow ({wf.group(1) if wf else 'none'})")
