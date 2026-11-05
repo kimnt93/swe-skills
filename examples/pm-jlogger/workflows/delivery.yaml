@@ -1,0 +1,23 @@
+name: delivery
+description: "A goal across several repos, merged to main by AI alone: plan with the interface agreed first, every repo builds in parallel, a repo that depends on another waits for its merge, syncs with it, is checked, reviewed and merged in turn; the report lists what is on main."
+inputs:
+  goal: {required: true}
+  repo: {default: ""}
+  risk: {default: standard}
+nodes:
+  plan:
+    role: planner
+    goal: >-
+      Plan this goal as one card per repo (or per PR-sized slice), every card with "workflow": "lane" and its "repo".
+      Decide every interface between repos once (names, types, API shape, schema) and write it into the goal of both the
+      provider card and each card that uses it, so the consumer can build against it before the provider exists. For a
+      card that needs another card merged to main first, list that card's id in "waits_for"; use "after" only when a
+      card must not even start until another card is finished. Goal: ${inputs.goal}
+  cards:
+    needs: [plan]
+    map: "${nodes.plan.cards}"
+    workflow: "${item.workflow|lane}"
+  report:
+    type: report
+    needs: [cards]
+    always: true

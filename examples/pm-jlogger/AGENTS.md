@@ -24,9 +24,10 @@ skills and the agent (cli, model, reasoning) its role names (`config.yaml`).
 
 | Request | Command |
 |---|---|
-| a feature | `swe-cli flow run pm-jlogger feature --goal "..."` (add `--merge` to merge and clean when every card passed) |
+| any code goal, one repo or several (the default; merges to main by itself) | `swe-cli flow run pm-jlogger delivery --goal "..."` |
+| a feature, merged by hand at the end | `swe-cli flow run pm-jlogger feature --goal "..."` (add `--merge` to merge and clean when every card passed) |
 | a bug | `swe-cli flow run pm-jlogger bugfix --goal "..."` |
-| docs only | `swe-cli flow run pm-jlogger docs --goal "..."` |
+| `docs/` stale or missing (no plan) | `swe-cli flow run pm-jlogger docs --input repo=<repo> [--input mode=rewrite]` |
 | what runs now | `swe-cli flow status pm-jlogger` |
 | one failed node again | `swe-cli flow retry pm-jlogger <run> <node>` |
 | stop a run | `swe-cli flow stop pm-jlogger <run>` |

@@ -1,19 +1,45 @@
 name: docs
-description: "Documentation changes on small models: plan, write, check every command, review; the report lists the PRs."
+description: "Documentation on a small model, no plan: follow the code changes since the docs were last touched (or rewrite docs/ from the code), check every command, open the PR, review, fix."
 inputs:
-  goal: {required: true}
+  goal: {default: "Bring docs/ up to date with the code."}
   repo: {default: ""}
+  mode: {default: follow}
   risk: {default: low}
 nodes:
-  plan:
-    role: planner
+  write:
+    role: documenter
+    goal: >-
+      mode: ${inputs.mode}. ${inputs.goal} Follow the docs-sync skill: in follow mode compare the code changes since the
+      newest commit that touched docs/ with docs/; in rewrite mode read the code and rewrite docs/ from it. Then open the PR.
+    risk: "${inputs.risk}"
+    branch_type: docs
+  checks:
+    type: checks
+    needs: [write]
+    timeout: 30
+    on_fail: {run: ci-fix, rounds: 1}
+  ci-fix:
+    role: ci-fixer
+    manual: true
+    workspace: "same:write"
     agent: documenter
-    goal: "Plan these documentation changes as cards, every card with \"workflow\": \"docs-card\" and \"type\": \"docs\". Goal: ${inputs.goal}"
-  cards:
-    needs: [plan]
-    map: "${nodes.plan.cards}"
-    workflow: docs-card
+    goal: "A required check on the PR is red. Fix the cause on this branch (ci-fixer skill)."
+  review:
+    role: reviewer
+    needs: [checks]
+    reviews: write
+    workspace: "same:write"
+    goal: >-
+      Review this documentation PR at its head against the goal: ${inputs.goal}. Run every command it shows and open
+      every path it names. Bring the branch up to date with origin/main first if it is behind (integrator skill).
+    on_fail: {run: fix, rounds: 1}
+  fix:
+    role: documenter
+    manual: true
+    workspace: "same:write"
+    goal: "Fix the verified review findings in this documentation. Original goal: ${inputs.goal}"
   report:
     type: report
-    needs: [cards]
+    needs: [review]
+    build: write
     always: true

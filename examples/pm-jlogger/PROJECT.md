@@ -3,6 +3,20 @@
 A demo project of agents around one upstream repo, `jlogger`, set up as a **project manager** (mode pm): a manager runs
 workflows that plan, build, review and merge. Claude plans and builds; the documenter runs on omp.
 
+# Map
+
+```yaml
+repos:
+  jlogger:
+    role: Python JSON logger with a Rust (PyO3) core
+    provides: [a Python logging library]
+    depends_on: []
+    docs: docs/README.md
+    verify: make check test
+external: {}
+merge_order: [jlogger]
+```
+
 # Repos
 
 - `jlogger/` (upstream: github.com/kimnt93/jlogger, a git submodule here): Python JSON logger with a Rust (PyO3) core.

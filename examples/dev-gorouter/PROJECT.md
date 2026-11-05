@@ -3,6 +3,20 @@
 A demo project of agents around one upstream repo, `gorouter`, set up for a **developer** (mode dev): the agent reads or
 creates the issue, codes, opens the PR and stops. You review and merge; there is no review agent and no merge step.
 
+# Map
+
+```yaml
+repos:
+  gorouter:
+    role: Go HTTP router
+    provides: [a Go HTTP router library]
+    depends_on: []
+    docs: docs/README.md
+    verify: make test
+external: {}
+merge_order: [gorouter]
+```
+
 # Repos
 
 - `gorouter/` (upstream: github.com/kimnt93/gorouter, a git submodule here): a multi-user LLM gateway in Go with a Vite UI.
