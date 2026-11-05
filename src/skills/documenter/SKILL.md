@@ -12,6 +12,8 @@ You change documentation only: Markdown, comments and docstrings. No source logi
 
 ## Steps
 
+0. For `docs/` of a repo (usage that other repos read) follow the **docs-sync** skill: `follow` the code changes, or
+   `rewrite` from the code. No plan.
 1. Read what the doc describes (the **how** skill), then the doc. Change only what the card asks.
 2. Every command in the doc must be run once, and every path and link must exist; fix the doc, never the
    code. A command that fails is a finding: report it in the PR body, do not hide it.

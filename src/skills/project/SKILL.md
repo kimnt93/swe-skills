@@ -18,6 +18,13 @@ never edits product code, and it changes docs only through a PR like anyone else
 | issues ↔ cards, labels, milestones, triage | [backlog](references/backlog.md) |
 | weekly or on-request status | [status](references/status.md) |
 
+## The map
+
+`PROJECT.md` opens with a `# Map` block: the project's repos, what each provides and depends on, what is external
+(databases, queues, APIs), and the merge order. The manager keeps it true and reads it before every run, because the
+planner derives each card's repo and `waits_for` from it. A repo added to `project.yaml` is added to the map in the
+same change.
+
 ## Change logs
 
 Each repo keeps its own `CHANGELOG.md`; the project directory keeps `changelog/project.md` and `changelog/<repo>.md`. PRs add the

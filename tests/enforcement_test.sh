@@ -74,4 +74,21 @@ grep -q "/x/api-contract/scripts/audit_api.py" "$tmp/mk.txt" && grep -q "go-code
   && grep -q "go-code/scripts/archcheck && go run" "$tmp/mk.txt" \
   || { cat "$tmp/mk.txt"; fail "verify.mk static gates"; }
 pass "verify.mk: static gates include the contract audit, structcheck and archcheck"
+python3 - "$root" <<'PY' || fail "play skills"
+import re, sys
+from pathlib import Path
+root = Path(sys.argv[1]); bad = []
+for f in sorted((root / "src/skills").glob("play*/SKILL.md")):
+    text = f.read_text(encoding="utf-8")
+    if not re.search(r"^  group: start$", text, re.M):
+        bad.append(f"{f.parent.name}: group must be start")
+    if f.parent.name == "play":
+        continue
+    wf = re.search(r"swe-cli flow run <project> ([\w-]+)", text)
+    if not wf or not (root / "cli/workflows" / f"{wf.group(1)}.yaml").is_file():
+        bad.append(f"{f.parent.name}: names no existing workflow ({wf.group(1) if wf else 'none'})")
+if bad:
+    raise SystemExit("; ".join(bad))
+PY
+pass "play skills: each is group start and names a workflow that exists in cli/workflows"
 echo "all passed"

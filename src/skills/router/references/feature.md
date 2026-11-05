@@ -15,6 +15,9 @@
    agent, each in its own worktree, once the shared contract (the OpenAPI shape) is settled.
 6. **Prove it on the real surface:** `make verify` (e2e + live probe for services; Playwright for
    frontends; an evaluation run with the metric for ML).
-7. If the design is contested, run the **interrogate** skill. Then [opening-a-pr](opening-a-pr.md).
+7. **Docs follow the code.** Before the PR, bring the repo's `docs/` up to date from the diff: start a subagent as agent
+   `documenter` with the **docs-sync** skill in `follow` mode in the same worktree (no plan, a small model is enough), or do
+   it yourself for a small change. Other repos read `docs/README.md` first, so the usage lives there and in `docs/references/`.
+8. If the design is contested, run the **interrogate** skill. Then [opening-a-pr](opening-a-pr.md).
 
 **Reply:** what you built, the decisions and why, the proof, open questions.

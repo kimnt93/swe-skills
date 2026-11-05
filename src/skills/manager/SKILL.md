@@ -53,7 +53,7 @@ code, open the PR) and report the PR link. In dev mode never start a review, nev
 
 ## Before you start a run
 
-1. Read `PROJECT.md` in the project directory (stack, dependencies, commands, conventions) and the project's own
+1. Read `PROJECT.md` in the project directory (its `# Map` of repos and dependencies first, then stack, commands, conventions) and the project's own
    `skills/` that match the request. Follow them; they are what earlier runs learned.
 2. `swe-cli doctor <project>`: any PROBLEM (git credentials, a missing clone, a central clone off `main`) is
    fixed or reported first. A run with a failing fetch is refused anyway.
@@ -68,12 +68,22 @@ code, open the PR) and report the PR link. In dev mode never start a review, nev
 
 | Request | Workflow | Inputs |
 |---|---|---|
-| a feature, an endpoint, a screen, a refactor | `feature` | `goal` (+ `repo`, `risk`) |
+| any code goal, in one repo or several (the default) | `delivery` | `goal` (+ `risk`) |
+| the same, but the requester merges by hand at the end | `feature` | `goal` (+ `repo`, `risk`) |
 | a defect with a way to reproduce it | `bugfix` | `goal` with the repro, `repo`, `risk` |
-| README, runbook, ADR, changelog, comments | `docs` | `goal`, `repo` |
+| `docs/` out of date, or to write from scratch (no planner, a small model) | `docs` | `repo`, `mode` = `follow` (default) or `rewrite` |
+| check a PR, read-only | `review` | `pr`, `repo` |
+| take an existing PR to main (update, check, review, merge) | `land` | `pr`, `repo`, `risk` |
 | a red required check on an open PR | `ci-fix` | `pr`, `repo` |
 | a PR that is behind `main` or conflicts | `conflict` | `pr`, `repo` |
 | nightly or after a burst of merges | `verify` | `repo` |
+
+Every code card also updates its repo's `docs/` before its PR opens (the `docs-sync` skill); do not ask for it separately.
+
+`delivery` runs without a human: the planner writes the interface between repos, every repo builds in parallel against
+it, a repo that depends on another waits for that repo's merge to main, pulls it, is checked and reviewed, and merges
+in turn. It needs `autopilot.auto_merge: [low, standard]` in `config.yaml` (or `--merge --approved` from the requester);
+`money-path` cards still wait for the requester.
 
 No workflow fits: write one in `<project dir>/workflows/<name>.yaml` (the schema is in
 `docs/workflows.md`) and run `swe-cli flow validate`; or ask the human. Do not improvise the steps by hand.

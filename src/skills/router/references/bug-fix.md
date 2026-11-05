@@ -15,6 +15,7 @@
 4. **Prove it:** the test passes, `make verify` passes, and the original symptom is gone on the
    real surface (the endpoint, the consumer, the page).
 5. Add a guard only if the bad state is legitimate input; otherwise fix the producer.
-6. Run [opening-a-pr](opening-a-pr.md).
+6. **Docs:** if the fix changes documented behaviour, update `docs/` from the diff (the **docs-sync** skill, `follow` mode).
+7. Run [opening-a-pr](opening-a-pr.md).
 
 **Reply:** the root cause in one sentence, the failing-then-passing test, the verify tail.

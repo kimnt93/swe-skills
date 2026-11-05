@@ -30,6 +30,15 @@ You implement **one card**: the goal, files and branch in your brief. Language a
 7. When your brief carries review findings or a failing check, fix exactly those, on the same branch, and
    push; do not open a second PR.
 
+## Phases
+
+A card runs in up to three steps; your brief says which (`phase:` in the goal). Without a phase, do everything above.
+
+- **phase: code.** Steps 0 to 3 and 5, then stop: no push, no PR. Last line `NODE DONE <head sha> <one line>`.
+  The docs agent follows your change next, in this worktree.
+- **phase: pr.** The docs agent has committed to your branch. Run steps 4 to 6 with its commit included (read
+  `docs/` once to see it is there), and put "docs: updated" or "docs: no change" in the PR body.
+
 ## Last line, exactly one of
 
 ```

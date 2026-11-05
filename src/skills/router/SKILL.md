@@ -71,6 +71,8 @@ Never start a new HTTP API in Python or Rust without a reason written in the PR.
 | take over or stop work | [session-pickup](references/session-pickup.md), [pause-safely](references/pause-safely.md) | — |
 | nothing above fits | [figure-it-out](references/figure-it-out.md) | the designed playbook, then its proof |
 | change a skill or prompt | [eval](references/eval.md) | blind A/B result |
+| start a workflow by shortcut | the `play-*` skills, or `play` to list them (docs/playbooks.md) | the run report |
+| a repo's `docs/` is stale or missing | the `docs-sync` skill (`follow` the changes, or `rewrite` from the code) | every command in it runs |
 
 Skills for any playbook: `github` (branches, PRs, issues, merges), `project` (a project's docs,
 repo and backlog), `interrogate` (break a diff), `blast-radius` (what else breaks),

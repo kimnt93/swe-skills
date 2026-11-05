@@ -7,7 +7,8 @@
 3. **Before you commit,** run the formatter and linter of each language touched (`golangci-lint fmt`
    and `run`, `ruff format` and `check`, `cargo fmt` and `clippy -D warnings`, `eslint` and `tsc`),
    then the **deslop** skill over the diff.
-4. **Verify:** `make verify` on the committed head.
+4. **Verify:** `make verify` on the committed head. `docs/` already describes the change (the **docs-sync** skill); the body says
+   "docs: updated" or "docs: no change".
 5. **Body** (a one-minute briefing, under about 40 lines):
    - `## Why`: the problem, in 1–3 sentences;
    - `## What changed`: 1–3 bullets;
