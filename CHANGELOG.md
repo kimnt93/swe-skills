@@ -24,7 +24,8 @@ First release. What it is today.
 - `delivery` (several repos, interface first, merged in dependency order, no human), `lane`, `review`, `land`, and `docs` without a
   planner (`follow` or `rewrite`). Every code card runs code, docs, then the PR (`docs-sync` skill). `PROJECT.md` opens with a `# Map`.
 - `play-*` shortcut skills (`play-deliver`, `play-bugfix`, `play-docs`, `play-cifix`, `play-rebase`, `play-changelog`, `play-verify`,
-  `play-review`, `play-land`) and the `play` dispatcher.
+  `play-review`, `play-land`) and the `play` dispatcher. `play-solo` runs no workflow: the current harness plans, or takes an
+  issue to a merged PR, with no delegation.
 
 **Install**
 - A plugin for Claude Code, Codex and oh-my-pi, and plain skills for 52 other harnesses (55 in all). `make install` installs into every detected

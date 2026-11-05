@@ -15,6 +15,7 @@ A playbook is a workflow you start with one shortcut. Say the request to the man
 | `/swe:play-verify` | `verify` | nightly or after merges; edits nothing | `repo` |
 | `/swe:play-review` | `review` | check any PR at its head, read-only | `pr`, `repo` |
 | `/swe:play-land` | `land` | take an existing PR, a human's too, to main | `pr`, `repo` |
+| `/swe:play-solo` | none: this chat does every step | one goal or issue, plan only or plan to merged PR, no subagent | `goal`, `mode` = `full` or `plan` |
 | (DEV mode) | `task` | one task to an open PR; you review and merge | `goal` |
 
 `feature` stays for a goal you want to merge by hand at the end.
@@ -33,6 +34,7 @@ verify    verify ─► report
 review    review ─► report                                   (read-only)
 land      integrate ─► checks ⟲ci-fix ─► review ⟲fix ─► merge ─► report
 task      code ─► docs ─► build(PR) ─► checks ⟲ci-fix ─► report
+solo      (in this chat, no subagent) issue ─► plan ─► branch ─► code ─► docs ─► verify ─► PR ─► self-review ⟲fix ─► checks ⟲fix ─► merge
 ```
 
 ## Rules
@@ -42,4 +44,6 @@ task      code ─► docs ─► build(PR) ─► checks ⟲ci-fix ─► repor
   for the requester.
 - Every code card updates `docs/` before its PR opens (the `docs-sync` skill). Other repos read `docs/README.md` first.
 - A project's `PROJECT.md` opens with a `# Map` of its repos and dependencies; the planner uses it.
-- Naming: `play-*` skills start a workflow; every other skill is knowledge loaded into your chat.
+- `play-solo` is the exception: it starts no workflow and no subagent, so the review is the author's own (the `interrogate`
+  skill, one adversary at a time) and the merge still goes through `swe-cli merge`; `mode=plan` stops after the plan and creates nothing.
+- Naming: `play-*` skills start a workflow (`play-solo` runs the steps in your chat); every other skill is knowledge loaded into your chat.
