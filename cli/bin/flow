@@ -59,12 +59,12 @@ delegate = _load("delegate", "delegate")
 
 TMP = Path(os.environ.get("SWE_TMP") or tempfile.gettempdir()) / "swe"
 POLL = float(os.environ.get("SWE_POLL", "5"))
-NODE_TYPES = ("agent", "checks", "map", "report", "shell")
+NODE_TYPES = ("agent", "checks", "map", "merge", "report", "shell", "wait")
 OUTCOMES = {
     "card": ["CARD DONE <head sha> <pr url>", "CARD BLOCKED <one-line reason>"],
     "review": ["REVIEW DONE <head sha> <n verified findings> PASS", "REVIEW DONE <head sha> <n verified findings> FAIL",
                "REVIEW BLOCKED <one-line reason>"],
-    "node": ["NODE DONE <one line: what you produced>", "NODE BLOCKED <one-line reason>"],
+    "node": ["NODE DONE <one line: what you produced>", "NODE DONE <head sha> <one line> (a step that commits)", "NODE BLOCKED <one-line reason>"],
 }
 SETTLED = ("done", "skipped", "failed", "blocked", "cancelled")
 SATISFIED = ("done", "skipped")
@@ -197,6 +197,12 @@ def problems_of(wf: dict, roles: dict, cfg: dict, project: dict | None, depth: i
                 found.append(f"{label}: workspace refers to unknown node {ws[5:]!r}")
             if spec.get("outcome") not in OUTCOMES:
                 found.append(f"{label}: outcome must be one of {', '.join(OUTCOMES)}")
+        if kind == "wait" and "lanes" not in node:
+            found.append(f"{label}: a wait node needs `lanes:` (the lane ids to wait for)")
+        if kind == "merge":
+            for ref in (node.get("build", "build"), node.get("review", "review")):
+                if ref not in nodes:
+                    found.append(f"{label}: merge refers to unknown node {ref!r}")
         if node.get("on_fail"):
             target = node["on_fail"].get("run")
             if target not in nodes or not nodes[target].get("manual"):
@@ -360,7 +366,10 @@ def parse_outcome(line: str) -> dict:
         verdict = words[-1].upper() if words[-1].upper() in ("PASS", "FAIL") else ("PASS" if words[3] == "0" else "FAIL")
         return {"ok": True, "sha": words[2], "findings": int(words[3]), "verdict": verdict}
     if line.startswith("NODE DONE"):
-        return {"ok": True, "summary": line[len("NODE DONE "):]}
+        out = {"ok": True, "summary": line[len("NODE DONE "):]}
+        if len(words) > 2 and re.fullmatch(r"[0-9a-f]{7,40}", words[2]):   # a step that commits (code, docs) names its head
+            out["sha"] = words[2]
+        return out
     return {"ok": False, "reason": line.split(" ", 2)[-1] if " " in line else line}
 
 
@@ -572,6 +581,71 @@ def run_shell(run: Run, ctx: dict, name: str, node: dict) -> dict:
     return {"stdout": result.stdout.strip()[-500:]}
 
 
+def pr_state(github: str, pr) -> str:
+    target = ["--repo", github] if github else []
+    result = subprocess.run(["gh", "pr", "view", str(pr), *target, "--json", "state"], capture_output=True, text=True)
+    try:
+        return json.loads(result.stdout).get("state", "") if result.returncode == 0 else ""
+    except ValueError:
+        return ""
+
+
+def run_merge(run: Run, ctx: dict, name: str, node: dict) -> dict:
+    """Merge one card's PR to main during the run, through the same gate as `flow merge`, and wait until it is on main.
+
+    A lane that other lanes wait for merges here, so a dependent lane can pull it before the run ends."""
+    build_key, review_key = ctx["prefix"] + node.get("build", "build"), ctx["prefix"] + node.get("review", "review")
+    build, review = run.node(build_key), run.node(review_key)
+    outputs = build.get("outputs", {})
+    if not outputs.get("pr") or not build.get("card"):
+        raise NodeFail(f"{build_key} opened no PR to merge", "failed")
+    if review.get("outputs", {}).get("verdict") != "PASS":
+        raise NodeFail(f"{review_key} gave no PASS verdict: nothing to merge", "failed")
+    record = delegate.load_record(run.project, build["card"])
+    entry = {"node": build_key, "repo": record.get("repo"), "github": record.get("github"), "pr": outputs["pr"],
+             "pr_url": outputs.get("pr_url"), "sha": review["outputs"].get("sha") or outputs.get("sha"),
+             "risk": record.get("risk", "standard"), "card": build["card"], "verdict": "PASS"}
+    approved = bool((run.data.get("auto") or {}).get("approved"))
+    run.update(ctx["prefix"] + name, status="running", started=int(time.time()))
+    ok, text = merge_one(run, entry, approved)
+    if not ok and ("behind" in text or "dirty" in text) and update_branch(run, entry):
+        run.save()
+        ok, text = merge_one(run, entry, approved)
+    if not ok:
+        raise NodeFail(f"the merge gate refused #{entry['pr']}: {text.splitlines()[-1] if text else 'no reason'}", "failed")
+    deadline = time.time() + int(node.get("timeout", 30)) * 60
+    while pr_state(entry["github"], entry["pr"]) != "MERGED":   # `gh pr merge --auto` may queue the merge
+        if time.time() > deadline:
+            raise NodeFail(f"#{entry['pr']} passed the gate but is not on main after {node.get('timeout', 30)} minutes", "failed")
+        time.sleep(max(POLL, 1))
+    with run.lock:
+        run.data["merged"].append({"pr": entry["pr"], "sha": entry["sha"]})
+        run.save()
+    record_changelog(run, entry)
+    return {"merged": entry["pr"], "sha": entry["sha"], "pr_url": entry["pr_url"]}
+
+
+def run_wait(run: Run, ctx: dict, name: str, node: dict) -> dict:
+    """Block until the named lanes of the enclosing map have merged to main; fail when one of them cannot."""
+    lanes = [slug(str(x)) for x in (sub(node.get("lanes"), ctx, run) or []) if str(x).strip()]
+    parent, merge_name = ctx.get("parent", ""), node.get("merge", "merge")
+    key = ctx["prefix"] + name
+    run.update(key, status="running", started=int(time.time()))
+    deadline = time.time() + int(node.get("timeout", 240)) * 60
+    while True:
+        states = {lane: run.node(f"{parent}{lane}/{merge_name}")["status"] for lane in lanes}
+        broken = [lane for lane, state in states.items() if state in ("failed", "blocked", "cancelled", "skipped")]
+        if broken:
+            raise NodeFail(f"lane(s) {', '.join(broken)} did not merge, so this lane cannot build on them", "failed")
+        if all(state == "done" for state in states.values()):
+            return {"merged_lanes": lanes}
+        if time.time() > deadline:
+            raise NodeFail(f"lane(s) {', '.join(l for l, s in states.items() if s != 'done')} still not merged after "
+                           f"{node.get('timeout', 240)} minutes", "failed")
+        run.update(key, reason="waiting for " + ", ".join(l for l, s in states.items() if s != "done"))
+        time.sleep(max(POLL, 1))
+
+
 def run_report(run: Run, wf: dict, ctx: dict, name: str, node: dict) -> dict:
     """The run's last node: the report the manager reads, and the list of PRs that are ready to merge."""
     data = run.data
@@ -647,11 +721,19 @@ def run_node(run: Run, wf: dict, ctx: dict, name: str) -> None:
                 outputs = run_checks(run, ctx, name, node)
             elif kind == "shell":
                 outputs = run_shell(run, ctx, name, node)
+            elif kind == "merge":
+                outputs = run_merge(run, ctx, name, node)
+            elif kind == "wait":
+                outputs = run_wait(run, ctx, name, node)
             elif kind == "report":
                 outputs = run_report(run, wf, ctx, name, node)
             else:
                 outputs = run_map(run, ctx, name, node)
             run.update(key, status="done", finished=int(time.time()), outputs=outputs)
+            if node.get("moves_head") and outputs.get("sha"):   # e.g. a sync that rebased the branch: checks and review look at the new head
+                owner = str(node.get("workspace") or "").split(":", 1)
+                if len(owner) == 2:
+                    run.update(ctx["prefix"] + owner[1], outputs={"sha": outputs["sha"]})
             return
         except NodeFail as error:
             fix = (node.get("on_fail") or {})
@@ -680,11 +762,34 @@ def run_node(run: Run, wf: dict, ctx: dict, name: str) -> None:
             return
 
 
+def check_waits(items: dict) -> None:
+    """`waits_for` names other items of the same map; an unknown id or a cycle would wait for ever, so fail before any agent starts."""
+    waits = {i: [slug(str(w)) for w in (item.get("waits_for") or [])] for i, item in items.items() if isinstance(item, dict)}
+    for item_id, wanted in waits.items():
+        unknown = [w for w in wanted if w not in items]
+        if unknown or item_id in wanted:
+            raise NodeFail(f"card {item_id} waits_for {', '.join(unknown or [item_id])}: not another card of this plan", "failed")
+    seen: set[str] = set()
+
+    def visit(item_id: str, path: tuple) -> None:
+        if item_id in path:
+            raise NodeFail("waits_for forms a cycle: " + " -> ".join(path[path.index(item_id):] + (item_id,)), "failed")
+        if item_id in seen:
+            return
+        for w in waits.get(item_id, []):
+            visit(w, path + (item_id,))
+        seen.add(item_id)
+
+    for item_id in waits:
+        visit(item_id, ())
+
+
 def run_map(run: Run, ctx: dict, name: str, node: dict) -> dict:
     items = sub(node["map"], ctx, run) or []
     if not isinstance(items, list):
         raise NodeFail(f"map {node['map']!r} is not a list", "failed")
     ids = [slug(i.get("id", n)) if isinstance(i, dict) else slug(i) for n, i in enumerate(items, 1)]
+    check_waits(dict(zip(ids, items)))
     results: dict[str, str] = {}
     futures = {}
     waiting = list(zip(ids, items))
@@ -701,7 +806,7 @@ def run_map(run: Run, ctx: dict, name: str, node: dict) -> dict:
                 child = find_workflow(child_name, project_view(run.project))
                 child_ctx = {"prefix": f"{ctx['prefix']}{item_id}/", "inputs": {**ctx["inputs"], **(item if isinstance(item, dict) else {})},
                              "item": item if isinstance(item, dict) else {"value": item}, "repo": (item.get("repo") if isinstance(item, dict) else None) or ctx.get("repo"),
-                             "run": ctx["run"], "project": ctx["project"]}
+                             "run": ctx["run"], "project": ctx["project"], "parent": ctx["prefix"]}
                 futures[item_id] = POOL.submit(exec_scope, run, child, child_ctx)
                 started.add(item_id)
         for item_id, future in list(futures.items()):

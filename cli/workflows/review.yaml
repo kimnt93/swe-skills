@@ -1,0 +1,17 @@
+name: review
+description: "Check an open PR at its head, read-only: run its verify command and the adversarial review, keep only proven findings, post the verdict. Edits and merges nothing."
+inputs:
+  pr: {required: true}
+  repo: {default: ""}
+  goal: {default: "Review this PR at its head: does it do what its issue and body say, and is every claim proven by a command."}
+nodes:
+  review:
+    role: reviewer
+    agent: reviewer-senior
+    workspace: pr
+    pr: "${inputs.pr}"
+    goal: "${inputs.goal}"
+  report:
+    type: report
+    needs: [review]
+    always: true

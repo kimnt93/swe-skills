@@ -5,7 +5,7 @@ set -euo pipefail
 here="$(cd "$(dirname "$0")/.." && pwd)"
 fleet="$here/bin/main"
 tmp="$(mktemp -d)"
-cleanup() { tmux ls 2>/dev/null | cut -d: -f1 | { grep '^ft-' || true; } | while read -r s; do tmux kill-session -t "$s" 2>/dev/null || true; done; [ -n "${FT_KEEP:-}" ] || rm -rf "$tmp"; return 0; }
+cleanup() { { tmux ls 2>/dev/null || true; } | cut -d: -f1 | { grep '^ft-' || true; } | while read -r s; do tmux kill-session -t "$s" 2>/dev/null || true; done; [ -n "${FT_KEEP:-}" ] || rm -rf "$tmp"; return 0; }
 trap cleanup EXIT
 pass() { echo "PASS $1"; }
 fail() { echo "FAIL $1"; exit 1; }
@@ -44,11 +44,20 @@ for line in sys.stdin:
                  {"id": "c2", "title": "b", "goal": "add b", "files": ["src/b.txt"], "risk": "standard", "agent": "developer-junior", "workflow": "card"}]
         if os.path.exists(os.path.join(state, "overlap")):
             cards[1]["files"] = ["src/a.txt"]
-        if "documentation" in brief.lower() or "docs-card" in brief:
-            cards = [{"id": "d1", "title": "doc", "goal": "write docs", "files": ["docs/"], "risk": "low", "workflow": "docs-card", "type": "docs"}]
+        if os.path.exists(os.path.join(state, "deps")):
+            cards = [{"id": "c1", "title": "a", "goal": "add a", "files": ["src/a.txt"], "risk": "standard", "agent": "developer-junior", "workflow": "lane"},
+                     {"id": "c2", "title": "b", "goal": "add b on a", "files": ["src/b.txt"], "risk": "standard", "agent": "developer-junior", "workflow": "lane", "waits_for": ["c1"]}]
         json.dump({"summary": "s", "cards": cards}, open(plan, "w"))
         open(report, "w").write("planned\n")
         print(f"NODE DONE {len(cards)} card(s) planned", flush=True)
+    elif role == "docsync":
+        os.makedirs("docs/references", exist_ok=True)
+        open("docs/references/change.md", "a").write("usage of the change\n")
+        open("docs/README.md", "a").write("- references/change.md\n")
+        sh("git", "add", "docs")
+        sh("git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "docs(change): usage")
+        open(report, "w").write("docs synced\n")
+        print(f"NODE DONE {sh('git', 'rev-parse', '--short', 'HEAD')} docs/references/change.md updated", flush=True)
     elif role in ("developer", "documenter", "ci-fixer", "integrator", "scribe"):
         if role == "developer" and os.path.exists(os.path.join(state, "block")):
             open(report, "w").write("blocked\n")
@@ -57,6 +66,8 @@ for line in sys.stdin:
             continue
         if role == "ci-fixer" and os.path.exists(os.path.join(state, "red-once")):
             os.unlink(os.path.join(state, "red-once"))
+        if "now merged to main" in brief:   # the sync step: record how many merges were on main when it started
+            open(os.path.join(state, "sync-saw"), "w").write(str(open(os.path.join(state, "gh.log")).read().count("MERGED")))
         first = files.group(1).split(",")[0].strip() if files else "note.txt"
         target = first + "item.txt" if first.endswith("/") else first
         os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
@@ -64,6 +75,11 @@ for line in sys.stdin:
         sh("git", "add", target)
         sh("git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", f"feat: {role}")
         sha = sh("git", "rev-parse", "--short", "HEAD")
+        if role == "developer" and "phase: code" in brief:   # the code step commits and stops: no push, no PR
+            open(report, "w").write(f"coded at {sha}\n")
+            print(f"NODE DONE {sha} coded", flush=True)
+            print("❯ π >", flush=True)
+            continue
         branch = sh("git", "branch", "--show-current")
         pr_file = os.path.join(state, "pr-" + branch.replace("/", "-"))
         import fcntl
@@ -142,11 +158,14 @@ import json, sys
 d = json.load(open(sys.argv[1]))
 n = d["nodes"]
 assert d["status"] == "ready", d["status"]
-assert all(n[k]["status"] == "done" for k in ("plan", "cards", "report", "c1/build", "c2/build", "c1/checks", "c1/review", "c2/review")), {k: v["status"] for k, v in n.items()}
+assert all(n[k]["status"] == "done" for k in ("plan", "cards", "report", "c1/code", "c1/docs", "c1/build", "c2/code", "c2/docs", "c2/build", "c1/checks", "c1/review", "c2/review")), {k: v["status"] for k, v in n.items()}
 assert n["c1/review"]["agent"] == "reviewer-junior" and n["c1/build"]["agent"] == "developer-junior", (n["c1/review"]["agent"], n["c1/build"]["agent"])
 assert n["c1/review"].get("rounds") == 1 and n["c2/review"].get("rounds") == 1, "the FAIL round"
 assert n["c1/review"]["outputs"]["verdict"] == "PASS"
-b1, b2 = n["c1/build"], n["c2/build"]
+assert n["c1/docs"]["agent"] == "documenter" and n["c1/docs"]["cli"] == "omp", n["c1/docs"]
+assert n["c1/code"]["finished"] <= n["c1/docs"]["started"] <= n["c1/docs"]["finished"] <= n["c1/build"]["started"], "code -> docs -> pr order"
+assert n["c1/build"]["outputs"]["pr"] and not n["c1/code"]["outputs"].get("pr"), "only the last step opens the PR"
+b1, b2 = n["c1/code"], n["c2/code"]
 assert max(b1["started"], b2["started"]) < min(b1["finished"], b2["finished"]), "the two builds did not overlap"
 assert len(d["ready"]) == 2 and {e["pr"] for e in d["ready"]} == {"1", "2"}, d["ready"]
 PY
@@ -159,9 +178,10 @@ pass "flow feature: plan, two cards in parallel (own worktrees), checks, review 
 
 # 3. a small model for documentation: gemini flash on omp, thinking medium
 rm -f "$FAKE_STATE/fail-once"
-"$fleet" flow run ft docs --goal "write docs" >"$tmp/run2.txt" 2>&1 || { tail -30 "$tmp/run2.txt"; fail "docs run"; }
+"$fleet" flow run ft docs --goal "write docs" --input repo=app >"$tmp/run2.txt" 2>&1 || { tail -30 "$tmp/run2.txt"; fail "docs run"; }
 argv="$(cat "$tmp/proj/.wt/app/"*/.swe/argv-documenter.txt)"
 case "$argv" in *"--model google-antigravity/gemini-3.8-flash"*"--thinking medium"*) ;; *) fail "documentation did not run on omp gemini flash: $argv";; esac
+! grep -q '"plan"' "$SWE_TMP/swe/ft/r2/run.json" || fail "the docs workflow planned: it must not"
 grep -q '"cli": "omp"' "$SWE_TMP/swe/ft/r2/run.json" && grep -q '"agent": "documenter"' "$SWE_TMP/swe/ft/r2/run.json" || fail "docs agent"
 pass "flow docs: the documenter agent runs omp gemini flash (thinking medium)"
 
@@ -239,8 +259,8 @@ r6="$(sed -n 's/^run \(r[0-9]*\):.*/\1/p' "$tmp/run6.txt" | tail -1)"
 python3 - "$SWE_TMP/swe/ft/$r6/run.json" <<'PY' || { tail -20 "$tmp/run6.txt"; fail "blocked state"; }
 import json, sys
 d = json.load(open(sys.argv[1])); n = d["nodes"]
-assert d["status"] == "attention" and n["c1/build"]["status"] == "blocked", (d["status"], n["c1/build"])
-assert "ARCHITECTURE.md" in n["c1/build"]["reason"], n["c1/build"]["reason"]
+assert d["status"] == "attention" and n["c1/code"]["status"] == "blocked", (d["status"], n["c1/code"])
+assert "ARCHITECTURE.md" in n["c1/code"]["reason"] and n["c1/docs"]["status"] == "cancelled", n["c1/code"]["reason"]
 assert n["c1/review"]["status"] == "cancelled" and not d.get("ready"), n["c1/review"]
 PY
 "$fleet" flow clean ft "$r6" --force >/dev/null 2>&1 || fail "clean r6"
@@ -275,4 +295,42 @@ pass "flow stop: sessions closed, run marked stopped, clean removes it"
 [ "$(grep -c '^MERGED pr merge' "$FAKE_STATE/gh.log")" = 2 ] || { cat "$FAKE_STATE/gh.log"; fail "--merge did not merge both PRs"; }
 [ -z "$(ls "$SWE_TMP/swe/ft" 2>/dev/null)" ] && [ -z "$(ls "$SWE_STATE/ft" 2>/dev/null)" ] && [ "$(git -C "$tmp/proj/app" worktree list | wc -l)" = 1 ] || fail "--merge left something behind"
 pass "flow run --merge: plan, build, review, merge through the gate and clean in one command"
+# 12. delivery: two lanes start together; c2 waits_for c1, so c2 syncs only after c1 is merged to main, then checks, review, merge
+touch "$FAKE_STATE/deps"; rm -f "$FAKE_STATE/merged-any" "$FAKE_STATE/sync-saw"; : >"$FAKE_STATE/gh.log"
+"$fleet" flow run ft delivery --goal "a and b on a" --merge --approved >"$tmp/run10.txt" 2>&1 || { tail -30 "$tmp/run10.txt"; fail "flow delivery"; }
+rm -f "$FAKE_STATE/deps"
+[ "$(cat "$FAKE_STATE/sync-saw" 2>/dev/null)" -ge 1 ] || { cat "$tmp/run10.txt" | tail -30; fail "the dependent lane synced before its provider was merged"; }
+[ "$(grep -c '^MERGED pr merge' "$FAKE_STATE/gh.log")" = 2 ] || { cat "$FAKE_STATE/gh.log"; fail "delivery did not merge both lanes"; }
+[ -z "$(ls "$SWE_TMP/swe/ft" 2>/dev/null)" ] || fail "delivery left a run behind"
+python3 - "$here/bin/flow" <<'PY' || fail "waits_for validation"
+import importlib.machinery, importlib.util, sys
+loader = importlib.machinery.SourceFileLoader("flowmod", sys.argv[1])
+spec = importlib.util.spec_from_loader("flowmod", loader); mod = importlib.util.module_from_spec(spec); loader.exec_module(mod)
+ok = {"c1": {}, "c2": {"waits_for": ["c1"]}}
+mod.check_waits(ok)
+for bad in ({"c1": {"waits_for": ["c1"]}}, {"c1": {"waits_for": ["zz"]}}, {"c1": {"waits_for": ["c2"]}, "c2": {"waits_for": ["c1"]}}):
+    try:
+        mod.check_waits(bad)
+    except mod.NodeFail:
+        continue
+    raise SystemExit(f"accepted {bad}")
+PY
+pass "flow delivery: lanes build in parallel, the dependent lane waits for the provider's merge to main, syncs, then merges; waits_for cycles and unknown ids are refused"
+# 13. review: judge an existing PR read-only (no merge, no new commit by the workflow), then land: update, check, review, merge
+git -C "$tmp/proj/app" push -q origin main:refs/heads/feat/existing 2>/dev/null || git -C "$tmp/proj/app" push -q -f origin main:refs/heads/feat/existing
+: >"$FAKE_STATE/gh.log"; rm -f "$FAKE_STATE/merged-any"
+"$fleet" flow run ft review --input pr=9 --input repo=app >"$tmp/run11.txt" 2>&1 || { tail -30 "$tmp/run11.txt"; fail "flow review"; }
+r11="$(sed -n 's/^run \(r[0-9]*\):.*/\1/p' "$tmp/run11.txt" | tail -1)"
+python3 - "$SWE_TMP/swe/ft/$r11/run.json" <<'PY' || { tail -20 "$tmp/run11.txt"; fail "review state"; }
+import json, sys
+d = json.load(open(sys.argv[1])); n = d["nodes"]
+assert n["review"]["status"] == "done" and n["review"]["outputs"]["verdict"] == "PASS", n["review"]
+assert n["review"]["agent"] == "reviewer-senior", n["review"]["agent"]
+assert not d["merged"], d["merged"]
+PY
+[ ! -s "$FAKE_STATE/gh.log" ] || fail "the review workflow merged something"
+"$fleet" flow clean ft "$r11" --force >/dev/null 2>&1 || fail "clean review"
+"$fleet" flow run ft land --input pr=9 --input repo=app --merge --approved >"$tmp/run12.txt" 2>&1 || { tail -30 "$tmp/run12.txt"; fail "flow land"; }
+[ "$(grep -c '^MERGED pr merge' "$FAKE_STATE/gh.log")" = 1 ] || { cat "$FAKE_STATE/gh.log"; tail -20 "$tmp/run12.txt"; fail "land did not merge the PR once"; }
+pass "flow review and land: review is read-only and merges nothing; land updates, checks, reviews and merges the PR once"
 echo "all passed"

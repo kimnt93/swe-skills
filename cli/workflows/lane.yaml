@@ -1,0 +1,76 @@
+name: lane
+description: "One card of a delivery: build against the agreed interface, wait until the lanes it depends on are merged to main, sync with them, check, review, then merge this card to main for the lanes that wait on it."
+nodes:
+  code:
+    role: developer
+    outcome: node
+    goal: >-
+      phase: code. ${item.goal}
+    files: "${item.files}"
+    agent: "${item.agent|developer-junior}"
+    issue: "${item.issue}"
+    risk: "${item.risk|standard}"
+    branch_type: "${item.type|feat}"
+  docs:
+    role: docsync
+    needs: [code]
+    goal: >-
+      Sync the docs of this change (docs-sync skill): compare the diff with docs/, update or add the usage in
+      docs/references/ and the index in docs/README.md, run every command, commit. Do not push, do not open a PR.
+  build:
+    role: developer
+    needs: [docs]
+    workspace: "same:code"
+    agent: "${item.agent|developer-junior}"
+    goal: >-
+      phase: pr. The docs step has committed. Verify, push and open the PR. ${item.goal}
+  wait:
+    type: wait
+    lanes: "${item.waits_for}"
+    timeout: 240
+  sync:
+    role: developer
+    needs: [build, wait]
+    when: "${item.waits_for}"
+    moves_head: true
+    agent: "${item.agent|developer-junior}"
+    workspace: "same:build"
+    goal: >-
+      The lanes you depend on (${item.waits_for}) are now merged to main. Pull the latest main into this branch
+      (rebase), read the docs of the lanes you depend on (their repo's docs/README.md and the reference it points to) and compare them with the interface you built against, replace every stub or fake of their interface with the real code, bump the dependency on them to what
+      main now holds, run make verify, and push with --force-with-lease. Do not change the agreed interface; if the
+      real code differs from it, stop and report CARD BLOCKED with the difference. Original goal: ${item.goal}
+  checks:
+    type: checks
+    needs: [build, sync]
+    timeout: 30
+    on_fail: {run: ci-fix, rounds: 2}
+  ci-fix:
+    role: ci-fixer
+    manual: true
+    workspace: "same:build"
+    goal: "A required check on the PR is red. Fix the cause on this branch (ci-fixer skill)."
+  review:
+    role: reviewer
+    needs: [checks]
+    reviews: build
+    agent: "${item.reviewer|reviewer-junior}"
+    workspace: "same:build"
+    goal: >-
+      Review this card's PR at its head against its issue and the goal: ${item.goal}. A fast check, not an audit: run
+      the card's verify command once, compare the diff with the issue, the PR body, the files the card may touch and the
+      agreed interface, post the verdict. Run the adversarial fan-out only when you are reviewer-senior. First make sure
+      the branch is up to date with origin/main; if it is behind or conflicts, bring it up to date as the integrator
+      skill says (only inside this card's own files), re-run make verify, push with --force-with-lease. Then give your
+      verdict on the final head.
+    on_fail: {run: fix, rounds: 2}
+  fix:
+    role: developer
+    manual: true
+    agent: "${item.agent|developer-junior}"
+    workspace: "same:build"
+    goal: "Fix the verified review findings on this branch (developer skill). If a fix changes documented behaviour, update docs/ in the same commit. Original goal: ${item.goal}"
+  merge:
+    type: merge
+    needs: [review]
+    timeout: 30

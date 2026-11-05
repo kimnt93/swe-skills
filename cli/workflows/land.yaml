@@ -1,0 +1,47 @@
+name: land
+description: "Take an open PR to main without a human: bring it up to date, wait for checks (a fixer repairs a red one), review with fix rounds, merge through the gate."
+inputs:
+  pr: {required: true}
+  repo: {default: ""}
+  risk: {default: standard}
+  goal: {default: "Bring this PR up to date with origin/main if it is behind or conflicts; if it is current, change nothing."}
+nodes:
+  integrate:
+    role: integrator
+    workspace: pr
+    pr: "${inputs.pr}"
+    risk: "${inputs.risk}"
+    goal: "${inputs.goal}"
+  checks:
+    type: checks
+    needs: [integrate]
+    pr_from: integrate
+    timeout: 30
+    on_fail: {run: ci-fix, rounds: 2}
+  ci-fix:
+    role: ci-fixer
+    manual: true
+    workspace: "same:integrate"
+    goal: "A required check on the PR is red. Fix the cause on this branch (ci-fixer skill)."
+  review:
+    role: reviewer
+    needs: [checks]
+    reviews: integrate
+    workspace: "same:integrate"
+    goal: "Review the PR at its head against its issue and body: run its verify command, compare the diff, post the verdict."
+    on_fail: {run: fix, rounds: 2}
+  fix:
+    role: developer
+    manual: true
+    workspace: "same:integrate"
+    goal: "Fix the verified review findings on this branch (developer skill)."
+  merge:
+    type: merge
+    build: integrate
+    needs: [review]
+    timeout: 30
+  report:
+    type: report
+    needs: [merge]
+    build: integrate
+    always: true

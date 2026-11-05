@@ -24,9 +24,10 @@ skills and the agent (cli, model, reasoning) its role names (`config.yaml`).
 
 | Request | Command |
 |---|---|
-| a feature | `{cli} flow run {project} feature --goal "..."` (add `--merge` to merge and clean when every card passed) |
+| any code goal, one repo or several (the default; merges to main by itself) | `{cli} flow run {project} delivery --goal "..."` |
+| a feature, merged by hand at the end | `{cli} flow run {project} feature --goal "..."` (add `--merge` to merge and clean when every card passed) |
 | a bug | `{cli} flow run {project} bugfix --goal "..."` |
-| docs only | `{cli} flow run {project} docs --goal "..."` |
+| `docs/` stale or missing (no plan) | `{cli} flow run {project} docs --input repo=<repo> [--input mode=rewrite]` |
 | what runs now | `{cli} flow status {project}` |
 | one failed node again | `{cli} flow retry {project} <run> <node>` |
 | stop a run | `{cli} flow stop {project} <run>` |

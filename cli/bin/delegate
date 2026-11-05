@@ -602,8 +602,11 @@ def inside(path: str, allowed: str) -> bool:
     return prefix == "" or path == prefix or path.startswith(prefix + "/")
 
 
+DOC_PATHS = ("docs", "README.md", "CHANGELOG.md")   # the docs step of a card writes these; they are never a card's own files
+
+
 def outside_scope(record: dict, changed: list[str]) -> list[str]:
-    return [f for f in changed if not any(inside(f, allowed) for allowed in record["files"])]
+    return [f for f in changed if not any(inside(f, allowed) for allowed in [*record["files"], *DOC_PATHS])]
 
 
 def cmd_status(args: list[str]) -> int:

@@ -9,13 +9,29 @@ inputs:
   risk: {default: standard}
   type: {default: feat}
 nodes:
-  build:
+  code:
     role: developer
-    goal: "${inputs.goal}"
-    issue: "${inputs.issue}"
+    outcome: node
+    goal: >-
+      phase: code. ${inputs.goal}
+    files: "${inputs.files}"
     agent: "${inputs.agent}"
+    issue: "${inputs.issue}"
     risk: "${inputs.risk}"
     branch_type: "${inputs.type}"
+  docs:
+    role: docsync
+    needs: [code]
+    goal: >-
+      Sync the docs of this change (docs-sync skill): compare the diff with docs/, update or add the usage in
+      docs/references/ and the index in docs/README.md, run every command, commit. Do not push, do not open a PR.
+  build:
+    role: developer
+    needs: [docs]
+    workspace: "same:code"
+    agent: "${inputs.agent}"
+    goal: >-
+      phase: pr. The docs step has committed. Verify, push and open the PR. ${inputs.goal}
   checks:
     type: checks
     needs: [build]

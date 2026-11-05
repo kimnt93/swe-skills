@@ -1,14 +1,29 @@
 name: card
 description: "One card: build in its own worktree, wait for CI (a fixer repairs a red check), review by another model family (it also brings the branch up to date and resolves conflicts), with a fix round on FAIL."
 nodes:
-  build:
+  code:
     role: developer
-    goal: "${item.goal}"
+    outcome: node
+    goal: >-
+      phase: code. ${item.goal}
     files: "${item.files}"
     agent: "${item.agent|developer-junior}"
     issue: "${item.issue}"
     risk: "${item.risk|standard}"
     branch_type: "${item.type|feat}"
+  docs:
+    role: docsync
+    needs: [code]
+    goal: >-
+      Sync the docs of this change (docs-sync skill): compare the diff with docs/, update or add the usage in
+      docs/references/ and the index in docs/README.md, run every command, commit. Do not push, do not open a PR.
+  build:
+    role: developer
+    needs: [docs]
+    workspace: "same:code"
+    agent: "${item.agent|developer-junior}"
+    goal: >-
+      phase: pr. The docs step has committed. Verify, push and open the PR. ${item.goal}
   checks:
     type: checks
     needs: [build]
@@ -37,4 +52,4 @@ nodes:
     manual: true
     agent: "${item.agent|developer-junior}"
     workspace: "same:build"
-    goal: "Fix the verified review findings on this branch (developer skill). Original goal: ${item.goal}"
+    goal: "Fix the verified review findings on this branch (developer skill). If a fix changes documented behaviour, update docs/ in the same commit. Original goal: ${item.goal}"

@@ -64,7 +64,7 @@ roles:
     outcome: card
     timeout: 90
   documenter:
-    skills: [documenter, deslop, github]
+    skills: [documenter, docs-sync, deslop, github]
     agent: documenter
     workspace: new
     outcome: card
@@ -81,6 +81,12 @@ roles:
     workspace: same
     outcome: card
     timeout: 60
+  docsync:
+    skills: [docs-sync, deslop]
+    agent: documenter
+    workspace: "same:code"
+    outcome: node
+    timeout: 30
   scribe:
     skills: [changelog, deslop, github]
     agent: scribe
