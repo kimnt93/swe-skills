@@ -1,4 +1,4 @@
-[submodule "examples/example-setup/jlogger"]
+[submodule "examples/pm-jlogger/jlogger"]
 	path = examples/pm-jlogger/jlogger
 	url = https://github.com/kimnt93/jlogger
 [submodule "examples/dev-gorouter/gorouter"]

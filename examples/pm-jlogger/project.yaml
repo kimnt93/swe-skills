@@ -1,6 +1,6 @@
 # Project directory of pm-jlogger: written by `swe-cli project create` or `init` / `swe-cli project <name> add`; edit freely.
 name: pm-jlogger
-description: pm-jlogger
+description: PM-mode example - plan, build, review and merge a change to a Python JSON logger through the full gated workflow
 repos:
   jlogger:
     url: https://github.com/kimnt93/jlogger

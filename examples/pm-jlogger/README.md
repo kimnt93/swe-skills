@@ -39,4 +39,4 @@ swe-cli flow status pm-jlogger
 ```
 
 Plan -> one card: build (own worktree, opens the PR) -> checks -> review (reviewer-junior) -> report: the PR is ready.
-jlogger has no required check, so the merge gate refuses it; merging is yours (`swe-cli flow merge`).
+jlogger has no CI, so no check can vouch for a PR: the gate merges it only on your approval (`swe-cli flow merge --approved`), after the reviewer's PASS. The same holds for gorouter, whose only workflow runs on releases.

@@ -92,5 +92,5 @@ SWE_REPO="$tmp/plugin" "$cli" update >"$tmp/upd.txt" 2>&1 || { cat "$tmp/upd.txt
 grep -q installed "$tmp/plugin/installs.log" && grep -q linked "$tmp/plugin/installs.log" || fail "update did not reinstall and relink"
 SWE_REPO="$tmp/plugin" "$cli" update claude >/dev/null 2>&1; grep -q only-claude "$tmp/plugin/installs.log" || fail "update <harness> installs only that one"
 echo dirty >"$tmp/plugin/Makefile.local"; git -C "$tmp/plugin" add Makefile.local
-SWE_REPO="$tmp/plugin" "$cli" update >/dev/null 2>&1 && fail "update must refuse a dirty checkout"
+if SWE_REPO="$tmp/plugin" "$cli" update >/dev/null 2>&1; then fail "update must refuse a dirty checkout"; fi
 echo "PASS update: pulls main (fast-forward only), rebuilds and reinstalls into the detected (or named) harnesses, relinks, refuses a dirty or non-main checkout"

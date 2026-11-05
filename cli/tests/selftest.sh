@@ -219,6 +219,7 @@ case "$1 $2" in
   "pr view") cat "$GH_VIEW" ;;
   "pr checks") cat "$GH_CHECKS" ;;
   "pr merge") echo "MERGED $*" >>"$GH_LOG" ;;
+  "api repos"*) echo "${GH_COMMIT_DATE:-}" ;;
 esac
 EOF
 chmod +x "$tmp/bin/gh"
@@ -245,6 +246,18 @@ echo '[{"name":"verify","bucket":"fail"}]' >"$GH_CHECKS"
 expect_refused "red required check" "$tmp/auto.yaml" low abc
 echo '[]' >"$GH_CHECKS"
 expect_refused "no required checks" "$tmp/auto.yaml" low abc
+# no check reported and the head is old: nothing is coming, so only the human's approval merges
+echo '{"headRefOid":"abc","state":"OPEN","isDraft":false,"mergeStateStatus":"CLEAN","title":"docs: x","files":[],"labels":[]}' >"$GH_VIEW"
+export GH_COMMIT_DATE="2020-01-01T00:00:00Z"
+expect_refused "no CI, no approval" "$tmp/auto.yaml" low abc
+grep -q "only a human-approved merge" "$tmp/merge.txt" || { cat "$tmp/merge.txt"; fail "no-CI refusal names --approved"; }
+"$fleet" merge 7 --risk standard --sha abc --approved >"$tmp/merge.txt" || { cat "$tmp/merge.txt"; fail "no-CI approved merge"; }
+grep -q "MERGED pr merge 7 --squash" "$GH_LOG" || fail "no-CI approved merge command"
+rm -f "$GH_LOG"
+export GH_COMMIT_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+rc=0; "$fleet" merge 7 --risk standard --sha abc --approved >"$tmp/merge.txt" || rc=$?
+[ "$rc" = 3 ] || fail "a fresh head still waits for its checks"
+unset GH_COMMIT_DATE
 echo '[{"name":"verify","bucket":"pass"}]' >"$GH_CHECKS"
 echo '{"headRefOid":"abc","state":"MERGED","isDraft":false}' >"$GH_VIEW"
 expect_refused "closed PR" "$tmp/auto.yaml" low abc

@@ -47,6 +47,7 @@ Environment: SWE_MODELS, SWE_PROJECTS, OMP_CONFIG, CLAUDE_SETTINGS, CODEX_CONFIG
 
 from __future__ import annotations
 
+import datetime
 import hashlib
 import json
 import os
@@ -1148,6 +1149,22 @@ def changelog_show(args: list[str]) -> int:
 # ------------------------------------------------------------------------------------------------ merge
 
 
+def no_ci(pr: str, repo: str, sha: str, grace: int = 180) -> bool:
+    """True when no check of any kind is reported for the PR head and the head commit is older than `grace` seconds,
+    so no check is coming (a repo without CI, or workflows that never run on pull requests)."""
+    target = ["--repo", repo] if repo else []
+    everything = run(["gh", "pr", "checks", pr, *target, "--json", "name,bucket"])
+    if everything.stdout.strip() not in ("", "[]"):
+        return False
+    slug = repo or run(["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"]).stdout.strip()
+    stamp = run(["gh", "api", f"repos/{slug}/commits/{sha}", "--jq", ".commit.committer.date"]).stdout.strip()
+    try:
+        committed = datetime.datetime.fromisoformat(stamp.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return False
+    return time.time() - committed > grace
+
+
 def merge(cfg: dict, pr: str, risk: str, sha: str, repo: str, approved: bool, dry: bool) -> int:
     """The merge gate: an allowed risk class (or the human's approval), the verified SHA, green checks."""
     allowed = set(cfg["autopilot"].get("auto_merge") or []) - NEVER_AUTO_MERGE
@@ -1177,14 +1194,20 @@ def merge(cfg: dict, pr: str, risk: str, sha: str, repo: str, approved: bool, dr
     if missing:
         return refuse(missing)
     checks = run(["gh", "pr", "checks", pr, *target, "--required", "--json", "name,bucket"])
-    if checks.returncode != 0 and not checks.stdout.strip():
-        return refuse(f"gh pr checks failed: {checks.stderr.strip()}")
-    required = json.loads(checks.stdout or "[]")
-    if not required:
-        return refuse("no required checks on this PR: make `make verify` a required check first (project skill)")
-    red = [f"{c['name']} ({c.get('bucket')})" for c in required if c.get("bucket") != "pass"]
-    if red:
-        return refuse("required checks not green: " + ", ".join(red))
+    required = json.loads(checks.stdout or "[]") if checks.stdout.strip() else []
+    if not required and no_ci(pr, repo, sha):
+        # no check was reported for this head and none is coming: only the human's approval can merge it
+        if not approved:
+            return refuse("no check is reported for this PR and none is coming (no CI, or no workflow runs on pull requests): only a human-approved merge (--approved)")
+        print(f"note: {repo or 'this repo'} has no checks on this PR; merging on the human's approval and the reviewer's verdict")
+    else:
+        if checks.returncode != 0 and not checks.stdout.strip():
+            return refuse(f"gh pr checks failed: {checks.stderr.strip()}")
+        if not required:
+            return refuse("no required checks on this PR: make `make verify` a required check first (project skill)")
+        red = [f"{c['name']} ({c.get('bucket')})" for c in required if c.get("bucket") != "pass"]
+        if red:
+            return refuse("required checks not green: " + ", ".join(red))
     print(f"gate passed for {pr} at {sha} ({'approved by the human' if approved else 'autopilot: ' + risk})")
     merge_command = ["gh", "pr", "merge", pr, *target, "--squash", "--auto", "--delete-branch", "--match-head-commit", sha]
     return execute([merge_command], dry)
