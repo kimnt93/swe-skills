@@ -3,6 +3,14 @@
 `make publish` refuses a version without an entry here. This file holds the release notes of the current version only; it does
 not track changes between versions.
 
+## [Unreleased]
+
+- **Playbooks**: added `playbook` and `playbook-*` skills (`playbook-deliver`, `playbook-feature`, `playbook-bugfix`, `playbook-review`, `playbook-cifix`, `playbook-docs`, `playbook-rebase`, `playbook-land`, `playbook-changelog`, `playbook-verify`, `playbook-solo`) replacing legacy `play-*` skills. Deprecated example workflow files in favor of structured playbooks.
+- **Delegation**: added `delegate` and `orca-cli` skills supporting multi-engine task delegation via Orca CLI sessions, T3 Code threads, or direct headless CLI relays with review-first diff verification.
+- **Configuration**: introduced cross-platform `config.json` discovery (`$SWE_CONFIG` -> `./config.json` -> installed plugin directory -> `~/.config/swe/config.json`) and provided `config.example.json`.
+- **Simplified CLI**: streamlined `swe-cli` with `swe-cli update` (self-update from git/release), `swe-cli playbooks`, `swe-cli delegate`, `swe-cli config`, and `swe-cli doctor`.
+- **Installer**: added root `install.sh` shell script for one-line remote or local installation across all detected AI agent harnesses.
+
 ## 1.0.0
 
 First release. What it is today.

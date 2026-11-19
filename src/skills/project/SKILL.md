@@ -36,4 +36,4 @@ repo entry before merge, the merge gate enforces it and records the merge. Follo
 2. Copy `assets/github/` into the repo's `.github/` (PR and issue templates) and
    `assets/ARCHITECTURE.md` to the repo root; fill it in with the **architect** skill.
 3. Add `make verify` (the **verify-create** skill); its CI job becomes the required check.
-4. Open one issue per first unit of work and one card per issue (a `swe-cli flow run`).
+4. Open one issue per first unit of work and one card per issue (executed via the **delegate** skill or a playbook).

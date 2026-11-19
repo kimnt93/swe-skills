@@ -203,51 +203,55 @@ limit: smaller scope; dropped connection: same brief; wrong approach: one tier u
 `harness.md` maps each abstract action (start a subagent, ask the human, todo list, wake later, project-local
 skill path) to Claude Code, oh-my-pi and Codex.
 
-## Play shortcuts
+## Playbooks
 
-A `play-*` skill starts one workflow and hands the run to the manager; it does no step itself.
+Playbooks define repeatable, structured workflows for software engineering tasks.
 
-### play
+### playbook
 
-**What it is.** Dispatcher: lists the project's workflows, or starts one by name through the manager. **When.** Use when no dedicated `play-*` shortcut fits, or to see the choices.
+**What it is.** Dispatcher: lists available playbooks, or guides the orchestrator through the standard engineering phases. **When.** Use when exploring available playbooks or when no single shortcut fits.
 
-### play-deliver
+### playbook-deliver
 
-**What it is.** Starts the `delivery` workflow for a goal: one repo or several, merged to main without a human. **When.** Needs `autopilot.auto_merge` for the card's risk; `money-path` waits for the requester.
+**What it is.** End-to-end delivery: takes a goal across repositories through architecture, card planning, delegation, verification, review, and landing. **When.** Complete features or deliverables spanning one or more repos.
 
-### play-bugfix
+### playbook-feature
 
-**What it is.** Starts `bugfix`: the failing test first, the smallest fix, checks, review. **When.** Give the defect and how to reproduce it.
+**What it is.** Feature implementation: specification, contracts, test-first development, delegated implementation, and verification. **When.** Building a single feature card or requirement.
 
-### play-docs
+### playbook-bugfix
 
-**What it is.** Starts `docs`: no planner; `follow` the code changes or `rewrite` docs/ from the code. **When.** Give the repo, and `rewrite` for a stale or missing docs/.
+**What it is.** Bugfix playbook: reproduce the defect with a failing test first, apply the minimal scoped fix, and verify zero regressions. **When.** Any defect with a way to reproduce it.
 
-### play-cifix
+### playbook-review
 
-**What it is.** Starts `ci-fix` on an open PR whose required check is red. **When.** Give the PR and repo.
+**What it is.** Review playbook: judges any PR or diff at its head, read-only, and posts PASS or FAIL backed by proven command findings. **When.** Reviewing changes before landing.
 
-### play-rebase
+### playbook-cifix
 
-**What it is.** Starts `conflict`: brings a PR up to date with main and resolves its conflicts, then a review. **When.** Give the PR and repo.
+**What it is.** CI fix playbook: reproduces a failing CI check locally, isolates the root cause, and applies a minimal fix within the card files. **When.** A required CI check is red on an open PR.
 
-### play-changelog
+### playbook-docs
 
-**What it is.** Starts `changelog`: adds a missing change log entry to a PR. **When.** Give the PR and repo.
+**What it is.** Documentation playbook: authors or syncs `docs/` with recent code changes and verifies all commands run. **When.** Updating or writing documentation.
 
-### play-verify
+### playbook-rebase
 
-**What it is.** Starts `verify`: drives the real app against the feature map and files regressions; edits nothing. **When.** Give the repo.
+**What it is.** Rebase playbook: brings an open PR branch up to date with main and resolves conflicts cleanly within card files. **When.** A PR is behind main or has merge conflicts.
 
-### play-review
+### playbook-land
 
-**What it is.** Starts `review`: judges any PR at its head, read-only, and posts PASS or FAIL with proven findings. **When.** Give the PR and repo; it edits and merges nothing.
+**What it is.** Landing playbook: executes the pre-merge verify gate, squash merges the approved PR, and cleans up branches. **When.** Merging an approved PR into main.
 
-### play-land
+### playbook-changelog
 
-**What it is.** Starts `land`: updates, checks, reviews and merges an existing PR, including a human's, without a human. **When.** Give the PR and repo; `money-path` waits for the requester.
+**What it is.** Changelog playbook: adds missing entries to PRs and maintains unreleased release notes. **When.** Ensuring release notes and change logs are true.
 
-### play-solo
+### playbook-verify
 
-**What it is.** No workflow and no subagent: this chat takes one goal or issue through plan, branch, code, docs, verify, PR, its own review, checks and the merge gate; `mode=plan` stops after the plan. **When.** One task you want done in the current harness. The review is the author's own, and `money-path` waits for the human.
+**What it is.** Verification playbook: drives the real application against the feature map and reports regressions or drift. **When.** Periodic, nightly, or post-merge health checks.
+
+### playbook-solo
+
+**What it is.** Solo execution playbook: executes task end-to-end in the active chat session without delegating to external agents. **When.** Single focused tasks performed directly in-chat.
 

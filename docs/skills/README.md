@@ -15,23 +15,24 @@ when to use it, what to say, what happens, what you get, and its files.
 ## Skills
 
 <!-- skills:start -->
-53 skills in 6 groups. Click a skill for its detail.
+56 skills in 6 groups. Click a skill for its detail.
 
 ### Start here
 
 | Skill | Description |
 |---|---|
-| [play](router.md#play) | List the project's workflows, or start one by name through the manager |
-| [play-bugfix](router.md#play-bugfix) | Run the bugfix workflow: failing test first, smallest fix, checks, review |
-| [play-changelog](router.md#play-changelog) | Run the changelog workflow: add the missing change log entry to a PR |
-| [play-cifix](router.md#play-cifix) | Run the ci-fix workflow on a PR whose required check is red |
-| [play-deliver](router.md#play-deliver) | Run the delivery workflow for a goal (one or more repos, merged to main) |
-| [play-docs](router.md#play-docs) | Run the docs workflow: follow the code changes, or rewrite docs/ from the code |
-| [play-land](router.md#play-land) | Run the land workflow: update, check, review and merge an existing PR without a human |
-| [play-rebase](router.md#play-rebase) | Run the conflict workflow: bring a PR up to date with main and resolve its conflicts |
-| [play-review](router.md#play-review) | Run the review workflow: judge a PR at its head, read-only, and post the verdict |
-| [play-solo](router.md#play-solo) | Solo: plan only, or issue, code, commit, push, PR and merge, all in this chat with no delegation |
-| [play-verify](router.md#play-verify) | Run the verify workflow: drive the real app against the feature map and file regressions |
+| [playbook](router.md#playbook) | List and dispatch engineering playbooks for delivery, features, bugfixes, reviews, and landing |
+| [playbook-bugfix](router.md#playbook-bugfix) | Playbook for bugfixes: reproduce with failing test, smallest fix, verify, and review |
+| [playbook-changelog](router.md#playbook-changelog) | Playbook for changelog: record PR entries and maintain unreleased release notes |
+| [playbook-cifix](router.md#playbook-cifix) | Playbook for CI fix: reproduce red check, apply minimal scoped fix, and verify green |
+| [playbook-deliver](router.md#playbook-deliver) | Playbook for end-to-end delivery: intake, planning, delegation, verification, review, and landing |
+| [playbook-docs](router.md#playbook-docs) | Playbook for documentation: keep docs true to code changes and verify all examples |
+| [playbook-feature](router.md#playbook-feature) | Playbook for feature implementation: specification, planning, delegation, and test verification |
+| [playbook-land](router.md#playbook-land) | Playbook for landing PRs: execute verify gate, squash merge, and branch cleanup |
+| [playbook-rebase](router.md#playbook-rebase) | Playbook for branch rebase: safe conflict resolution within scoped files and re-verify |
+| [playbook-review](router.md#playbook-review) | Playbook for code review: read-only adversarial evaluation, test proof, and verdict |
+| [playbook-solo](router.md#playbook-solo) | Playbook for solo execution: plan, code, verify, and land in this chat without delegation |
+| [playbook-verify](router.md#playbook-verify) | Playbook for system verification: drive live tests against feature map and report drift |
 | [swe](router.md#router) | Entry point: picks language and playbook, delegates by agent, finishes only when make verify passes |
 
 ### Process and proof
@@ -43,6 +44,7 @@ when to use it, what to say, what happens, what you get, and its files.
 | [changelog](process.md#changelog) | Change logs: a CHANGELOG.md entry in every PR, plus the project's changelog/ directory |
 | [ci-fixer](process.md#ci-fixer) | CI fixer: reproduce a red check locally, fix the cause in the card's files, never weaken the check |
 | [correct](process.md#correct) | Make a repeated agent mistake impossible with a check, not a sentence |
+| [delegate](process.md#delegate) | Delegate coding tasks to AI agent CLIs via Orca sessions, T3 Code threads, or CLI relays |
 | [deslop](process.md#deslop) | Clean a diff before review: debug output, dead code, noisy comments |
 | [developer](process.md#developer) | Developer: one card in one worktree, test first, verify on the head, push and open the PR |
 | [docs-sync](process.md#docs-sync) | Docs sync: compare a change with docs/, update the README index and references, hand back |
@@ -54,7 +56,7 @@ when to use it, what to say, what happens, what you get, and its files.
 | [integrator](process.md#integrator) | Integrator: rebase a PR on main, resolve conflicts only in its own files, re-verify, re-review |
 | [interrogate](process.md#interrogate) | Adversarial review where only findings proven by a run survive |
 | [ketchup](process.md#ketchup) | Plain-words catch-up on what changed and what waits on you |
-| [manager](process.md#manager) | Manager: pick the workflow for a request, start it, watch it, handle approvals, report |
+| [manager](process.md#manager) | Manager: pick the playbook for a request, coordinate delegation, verify, and report |
 | [planner](process.md#planner) | Planner: split a goal into PR-sized cards with disjoint files, risks and agents, as a JSON plan |
 | [principles](process.md#principles) | 22 engineering principles; the router opens the ones that apply (money-path, idempotency, ...) |
 | [project](process.md#project) | Run a project's docs, GitHub repo setup, backlog and status |
@@ -91,6 +93,7 @@ when to use it, what to say, what happens, what you get, and its files.
 |---|---|
 | [api-contract](data-platform.md#api-contract) | One shape for every HTTP API: /v1, /docs, one /healthz, port 3000, internal token |
 | [deployment-setup](data-platform.md#deployment-setup) | Dockerfile, Swarm and local compose, Traefik labels, secrets and CI callers |
+| [orca-cli](data-platform.md#orca-cli) | Operate Orca worktrees, terminals, automations, and embedded browser via orca CLI |
 
 ### Observability
 

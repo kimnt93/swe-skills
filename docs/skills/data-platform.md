@@ -98,3 +98,10 @@ identity; fail closed with `${VAR:?message}`; secrets are external versioned nam
 non-root images with pinned stages; a health-gate entrypoint that waits for infrastructure. **References.**
 `dockerfile`, `swarm-compose`, `traefik-labels`, `ci-workflows`, `compose-and-ci`, `multi-service-pipelines`,
 `infra-health`, `secrets`, `hosts-and-services`, `sources`.
+
+### orca-cli
+
+**What it is.** Instructions and reference for controlling the Orca Agent Development Environment desktop application through the `orca` CLI.
+**Use it when** managing isolated agent worktrees, spawning interactive PTY terminals, injecting keystrokes, waiting for TUI idle state, or previewing local web applications and taking screenshots with the integrated browser.
+**What happens.** Resolves the appropriate executable (`orca-ide`, `orca-dev`, or `orca`), manages worktrees, dispatches prompts into agent terminals, waits for completion via `--for tui-idle`, and reads buffer outputs.
+

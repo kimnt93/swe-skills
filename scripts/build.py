@@ -258,12 +258,15 @@ def main() -> int:
     (dist / "scripts").mkdir()
     for script in ("install.py", "validate_skills.py"):
         shutil.copy2(ROOT / "scripts" / script, dist / "scripts" / script)
-    for extra in ("CHANGELOG.md",):
+    for extra in ("CHANGELOG.md", "config.example.json", "install.sh"):
         source = ROOT / extra
         if source.is_dir():
             shutil.copytree(source, dist / extra)
         elif source.exists():
             shutil.copy2(source, dist / extra)
+    cfg_src = ROOT / "config.json" if (ROOT / "config.json").exists() else ROOT / "config.example.json"
+    if cfg_src.exists() and not (dist / "config.json").exists():
+        shutil.copy2(cfg_src, dist / "config.json")
 
     stack = {
         "name": name,

@@ -1,1312 +1,436 @@
 #!/usr/bin/env python3
-"""swe-cli: run a project of coding agents. Agents (cli, model, reasoning) come from the project directory's config.yaml,
-projects from the project directory's project.yaml (see init).
+"""swe-cli: Developer automation CLI for AI coding agents and playbooks.
 
-    swe-cli models show                     every agent, its level and its model
-    swe-cli models check                    models exist where they run, providers are logged in, projects are sound
-    swe-cli models apply [--dry-run]        write omp's model roles
-    swe-cli models cmd <agent>              the CLI argv for an agent (headless), one argument per line
-    swe-cli models set <agent> [--cli C] [--model M] [--reasoning R]   change an agent in config.yaml (the manager's way to pick harnesses)
-    swe-cli models reviewer <cli>           the agent that reviews work written with <cli>
-    swe-cli models subagent <name>          the Claude Code model for a plugin subagent (used by the build)
-    swe-cli project init [dir] [--name N]   make the directory (default: here) a project: AGENTS.md (orchestrator), workflows/,
-                                          config.yaml (agents and roles), project.yaml. Adds no repos. (`swe-cli init` is the same)
-    swe-cli project create <project>        make ./<project>/ and init it
-    swe-cli project <project> add <git url|owner/repo> [--name N] [--dir sub]   add a repo to that project, clone it
-    swe-cli project add <git url|owner/repo> [--name N] [--dir sub]   the same, for the project around the current directory
-    swe-cli project update [--force]        refresh this project's AGENTS.md, workflows, roles, models, learn skill from the plugin;
-                                          files you edited are kept (the new one is <file>.new)
-    swe-cli update [harness ...] [--project] [--no-pull] [--dry-run]
-                                          git pull the plugin's main branch, rebuild, reinstall into every detected harness
-                                          (or the named ones) and relink this command; --project also updates this project
-    swe-cli project notes                   PROJECT.md word count against the 2000-word limit; the project's own skills
-    swe-cli project add <name> --dir <path> --repo <name>=<owner/repo|url> [--repo ...] [--description "..."]
-                      [--manager <agent>] [--dry-run]
-    swe-cli project list
-    swe-cli project sync <name> [--dry-run] make the directory, clone the repos, register them in Orca
-    swe-cli orchestrate <project> [--agent A]   start the project's manager agent (any CLI) in its directory
-    swe-cli flow run <project> <workflow> [--goal ..] [--input k=v] ...   run a YAML workflow (a DAG of agent nodes)
-    swe-cli flow list|validate|status|retry|merge|clean|stop|graph ...      see cli/bin/flow
-    swe-cli bootstrap [--dry-run]           clone the projects' repos, apply models and context
-    swe-cli context show                    context window and compaction point per tool
-    swe-cli context apply [--dry-run]       write them into Claude Code, Codex and oh-my-pi
-    swe-cli context env <agent>            KEY=value lines exported before a CLI runs
-    swe-cli delegate ...                    start coding CLIs in tmux worktrees and read their results (see delegate)
-    swe-cli doctor [project]                git credentials, tmux, CLIs, gh, repos: what would stop a delegation
-    swe-cli lane run|review ...             headless one-shot: one card through a CLI with -p (see lane)
-    swe-cli changelog check <pr> [--repo owner/repo]       does the PR need a CHANGELOG.md entry, and has it one
-    swe-cli changelog record <project> <repo> --pr N --title T [--url U] [--date D]
-                                          append a merged PR to <project dir>/changelog/ (flow merge does this)
-    swe-cli changelog show [--repo R] [--since YYYY-MM-DD] [--project P]
-    swe-cli merge <pr> --risk R --sha S [--repo owner/repo] [--approved] [--dry-run]
-                                          the merge gate, then gh pr merge --squash --auto
-    swe-cli name                            the plugin name ($PLUGIN_NAME, else plugin.env, default swe)
+Commands:
+    swe-cli update [harness...] [--no-pull] [--dry-run]
+                                         Update latest code, rebuild plugin, and reinstall into harnesses
+    swe-cli delegate [options]           Delegate coding tasks via Orca, T3 Code, or direct CLI relays
+    swe-cli playbooks                    List available playbooks and their slash commands
+    swe-cli config [show|path|init]      Inspect or initialize configuration at config.json
+    swe-cli doctor                       Health check for agent CLIs, Orca, T3 Code, git, and environment
+    swe-cli models show                  Display configured agents, CLIs, models, and reasoning
+    swe-cli models set <agent> [flags]   Configure an agent in config.json
+    swe-cli models subagent <name>       Subagent model resolution (used by build system)
+    swe-cli changelog show               Inspect project changelog history
+    swe-cli changelog check <pr>         Verify that a PR includes a changelog entry
+    swe-cli name                         Print the plugin name (default: swe)
 
-Environment: SWE_MODELS, SWE_PROJECTS, OMP_CONFIG, CLAUDE_SETTINGS, CODEX_CONFIG (file paths).
+Configuration:
+    config.json resolution: $SWE_CONFIG -> ./config.json -> install_dir/config.json -> ~/.config/swe/config.json
 """
 
 from __future__ import annotations
 
-import datetime
-import hashlib
+import argparse
 import json
 import os
+from pathlib import Path
 import re
 import shutil
 import subprocess
 import sys
-import time
-from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-import yaml
+ROOT_DIR = Path(__file__).resolve().parents[2]
 
-FLEET = Path(__file__).resolve().parents[1]
-REPO = Path(os.environ.get("SWE_REPO") or FLEET.parent)
-
-
-def find_workspace() -> Path | None:
-    """The project directory: $SWE_WORKSPACE, else the nearest parent of the current directory with a project.yaml."""
-    if os.environ.get("SWE_WORKSPACE"):
-        return Path(os.environ["SWE_WORKSPACE"]).expanduser().resolve()
-    here = Path.cwd().resolve()
-    for folder in (here, *here.parents):
-        if (folder / "project.yaml").is_file():
-            return folder
-    return None
-
-
-WORKSPACE = None if os.environ.get("SWE_PROJECTS") else find_workspace()
-def _config_path() -> Path:
-    if os.environ.get("SWE_CONFIG") or os.environ.get("SWE_MODELS"):
-        return Path(os.environ.get("SWE_CONFIG") or os.environ["SWE_MODELS"])
-    for name in ("config.yaml", "models.yaml"):   # models.yaml is the old name
-        if WORKSPACE and (WORKSPACE / name).is_file():
-            return WORKSPACE / name
-    return FLEET / "templates" / "config.yaml"
-
-
-MODELS = _config_path()
-PROJECTS = Path(os.environ.get("SWE_PROJECTS", FLEET / "projects.yaml"))
-HOME_DIR = Path(os.environ.get("SWE_HOME", Path.home() / ".swe"))
-REGISTRY = HOME_DIR / "workspaces.yaml"
-OMP_CONFIG = Path(os.environ.get("OMP_CONFIG", Path.home() / ".omp/agent/config.yml"))
-CLAUDE_SETTINGS = Path(os.environ.get("CLAUDE_SETTINGS", Path.home() / ".claude/settings.json"))
-CODEX_CONFIG = Path(os.environ.get("CODEX_CONFIG", Path.home() / ".codex/config.toml"))
-CLAUDE_ALIASES = {"opus", "sonnet", "haiku", "fable"}
-CLI_NAMES = ("claude", "codex", "omp", "opencode")
-LAUNCHERS = ("tmux", "orca")
-LEVELS = ("agents",)
-# How each harness is launched and recognised in a terminal; built in, a config.yaml `clis:` block may override it.
-CLI_DEFAULTS = {
-    "claude": {"permission_mode": "bypassPermissions", "model": "claude-sonnet-5-5", "ready": "❯", "busy": "esc to interrupt"},
-    "codex": {"approval_policy": "never", "sandbox": "danger-full-access", "model": "gpt-6-sol", "ready": "›", "busy": "esc to interrupt"},
-    "omp": {"approval_mode": "yolo", "model": "google-antigravity/gemini-3.8-flash", "ready": "π >", "busy": "⎋"},
-    "opencode": {"model": "opencode/big-pickle", "ready": "ctrl+p commands", "settle": 3, "busy": "esc interrupt"},
-}
-CONTEXT_DEFAULTS = {"default": {"window": 272000, "compact_at": 245000},
-                    "families": {"claude": {"window": 400000, "compact_at": 350000}}, "models": {}}
-SUBAGENTS = {"worker": {"agent": "developer-senior"}, "adversary": {"agent": "reviewer-senior"}}   # Claude Code plugin subagents
-REVIEWER = "reviewer-junior"
-NOTES_LIMIT = 2000
-NEVER_AUTO_MERGE = {"money-path"}
-NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
-GITHUB_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
-
-
-# ------------------------------------------------------------------------------------------------ config
-
-
-def load() -> dict:
-    cfg = yaml.safe_load(MODELS.read_text(encoding="utf-8")) or {}
-    missing = [level for level in LEVELS if level not in cfg]
-    if missing:
-        sys.exit(f"swe-cli: {MODELS} is missing: {', '.join(missing)}")
-    cfg.setdefault("manager", "manager")
-    cfg.setdefault("launcher", "tmux")
-    cfg["mode"] = cfg["mode"] if isinstance(cfg.get("mode"), str) else "pm"
-    cfg["clis"] = {name: {**defaults, **((cfg.get("clis") or {}).get(name) or {})} for name, defaults in CLI_DEFAULTS.items()}
-    cfg.setdefault("context", CONTEXT_DEFAULTS)
-    cfg.setdefault("autopilot", {"auto_merge": []})
-    cfg.setdefault("reviewers", {})
-    cfg.setdefault("subagents", SUBAGENTS)
-    cfg.setdefault("omp_roles", {})
-    return cfg
-
-
-def workspace_entry(root: Path) -> tuple[str, dict]:
-    """A project directory's project.yaml as a project: name, dir (the directory itself), repos, manager."""
-    data = yaml.safe_load((root / "project.yaml").read_text(encoding="utf-8")) or {}
-    name = data.get("name") or root.name
-    entry = {k: v for k, v in data.items() if k != "name"}
-    entry["dir"] = str(root)
-    entry.setdefault("repos", {})
-    return name, entry
-
-
-def registered_workspaces() -> dict[str, str]:
-    if not REGISTRY.exists():
-        return {}
-    return (yaml.safe_load(REGISTRY.read_text(encoding="utf-8")) or {}).get("workspaces") or {}
-
-
-def load_projects() -> dict[str, dict]:
-    """Projects: project directories (the one around the current directory, and those `init` registered), or, when
-    $SWE_PROJECTS names a registry file, only that file."""
-    if os.environ.get("SWE_PROJECTS"):
-        if not PROJECTS.exists():
-            return {}
-        return (yaml.safe_load(PROJECTS.read_text(encoding="utf-8")) or {}).get("projects") or {}
-    projects: dict[str, dict] = {}
-    roots = [Path(d) for d in registered_workspaces().values()] + ([WORKSPACE] if WORKSPACE else [])
-    for root in roots:
-        if (root / "project.yaml").is_file():
-            name, entry = workspace_entry(root)
-            projects[name] = entry
-    if not projects and PROJECTS.exists():
-        projects = (yaml.safe_load(PROJECTS.read_text(encoding="utf-8")) or {}).get("projects") or {}
-    return projects
-
-
-def save_workspace(name: str, entry: dict) -> None:
-    root = Path(entry["dir"])
-    data = {"name": name, **{k: v for k, v in entry.items() if k != "dir"}}
-    header = "# Project directory of {0}: written by `swe-cli project create` or `init` / `swe-cli project <name> add`; edit freely.\n".format(name)
-    (root / "project.yaml").write_text(header + yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
-
-
-def register_workspace(name: str, root: Path) -> None:
-    HOME_DIR.mkdir(parents=True, exist_ok=True)
-    known = registered_workspaces()
-    known[name] = str(root)
-    REGISTRY.write_text("# project directories made by `swe-cli init`: name -> directory\n"
-                        + yaml.safe_dump({"workspaces": dict(sorted(known.items()))}), encoding="utf-8")
-
-
-def save_projects(projects: dict[str, dict]) -> None:
-    header = []
-    if PROJECTS.exists():
-        for line in PROJECTS.read_text(encoding="utf-8").splitlines():
-            if line.startswith("projects:"):
-                break
-            header.append(line)
-    body = yaml.safe_dump({"projects": dict(sorted(projects.items()))}, sort_keys=False, allow_unicode=True)
-    PROJECTS.write_text("\n".join(header) + ("\n" if header else "") + body, encoding="utf-8")
-
-
-def plugin_name() -> str:
+def get_plugin_name() -> str:
     if os.environ.get("PLUGIN_NAME"):
         return os.environ["PLUGIN_NAME"]
-    for env_file in (REPO / "plugin.local.env", REPO / "plugin.env"):
-        if env_file.exists():
-            for line in env_file.read_text(encoding="utf-8").splitlines():
-                match = re.match(r"^\s*PLUGIN_NAME\s*\??=\s*(\S+)", line)
-                if match:
-                    return match.group(1)
+    env_file = ROOT_DIR / "plugin.env"
+    if env_file.exists():
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            m = re.match(r"^\s*PLUGIN_NAME\s*\??=\s*(\S+)", line)
+            if m:
+                return m.group(1)
     return "swe"
 
+def get_config_search_paths() -> List[Path]:
+    paths: List[Path] = []
+    name = get_plugin_name()
+    env_var = f"{name.upper()}_CONFIG"
+    if os.environ.get(env_var):
+        paths.append(Path(os.environ[env_var]))
+    if os.environ.get("SWE_CONFIG"):
+        paths.append(Path(os.environ["SWE_CONFIG"]))
 
-def agent_spec(cfg: dict, name: str, **override: str) -> dict:
-    """An agent from config.yaml `agents:` as {name, cli, model, reasoning}. `override` (cli, model, reasoning) wins;
-    a different cli without a model takes that cli's default model (`clis.<cli>.model`)."""
-    entry = (cfg.get("agents") or {}).get(name)
-    if not isinstance(entry, dict):
-        sys.exit(f"swe-cli: no agent {name!r} in {MODELS} (agents: {', '.join(cfg.get('agents') or {}) or 'none'})")
-    spec = {"name": name, "cli": entry.get("cli", ""), "model": entry.get("model", ""), "reasoning": str(entry.get("reasoning") or "")}
-    changed_cli = override.get("cli") and override["cli"] != spec["cli"]
-    for key in ("cli", "model", "reasoning"):
-        if override.get(key):
-            spec[key] = str(override[key])
-    if changed_cli and not override.get("model"):
-        spec["model"] = str((cfg["clis"].get(spec["cli"]) or {}).get("model", ""))
-        if not override.get("reasoning"):
-            spec["reasoning"] = ""
-    return spec
+    paths.append(Path("./config.json"))
+    paths.append(ROOT_DIR / "config.json")
+    paths.append(ROOT_DIR / f"dist/{name}/config.json")
+    paths.append(ROOT_DIR / "config.example.json")
 
-
-def argv(cfg: dict, spec: dict, interactive: bool = False) -> list[str]:
-    """The command a CLI runs for an agent: headless for `swe-cli lane`, interactive for a terminal session."""
-    cli, model, level = spec["cli"], spec.get("model") or "", spec.get("reasoning") or ""
-    settings = cfg["clis"].get(cli) or {}
-    if cli not in CLI_NAMES:
-        sys.exit(f"swe-cli: unknown cli {cli!r} for agent {spec.get('name')} ({', '.join(CLI_NAMES)})")
-    if not model:
-        sys.exit(f"swe-cli: agent {spec.get('name')} has no model (set it in {MODELS}, or clis.{cli}.model)")
-    if cli == "claude":
-        args = ["claude"] + ([] if interactive else ["-p"]) + ["--model", model]
-        if level:
-            args += ["--effort", level]
-        return args + ["--permission-mode", settings.get("permission_mode", "bypassPermissions")]
-    if cli == "codex":
-        args = ["codex"] + ([] if interactive else ["exec"]) + ["--model", model]
-        if level:
-            args += ["-c", f"model_reasoning_effort={level}"]
-        if interactive:
-            return args + ["--ask-for-approval", settings.get("approval_policy", "never"),
-                           "--sandbox", settings.get("sandbox", "danger-full-access")]
-        return args + ["--dangerously-bypass-approvals-and-sandbox"]
-    if cli == "omp":
-        args = ["omp"] + ([] if interactive else ["-p"]) + ["--model", model]
-        if level:
-            args += ["--thinking", level]
-        args += ["--approval-mode", settings.get("approval_mode", "yolo")]
-        return args if interactive else args + ["--max-time", "45m"]
-    if interactive:   # the TUI has no variant flag: agent_env sets it through OPENCODE_CONFIG_CONTENT
-        return ["opencode", "--model", model, "--auto"]
-    return ["opencode", "run", "--model", model] + (["--variant", level] if level else []) + ["--auto"]
-
-
-def agent_env(cfg: dict, spec: dict) -> dict[str, str]:
-    """Environment an agent's CLI starts with: Claude Code's compaction point, opencode's reasoning variant."""
-    env = {}
-    if spec["cli"] == "claude":
-        env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] = str(context_for(cfg, spec["model"])[1])
-    if spec["cli"] == "opencode" and spec.get("reasoning"):
-        env["OPENCODE_CONFIG_CONTENT"] = json.dumps({"agent": {"build": {"model": spec["model"], "variant": spec["reasoning"]}}},
-                                                    separators=(",", ":"))
-    return env
-
-
-def run(args: list[str], timeout: int = 180) -> subprocess.CompletedProcess:
-    return subprocess.run(args, capture_output=True, text=True, timeout=timeout)
-
-
-def execute(commands: list[list[str]], dry: bool) -> int:
-    for command in commands:
-        print(("would run: " if dry else "run: ") + " ".join(command))
-        if dry:
-            continue
-        result = run(command)
-        if result.returncode != 0:
-            print(result.stdout + result.stderr, file=sys.stderr)
-            return 1
-    return 0
-
-
-# ------------------------------------------------------------------------------------------------ models
-
-
-def subagent_model(cfg: dict, name: str) -> str:
-    """The Claude Code model of a plugin subagent: the model of its agent when that agent runs on claude, else inherit."""
-    spec = cfg["subagents"].get(name)
-    if not spec:
-        return "inherit"
-    agent = agent_spec(cfg, spec["agent"])
-    return agent["model"] if agent["cli"] == "claude" else "inherit"
-
-
-def models_show(cfg: dict, projects: dict[str, dict]) -> int:
-    rows = [("manager", cfg["manager"], agent_spec(cfg, cfg["manager"]))]
-    for name in cfg["agents"]:
-        rows.append(("agent", name, agent_spec(cfg, name)))
-    for author, name in cfg["reviewers"].items():
-        rows.append(("reviewer", f"of {author} -> {name}", agent_spec(cfg, name)))
-    for name, spec in cfg["subagents"].items():
-        rows.append(("subagent", f"{plugin_name()}:{name}", {"cli": "claude code", "model": subagent_model(cfg, name), "reasoning": spec["agent"]}))
-    for role, model in cfg["omp_roles"].items():
-        rows.append(("omp role", role, {"cli": "omp", "model": model, "reasoning": ""}))
-    print(f"{'level':<10}{'name':<38}{'cli':<12}{'model':<40}reasoning")
-    for level, name, spec in rows:
-        print(f"{level:<10}{name:<38}{spec['cli']:<12}{spec['model']:<40}{spec['reasoning']}")
-    print(f"launcher: {cfg['launcher']}")
-    print(f"projects: {', '.join(sorted(projects)) or 'none (swe-cli project add)'}")
-    print(f"autopilot auto_merge: {cfg['autopilot'].get('auto_merge') or 'off'}")
-    return 0
-
-
-def omp_models() -> set[str]:
-    out = run(["omp", "models", "ls", "--json"]).stdout if shutil.which("omp") else ""
-    data = json.loads(out or "[]")
-    items = data if isinstance(data, list) else data.get("models", [])
-    return {f"{m.get('provider')}/{m.get('id')}" for m in items if isinstance(m, dict)}
-
-
-def opencode_models() -> set[str]:
-    out = run(["opencode", "models"], timeout=60).stdout if shutil.which("opencode") else ""
-    return {line.strip() for line in out.splitlines() if "/" in line}
-
-
-def project_view(name: str, project: dict) -> dict:
-    """A project as the commands use it: its directory and its repos, each with a clone path."""
-    base = Path(os.path.expanduser(project.get("dir", ""))).resolve() if project.get("dir") else Path()
-    repos = {}
-    for repo, spec in (project.get("repos") or {}).items():
-        spec = dict(spec or {})
-        sub = spec.get("path") or spec.get("dir")
-        spec["path"] = str((base / os.path.expanduser(sub)).resolve()) if sub else str(base / repo)
-        spec["hotspots"] = list(spec.get("hotspots") or [])
-        repos[repo] = spec
-    return {"name": name, "dir": str(base), "repos": repos,
-            "description": project.get("description", ""), "manager": project.get("manager") or ""}
-
-
-def project_problems(name: str, project: dict, clones: bool = True) -> list[str]:
-    problems = []
-    if not NAME_RE.match(name):
-        problems.append(f"project {name!r}: name must match {NAME_RE.pattern}")
-    if not project.get("dir"):
-        problems.append(f"project {name}: dir is required (the project directory that holds its repos)")
-    repos = project.get("repos")
-    if not isinstance(repos, dict) or not repos:
-        problems.append(f"project {name}: repos must list at least one repo (name: {{github: owner/repo}})")
-        return problems
-    view = project_view(name, project)
-    for repo, spec in repos.items():
-        spec = spec or {}
-        if not NAME_RE.match(repo):
-            problems.append(f"project {name}: repo name {repo!r} must match {NAME_RE.pattern}")
-        if not (spec.get("github") or spec.get("url")):
-            problems.append(f"project {name}: repo {repo} needs github (owner/repo) or url")
-        if spec.get("github") and not GITHUB_RE.match(spec["github"]):
-            problems.append(f"project {name}: repo {repo}: github must be owner/repo, got {spec['github']!r}")
-        hotspots = spec.get("hotspots", [])
-        if not isinstance(hotspots, list) or not all(isinstance(h, str) and h and not h.startswith("/") for h in hotspots):
-            problems.append(f"project {name}: repo {repo}: hotspots must be a list of repo-relative paths")
-        if clones and not (Path(view["repos"][repo]["path"]) / ".git").exists():
-            problems.append(f"project {name}: {view['repos'][repo]['path']} is not a git clone (swe-cli project sync {name})")
-    if project.get("manager") is not None and not isinstance(project["manager"], str):
-        problems.append(f"project {name}: manager must be the name of an agent in config.yaml")
-    return problems
-
-
-def doctor(cfg: dict, projects: dict[str, dict], only: str) -> int:
-    """What would stop a delegation: tools, logins, git credentials and the state of each central clone."""
-    problems = []
-    launcher = cfg["launcher"]
-    tools = [("git", True), ("gh", True), ("tmux", launcher == "tmux"), ("orca-ide", launcher == "orca")]
-    used = {agent_spec(cfg, n)["cli"] for n in (*cfg["agents"], cfg["manager"])}
-    tools += [(cli, cli in used) for cli in CLI_NAMES]
-    for tool, needed in tools:
-        if not shutil.which(tool):
-            problems.append(f"{tool} is not installed" if needed else f"note: {tool} is not installed (only needed if you use it)")
-    if shutil.which("gh") and run(["gh", "auth", "status"]).returncode != 0:
-        problems.append("gh is not logged in (gh auth login)")
-    if launcher == "orca" and shutil.which("orca-ide"):
-        status = subprocess.run(["orca-ide", "status"], capture_output=True, text=True, timeout=30)
-        if "runtimeReachable: true" not in status.stdout:
-            problems.append("orca-ide cannot reach the Orca app (open Orca, or: orca-ide open)")
-    names = [only] if only else sorted(projects)
-    for name in names:
-        if name not in projects:
-            problems.append(f"no project {name!r} in {PROJECTS}")
-            continue
-        problems += project_problems(name, projects[name])
-        view = project_view(name, projects[name])
-        if not Path(view["dir"]).is_dir():
-            problems.append(f"project {name}: directory {view['dir']} does not exist (swe-cli project sync {name})")
-        for repo, spec in view["repos"].items():
-            clone = Path(spec["path"])
-            if not (clone / ".git").exists():
-                continue
-            env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
-            reach = subprocess.run(["git", "-C", str(clone), "ls-remote", "--exit-code", "origin", "refs/heads/main"],
-                                   capture_output=True, text=True, timeout=60, env=env)
-            if reach.returncode != 0:
-                url = subprocess.run(["git", "-C", str(clone), "remote", "get-url", "origin"], capture_output=True, text=True).stdout.strip()
-                hint = "use an SSH remote, or run: gh auth setup-git" if url.startswith("https://") else "check the SSH key and the network"
-                problems.append(f"project {name}: {repo}: cannot reach origin {url} without a prompt, so fetch would fail ({hint})")
-                continue
-            git = lambda *a: subprocess.run(["git", "-C", str(clone), *a], capture_output=True, text=True).stdout.strip()
-            branch = git("branch", "--show-current")
-            if branch != "main":
-                problems.append(f"project {name}: {repo}: the central clone is on {branch or 'a detached head'}, not main (agents work in worktrees)")
-            if git("status", "--porcelain"):
-                problems.append(f"project {name}: {repo}: the central clone has uncommitted changes (agents work in worktrees)")
-    for message in problems:
-        print("PROBLEM" if not message.startswith("note:") else "NOTE   ", message.removeprefix("note: "))
-    real = [p for p in problems if not p.startswith("note:")]
-    print(f"{len(real)} problem(s)")
-    return 1 if real else 0
-
-
-def models_check(cfg: dict, projects: dict[str, dict]) -> int:
-    problems = []
-    agents = cfg.get("agents") or {}
-    for name, entry in agents.items():
-        if not isinstance(entry, dict) or entry.get("cli") not in CLI_NAMES:
-            problems.append(f"agents.{name}: cli must be one of {', '.join(CLI_NAMES)}")
-            continue
-        if entry["cli"] not in cfg["clis"]:
-            problems.append(f"agents.{name}: cli {entry['cli']} is not in clis")
-        if not entry.get("model"):
-            problems.append(f"agents.{name}: model is required")
-        elif entry["cli"] == "claude" and entry["model"] not in CLAUDE_ALIASES and not entry["model"].startswith("claude-"):
-            problems.append(f"agents.{name}: {entry['model']!r} is not a Claude model")
-        elif entry["cli"] in ("omp", "opencode") and "/" not in entry["model"]:
-            problems.append(f"agents.{name}: {entry['cli']} models are written provider/model, got {entry['model']!r}")
-    if cfg["manager"] not in agents:
-        problems.append(f"manager {cfg['manager']!r} is not an agent")
-    if cfg["mode"] not in ("pm", "dev"):
-        problems.append(f"mode must be pm or dev, got {cfg['mode']!r}")
-    if cfg["mode"] == "pm" and REVIEWER not in agents:
-        problems.append(f"agent {REVIEWER!r} is missing: pm mode reviews every card with it")
-    for author, name in cfg["reviewers"].items():
-        if name not in agents:
-            problems.append(f"reviewers.{author}: {name!r} is not an agent")
-        elif agents[name].get("cli") == author and len({a.get("cli") for a in agents.values()}) > 1:
-            problems.append(f"reviewers.{author} must be an agent on another cli, not {author}")
-    for cli in cfg["clis"]:
-        if cli not in CLI_NAMES:
-            problems.append(f"clis.{cli}: unknown cli ({', '.join(CLI_NAMES)})")
-    if cfg["launcher"] not in LAUNCHERS:
-        problems.append(f"launcher must be one of {', '.join(LAUNCHERS)}")
-    for name, spec in cfg["subagents"].items():
-        if spec.get("agent") not in agents:
-            problems.append(f"subagents.{name}: agent {spec.get('agent')!r} is not an agent")
-    if NEVER_AUTO_MERGE & set(cfg["autopilot"].get("auto_merge") or []):
-        problems.append("autopilot.auto_merge must never include money-path")
-    for name, project in projects.items():
-        problems += project_problems(name, project)
-        if project.get("manager") and project["manager"] not in agents:
-            problems.append(f"project {name}: manager {project['manager']!r} is not an agent")
-    for cli, available, login in (("omp", omp_models, "omp login <provider>; list: omp models ls"),
-                                  ("opencode", opencode_models, "opencode providers login; list: opencode models")):
-        wanted = {e["model"] for e in agents.values() if isinstance(e, dict) and e.get("cli") == cli and e.get("model")}
-        if cli == "omp":
-            wanted |= set(cfg["omp_roles"].values())
-        if wanted and shutil.which(cli):
-            have = available()
-            for model in sorted(wanted - have):
-                problems.append(f"{cli} has no model {model} ({login})")
-    if shutil.which("gh") and run(["gh", "auth", "status"]).returncode != 0:
-        problems.append("gh is not logged in (gh auth login): agents cannot push, open PRs or manage issues")
-    problems += context_problems(cfg)
-    for message in problems:
-        print("PROBLEM", message)
-    print(f"{len(problems)} problem(s)")
-    return 1 if problems else 0
-
-
-def models_set(args: list[str]) -> int:
-    """Change one agent in config.yaml, keeping the file's comments: `agents.<name>: {cli, model, reasoning}`."""
-    usage = "usage: swe-cli models set <agent> [--cli C] [--model M] [--reasoning R]   (reasoning '' removes it)"
-    if not args or args[0].startswith("--"):
-        sys.exit(usage)
-    name, rest = args[0], args[1:]
-    values = {}
-    for i in range(0, len(rest), 2):
-        if rest[i] not in ("--cli", "--model", "--reasoning") or i + 1 >= len(rest):
-            sys.exit(usage)
-        values[rest[i][2:]] = rest[i + 1]
-    if not values:
-        sys.exit(usage)
-    cfg = load()
-    current = dict(cfg["agents"].get(name) or {})
-    current.update({k: v for k, v in values.items() if v != ""})
-    if values.get("reasoning") == "":
-        current.pop("reasoning", None)
-    if current.get("cli") not in CLI_NAMES or not current.get("model"):
-        sys.exit(f"swe-cli: agent {name} needs a cli ({', '.join(CLI_NAMES)}) and a model")
-    line = f"  {name}: " + "{" + ", ".join(f"{k}: {current[k]}" for k in ("cli", "model", "reasoning") if current.get(k)) + "}"
-    lines = MODELS.read_text(encoding="utf-8").splitlines()
-    start = next((i for i, l in enumerate(lines) if l.rstrip() == "agents:"), None)
-    if start is None:
-        sys.exit(f"swe-cli: {MODELS} has no `agents:` block")
-    end = start + 1
-    while end < len(lines) and (lines[end].startswith(" ") or not lines[end].strip() or lines[end].lstrip().startswith("#")):
-        end += 1
-    while end > start + 1 and not lines[end - 1].strip():
-        end -= 1
-    hit = next((i for i in range(start + 1, end) if re.match(rf"^  {re.escape(name)}:", lines[i])), None)
-    if hit is None:
-        lines.insert(end, line)
+    home = Path.home()
+    if sys.platform == "win32":
+        appdata = os.environ.get("APPDATA")
+        if appdata:
+            paths.append(Path(appdata) / name / "config.json")
+        paths.append(home / ".config" / name / "config.json")
+    elif sys.platform == "darwin":
+        paths.append(home / "Library" / "Application Support" / name / "config.json")
+        paths.append(home / ".config" / name / "config.json")
     else:
-        lines[hit] = line
-    MODELS.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"{MODELS}: {line.strip()}")
-    return 0
+        xdg_config = os.environ.get("XDG_CONFIG_HOME")
+        if xdg_config:
+            paths.append(Path(xdg_config) / name / "config.json")
+        paths.append(home / ".config" / name / "config.json")
+    return paths
 
+def resolve_active_config_path() -> Optional[Path]:
+    for p in get_config_search_paths():
+        if p.is_file():
+            return p
+    return None
 
-def backup_and_write(path: Path, text: str) -> None:
-    if path.exists():
-        shutil.copy2(path, path.with_name(f"{path.name}.bak-{int(time.time())}"))
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
-
-
-def models_apply(cfg: dict, projects: dict[str, dict], dry: bool) -> int:
-    """omp's model roles."""
-    data = (yaml.safe_load(OMP_CONFIG.read_text(encoding="utf-8")) if OMP_CONFIG.exists() else None) or {}
-    data.setdefault("setupVersion", 2)
-    wanted = {**(data.get("modelRoles") or {}), **cfg["omp_roles"]}
-    if data.get("modelRoles") == wanted:
-        print(f"omp model roles unchanged in {OMP_CONFIG}")
-    else:
-        data["modelRoles"] = wanted
-        print(("would write: " if dry else "write: ") + f"{OMP_CONFIG} modelRoles = {cfg['omp_roles']}")
-        if not dry:
-            backup_and_write(OMP_CONFIG, yaml.safe_dump(data, sort_keys=False))
-    print("agents and reviewers need no apply: swe-cli delegate, flow and lane read config.yaml on every start")
-    print("plugin subagents: rebuild and reinstall the plugin (make claude)")
-    return 0
-
-
-# ------------------------------------------------------------------------------------------------ context
-
-
-def is_claude(model: str) -> bool:
-    bare = model.lower().split("/")[-1]
-    return bare in CLAUDE_ALIASES or bare.startswith("claude")
-
-
-def context_for(cfg: dict, model: str) -> tuple[int, int]:
-    """(window, compact_at) in tokens for a model: an exact override, else its family, else the default."""
-    ctx = cfg["context"]
-    overrides = ctx.get("models") or {}
-    spec = overrides.get(model) or overrides.get(model.split("/")[-1])
-    if spec is None and is_claude(model):
-        spec = (ctx.get("families") or {}).get("claude")
-    spec = spec or ctx["default"]
-    return int(spec["window"]), int(spec["compact_at"])
-
-
-def context_problems(cfg: dict) -> list[str]:
-    ctx = cfg["context"]
-    specs = {"default": ctx.get("default")}
-    specs.update({f"families.{k}": v for k, v in (ctx.get("families") or {}).items()})
-    specs.update({f"models.{k}": v for k, v in (ctx.get("models") or {}).items()})
-    problems = []
-    for name, spec in specs.items():
+def load_config() -> Dict[str, Any]:
+    cfg_path = resolve_active_config_path()
+    if cfg_path and cfg_path.is_file():
         try:
-            window, compact = int(spec["window"]), int(spec["compact_at"])
-        except (KeyError, TypeError, ValueError):
-            problems.append(f"context.{name}: needs integer window and compact_at")
-            continue
-        if not 0 < compact < window:
-            problems.append(f"context.{name}: compact_at {compact} must be above 0 and below window {window}")
-    return problems
+            with open(cfg_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
 
+def save_config(data: Dict[str, Any], target_path: Optional[Path] = None) -> Path:
+    if target_path is None:
+        target_path = resolve_active_config_path()
+    if target_path is None:
+        name = get_plugin_name()
+        target_path = Path.home() / ".config" / name / "config.json"
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(target_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+    return target_path
 
-def top_level_toml(path: Path) -> dict:
-    import tomllib
-    return tomllib.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+# ==============================================================================
+# Commands
+# ==============================================================================
 
+def cmd_name() -> int:
+    print(get_plugin_name())
+    return 0
 
-def set_toml_top_level(text: str, values: dict[str, int]) -> str:
-    """Set top-level keys (before the first [table]), leaving every table and comment as it is."""
-    lines = text.splitlines()
-    first_table = next((i for i, line in enumerate(lines) if line.lstrip().startswith("[")), len(lines))
-    for key, value in values.items():
-        pattern = re.compile(rf"^\s*{re.escape(key)}\s*=")
-        index = next((i for i in range(first_table) if pattern.match(lines[i])), None)
-        if index is None:
-            lines.insert(first_table, f"{key} = {value}")
-            first_table += 1
+def cmd_update(argv: List[str]) -> int:
+    parser = argparse.ArgumentParser(description="Update plugin to latest version, rebuild, and reinstall.")
+    parser.add_argument("harnesses", nargs="*", help="Specific harnesses to install into (defaults to detected)")
+    parser.add_argument("--no-pull", action="store_true", help="Skip git pull from remote")
+    parser.add_argument("--branch", default="main", help="Git branch to pull (default: main)")
+    parser.add_argument("--dry-run", action="store_true", help="Preview update steps without executing")
+    args = parser.parse_args(argv)
+
+    print(f"==> Updating {get_plugin_name()}...")
+
+    # 1. Pull latest code if git repository
+    git_dir = ROOT_DIR / ".git"
+    if git_dir.is_dir() and not args.no_pull:
+        if args.dry_run:
+            print(f"[dry-run] Would execute: git pull origin {args.branch} in {ROOT_DIR}")
         else:
-            lines[index] = f"{key} = {value}"
-    return "\n".join(lines) + "\n"
+            print(f"Pulling latest commits from origin/{args.branch}...")
+            res = subprocess.run(["git", "pull", "origin", args.branch], cwd=str(ROOT_DIR), check=False)
+            if res.returncode != 0:
+                print(f"Warning: git pull exited with code {res.returncode}. Continuing with build...")
 
-
-def context_apply(cfg: dict, dry: bool) -> int:
-    """Write the policy into the user-level config of Claude Code, Codex and oh-my-pi."""
-    prefix = "would write" if dry else "write"
-    # Claude Code: autoCompactWindow is the size at which it compacts (300-400k for Claude models)
-    _, claude_compact = context_for(cfg, "claude")
-    settings = json.loads(CLAUDE_SETTINGS.read_text(encoding="utf-8")) if CLAUDE_SETTINGS.exists() else {}
-    if settings.get("autoCompactWindow") == claude_compact:
-        print(f"claude code: autoCompactWindow {claude_compact} unchanged in {CLAUDE_SETTINGS}")
-    else:
-        print(f"{prefix}: {CLAUDE_SETTINGS} autoCompactWindow = {claude_compact}")
-        settings["autoCompactWindow"] = claude_compact
-        if not dry:
-            backup_and_write(CLAUDE_SETTINGS, json.dumps(settings, indent=2, ensure_ascii=False) + "\n")
-    # Codex and every other model: the default policy
-    window, compact = int(cfg["context"]["default"]["window"]), int(cfg["context"]["default"]["compact_at"])
-    current = top_level_toml(CODEX_CONFIG)
-    wanted = {"model_context_window": window, "model_auto_compact_token_limit": compact}
-    if all(current.get(k) == v for k, v in wanted.items()):
-        print(f"codex: {window} / {compact} unchanged in {CODEX_CONFIG}")
-    else:
-        print(f"{prefix}: {CODEX_CONFIG} model_context_window = {window}, model_auto_compact_token_limit = {compact}")
-        if not dry:
-            text = CODEX_CONFIG.read_text(encoding="utf-8") if CODEX_CONFIG.exists() else ""
-            backup_and_write(CODEX_CONFIG, set_toml_top_level(text, wanted))
-    # oh-my-pi: one global threshold, the default policy (omp has no per-model override)
-    data = (yaml.safe_load(OMP_CONFIG.read_text(encoding="utf-8")) if OMP_CONFIG.exists() else None) or {}
-    if (data.get("compaction") or {}).get("thresholdTokens") == compact:
-        print(f"omp: compaction.thresholdTokens {compact} unchanged in {OMP_CONFIG}")
-    else:
-        print(f"{prefix}: {OMP_CONFIG} compaction.thresholdTokens = {compact}")
-        data.setdefault("setupVersion", 2)
-        data.setdefault("compaction", {})["thresholdTokens"] = compact
-        if not dry:
-            backup_and_write(OMP_CONFIG, yaml.safe_dump(data, sort_keys=False))
-    return 0
-
-
-def context_show(cfg: dict, projects: dict[str, dict]) -> int:
-    window, compact = int(cfg["context"]["default"]["window"]), int(cfg["context"]["default"]["compact_at"])
-    _, claude_compact = context_for(cfg, "claude")
-    claude_window = context_for(cfg, "claude")[0]
-    rows = [("Claude Code", "autoCompactWindow", "claude", claude_window, claude_compact),
-            ("Codex", "model_context_window", "default", window, compact),
-            ("oh-my-pi", "compaction.thresholdTokens", "default", window, compact)]
-    print(f"{'agent':<24}{'model / key':<34}{'policy':<9}{'window':>9}{'compacts at':>13}")
-    for agent, key, policy, w, c in rows:
-        print(f"{agent:<24}{key:<34}{policy:<9}{w:>9,}{c:>13,}")
-    return 0
-
-
-def context_env(cfg: dict, name: str) -> int:
-    """Environment an agent's CLI starts with (one KEY=value per line)."""
-    for key, value in agent_env(cfg, agent_spec(cfg, name)).items():
-        print(f"{key}={value}")
-    return 0
-
-
-# ------------------------------------------------------------------------------------------------ bootstrap
-
-
-def orca_register(path: str, dry: bool) -> None:
-    """Add a directory to Orca so its worktrees and terminals show up there (best effort)."""
-    if dry or not shutil.which("orca-ide"):
-        print(f"{'would register' if dry else 'orca-ide not found, not registering'} {path} in Orca")
-        return
-    result = subprocess.run(["orca-ide", "repo", "add", "--path", path, "--json"], capture_output=True, text=True, timeout=60)
-    text = result.stdout + result.stderr
-    if result.returncode == 0 or "already" in text.lower():
-        print(f"orca: {path} registered")
-    else:
-        print(f"orca: could not register {path}: {text.strip().splitlines()[-1:] or ['?']}")
-
-
-def clone_command(spec: dict, path: str) -> list[str]:
-    if spec.get("url"):
-        return ["git", "clone", spec["url"], path]
-    if shutil.which("gh"):
-        return ["gh", "repo", "clone", spec["github"], path]
-    return ["git", "clone", f"https://github.com/{spec['github']}.git", path]
-
-
-def project_sync(cfg: dict, projects: dict[str, dict], name: str, dry: bool) -> int:
-    """The project directory exists, every repo is cloned in it, and (launcher orca) is known to Orca."""
-    if name not in projects:
-        sys.exit(f"swe-cli: no project {name!r} in {PROJECTS}")
-    problems = project_problems(name, projects[name], clones=False)
-    if problems:
-        print("\n".join("PROBLEM " + p for p in problems))
+    # 2. Build the plugin
+    build_script = ROOT_DIR / "scripts/build.py"
+    if not build_script.exists():
+        print(f"Error: {build_script} not found.", file=sys.stderr)
         return 1
-    view = project_view(name, projects[name])
-    if dry:
-        print(f"would create {view['dir']}")
+
+    if args.dry_run:
+        print(f"[dry-run] Would execute: python3 {build_script}")
     else:
-        Path(view["dir"]).mkdir(parents=True, exist_ok=True)
-    for repo, spec in view["repos"].items():
-        if (Path(spec["path"]) / ".git").exists():
-            print(f"repo {repo}: cloned at {spec['path']}")
-        elif execute([clone_command(spec, spec["path"])], dry):
-            return 1
-        if cfg["launcher"] == "orca":
-            orca_register(spec["path"], dry)
-    print(f"project {name}: dir {view['dir']}, repos {', '.join(view['repos'])}, manager {view['manager'] or cfg['manager']}")
+        print("Rebuilding plugin...")
+        res = subprocess.run([sys.executable, str(build_script)], cwd=str(ROOT_DIR), check=False)
+        if res.returncode != 0:
+            print("Error: build failed.", file=sys.stderr)
+            return res.returncode
+
+    # 3. Reinstall into harnesses
+    name = get_plugin_name()
+    installer = ROOT_DIR / f"dist/{name}/scripts/install.py"
+    if not installer.exists():
+        installer = ROOT_DIR / "scripts/install.py"
+
+    install_cmd = [sys.executable, str(installer), "install"]
+    if args.harnesses:
+        for h in args.harnesses:
+            install_cmd.extend(["--agent", h])
+    else:
+        install_cmd.append("--detected")
+
+    if args.dry_run:
+        install_cmd.append("--dry-run")
+        print(f"[dry-run] Would execute: {' '.join(install_cmd)}")
+    else:
+        print("Reinstalling into agent harnesses...")
+        res = subprocess.run(install_cmd, cwd=str(ROOT_DIR), check=False)
+        if res.returncode != 0:
+            print("Warning: installation encountered errors.", file=sys.stderr)
+
+    # 4. Link CLI executable
+    bin_dir = Path.home() / ".local/bin"
+    bin_target = bin_dir / f"{name}-cli"
+    if not args.dry_run:
+        bin_dir.mkdir(parents=True, exist_ok=True)
+        main_script = ROOT_DIR / "cli/bin/main"
+        if bin_target.exists() or bin_target.is_symlink():
+            bin_target.unlink()
+        bin_target.symlink_to(main_script)
+        print(f"✓ Linked {bin_target} -> {main_script}")
+
+    print(f"✓ {name} successfully updated to latest version.")
     return 0
 
+def cmd_delegate(argv: List[str]) -> int:
+    script_candidates = [
+        ROOT_DIR / "src/skills/delegate/scripts/delegate.py",
+        ROOT_DIR / f"dist/{get_plugin_name()}/skills/delegate/scripts/delegate.py"
+    ]
+    script_path = None
+    for cand in script_candidates:
+        if cand.exists():
+            script_path = cand
+            break
 
-def parse_repo_flag(value: str) -> tuple[str, dict]:
-    if "=" not in value:
-        sys.exit("swe-cli: --repo takes <name>=<owner/repo> or <name>=<clone url>")
-    repo, source = value.split("=", 1)
-    if GITHUB_RE.match(source) and not Path(source).exists():
-        return repo, {"github": source}
-    match = re.search(r"github\.com[:/]([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(?:\.git)?/?$", source)
-    return repo, {"url": source, **({"github": match.group(1)} if match else {})}
-
-
-def project_add(cfg: dict, args: list[str], dry: bool) -> int:
-    usage = ("usage: swe-cli project add <name> --dir <path> --repo <name>=<owner/repo|url> [--repo ...] "
-             "[--description \"...\"] [--manager <agent>]")
-    if not args:
-        sys.exit(usage)
-    name, rest = args[0], args[1:]
-    flags: dict[str, list[str]] = {}
-    i = 0
-    while i < len(rest):
-        if not rest[i].startswith("--") or i + 1 >= len(rest):
-            sys.exit(usage)
-        flags.setdefault(rest[i], []).append(rest[i + 1])
-        i += 2
-    if "--dir" not in flags or "--repo" not in flags:
-        sys.exit(usage)
-    entry: dict = {"dir": flags["--dir"][0], "description": (flags.get("--description") or [name])[0],
-                   "repos": dict(parse_repo_flag(r) for r in flags["--repo"])}
-    if "--manager" in flags:
-        entry["manager"] = flags["--manager"][0]
-    projects = load_projects()
-    problems = project_problems(name, entry, clones=False)
-    if problems:
-        print("\n".join("PROBLEM " + p for p in problems))
+    if not script_path:
+        print("Error: delegate.py runner not found.", file=sys.stderr)
         return 1
-    projects[name] = entry
-    if dry:
-        print(f"would add project {name} to {PROJECTS}: {entry}")
-    else:
-        save_projects(projects)
-        print(f"added project {name} to {PROJECTS}")
-    return project_sync(cfg, projects, name, dry)
 
+    proc = subprocess.run([sys.executable, str(script_path)] + argv)
+    return proc.returncode
 
-def repo_name_of(url: str) -> str:
-    base = re.sub(r"(\.git)?/*$", "", url.strip()).rsplit("/", 1)[-1].rsplit(":", 1)[-1]
-    return re.sub(r"[^a-z0-9]+", "-", base.lower()).strip("-")
+def cmd_playbooks() -> int:
+    playbooks = [
+        ("playbook-deliver", "End-to-end delivery: goal to merged PR and verified code"),
+        ("playbook-feature", "Feature development: specification, planning, and test verification"),
+        ("playbook-bugfix", "Bugfix: defect reproduction with failing test first, minimal fix, verification"),
+        ("playbook-review", "Read-only adversarial review of a PR or diff with command proof"),
+        ("playbook-cifix", "Investigation and fix for failing CI check on an open PR"),
+        ("playbook-docs", "Documentation authoring and synchronization with code changes"),
+        ("playbook-rebase", "Bring PR branch up to date with main and safely resolve conflicts"),
+        ("playbook-land", "Execute verify gate and squash merge approved PR"),
+        ("playbook-changelog", "Record PR entries and maintain unreleased release notes"),
+        ("playbook-verify", "Drive live application verification against feature map"),
+        ("playbook-solo", "Execute task end-to-end in active chat without delegation"),
+        ("playbook", "Dispatcher and overview of all available engineering playbooks")
+    ]
+    name = get_plugin_name()
+    print(f"=== Available Playbooks (invoke via /{name}:<playbook>) ===")
+    print(f"{'Playbook':<22} | {'Slash Command':<24} | {'Description'}")
+    print("-" * 80)
+    for pb_name, desc in playbooks:
+        cmd_str = f"/{name}:{pb_name}"
+        print(f"{pb_name:<22} | {cmd_str:<24} | {desc}")
+    return 0
 
-
-def repo_entry(url: str, subdir: str = "") -> tuple[str, dict]:
-    """A repo for project.yaml from a git URL or owner/repo; the folder name defaults to the repository name."""
-    _, source = parse_repo_flag("x=" + url)
-    name = repo_name_of(url)
-    if not NAME_RE.match(name):
-        sys.exit(f"swe-cli: cannot derive a repo name from {url!r}; use --name")
-    entry = dict(source)
-    entry["dir"] = subdir or name
-    return name, entry
-
-
-def add_repo_to_workspace(root: Path, url: str, name: str = "", subdir: str = "", dry: bool = False) -> int:
-    """Record the repo in the project directory's project.yaml and clone it there."""
-    project, entry = workspace_entry(root)
-    repo, spec = repo_entry(url, subdir)
-    repo = name or repo
-    if not NAME_RE.match(repo):
-        sys.exit(f"swe-cli: repo name {repo!r} must match {NAME_RE.pattern}")
-    if repo in entry["repos"]:
-        print(f"repo {repo} is already in {root / 'project.yaml'}")
-        return 0
-    for other, existing in entry["repos"].items():
-        if (existing or {}).get("dir", other) == spec["dir"]:
-            sys.exit(f"swe-cli: directory {spec['dir']!r} is already used by repo {other}")
-    entry["repos"][repo] = spec
-    if dry:
-        print(f"would add repo {repo} ({url}) to {root / 'project.yaml'} and clone it into {root / spec['dir']}")
-        return 0
-    save_workspace(project, entry)
-    target = root / spec["dir"]
-    if (target / ".git").exists():
-        print(f"repo {repo}: already cloned at {target}")
-        return 0
-    rc = execute([clone_command(spec, str(target))], False)
-    if rc:
-        print(f"repo {repo} stays in project.yaml; fix access, then: swe-cli project sync {project}")
-    else:
-        print(f"added repo {repo} at {target}")
-    return rc
-
-
-def digest(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
-DEV_WORKFLOWS = ("task", "verify")   # developer mode: issue, code, PR; no review, no merge
-
-
-def project_mode(root: Path | None) -> str:
-    for name in ("config.yaml", "models.yaml"):
-        if root and (root / name).is_file():
-            mode = (yaml.safe_load((root / name).read_text(encoding="utf-8")) or {}).get("mode")
-            if mode in ("pm", "dev"):
-                return mode
-    return "pm"
-
-
-def shipped_files(name: str, with_notes: bool = False, mode: str = "pm") -> dict[str, str]:
-    """The files a project gets from the plugin, rendered for this project: relative path -> text."""
-    plugin = plugin_name()
-    fill = lambda t: t.replace("{project}", name).replace("{plugin}", plugin).replace("{cli}", f"{plugin}-cli").replace("{mode}", mode)
-    template = "AGENTS.dev.template.md" if mode == "dev" else "AGENTS.template.md"
-    files = {"AGENTS.md": fill((FLEET / template).read_text(encoding="utf-8")),
-             "skills/learn/SKILL.md": (FLEET / "templates" / "skills" / "learn" / "SKILL.md").read_text(encoding="utf-8")}
-    if with_notes:
-        files["PROJECT.md"] = fill((FLEET / "templates" / "PROJECT.md").read_text(encoding="utf-8"))
-        files["changelog/project.md"] = fill("# {project} change log\n\nMerged pull requests of every repo, newest first "
-                                             "(`{cli} flow merge` writes them; the manager adds cross-repo lines).\n")
-    files["config.yaml"] = fill((FLEET / "templates" / "config.yaml").read_text(encoding="utf-8"))
-    for wf in sorted((FLEET / "workflows").glob("*.yaml")):
-        if mode == "pm" and wf.stem in ("task",):
-            continue
-        if mode == "dev" and wf.stem not in DEV_WORKFLOWS:
-            continue
-        files[f"workflows/{wf.name}"] = wf.read_text(encoding="utf-8")
-    return files
-
-
-def load_shipped(root: Path) -> dict[str, str]:
-    path = root / ".swe" / "shipped.json"
-    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
-
-
-def save_shipped(root: Path, record: dict[str, str]) -> None:
-    (root / ".swe").mkdir(exist_ok=True)
-    merged = {**load_shipped(root), **record}
-    (root / ".swe" / "shipped.json").write_text(json.dumps(merged, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-
-
-def project_update(root: Path | None, dry: bool, force: bool) -> int:
-    """Bring this project's AGENTS.md, workflows, roles, models and learn skill up to the plugin's current versions.
-    A file you did not edit is replaced; one you edited is kept and the new version is written next to it as <file>.new
-    (--force replaces it after saving <file>.bak). PROJECT.md, project.yaml and the clones are never touched."""
-    if not root or not (root / "project.yaml").is_file():
-        sys.exit("swe-cli: not inside a project directory (no project.yaml above here)")
-    name = workspace_entry(root)[0]
-    last = load_shipped(root)
-    record, counts = {}, {"updated": 0, "same": 0, "kept": 0, "new": 0}
-    mode = project_mode(root)
-    for rel, text in shipped_files(name, mode=mode).items():
-        target = root / rel
-        new = digest(text)
-        if not target.exists():
-            action = "added"
+def cmd_config(argv: List[str]) -> int:
+    sub = argv[0] if argv else "show"
+    if sub == "path":
+        p = resolve_active_config_path()
+        if p:
+            print(p)
+            return 0
         else:
-            current = digest(target.read_text(encoding="utf-8"))
-            if current == new:
-                counts["same"] += 1
-                record[rel] = new
-                continue
-            action = "updated" if current == last.get(rel) else ("forced" if force else "kept")
-        if dry:
-            print(f"would {'write ' + rel + '.new (edited by you)' if action == 'kept' else action + ' ' + rel}")
-            continue
-        if action == "kept":
-            (root / (rel + ".new")).write_text(text, encoding="utf-8")
-            print(f"kept   {rel} (you edited it; the new version is {rel}.new)")
-            counts["kept"] += 1
-            continue
-        target.parent.mkdir(parents=True, exist_ok=True)
-        if action == "forced":
-            shutil.copy2(target, str(target) + ".bak")
-        target.write_text(text, encoding="utf-8")
-        record[rel] = new
-        counts["new" if action == "added" else "updated"] += 1
-        print(f"{action:8}{rel}")
-    if not dry:
-        save_shipped(root, record)
-    print(f"project {name}: {counts['updated']} updated, {counts['new']} added, {counts['same']} current, {counts['kept']} kept")
+            print("No config.json found in search paths.", file=sys.stderr)
+            return 1
+    elif sub == "init":
+        target = Path(argv[1]) if len(argv) > 1 else Path.home() / f".config/{get_plugin_name()}/config.json"
+        example = ROOT_DIR / "config.example.json"
+        default_data = {}
+        if example.exists():
+            try:
+                default_data = json.loads(example.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        saved_path = save_config(default_data, target)
+        print(f"✓ Initialized config at {saved_path}")
+        return 0
+    else:  # show
+        active_path = resolve_active_config_path()
+        cfg = load_config()
+        print(f"Active config path: {active_path or 'None (using defaults)'}")
+        print(json.dumps(cfg, indent=2))
+        return 0
+
+def cmd_doctor() -> int:
+    name = get_plugin_name()
+    print(f"=== {name}-cli Doctor Health Check ===")
+
+    # 1. Check tools
+    for tool in ("git", "gh", "python3"):
+        hit = shutil.which(tool)
+        status = f"✓ Found: {hit}" if hit else "✗ Missing"
+        print(f"  • {tool:<10}: {status}")
+
+    # 2. Check orchestration engines
+    t3_hit = shutil.which("t3") or shutil.which("t3code") or (Path.home() / ".t3/bin/t3").exists()
+    print(f"  • {'t3 code':<10}: {'✓ Available' if t3_hit else '○ Not found (optional)'}")
+
+    orca_hit = shutil.which("orca-ide") or shutil.which("orca-dev") or os.environ.get("ORCA_CLI_COMMAND")
+    print(f"  • {'orca':<10}: {'✓ Available' if orca_hit else '○ Not found (optional)'}")
+
+    # 3. Check agent CLIs
+    script = ROOT_DIR / "src/skills/delegate/scripts/discover_agents.py"
+    if script.exists():
+        print("\nAgent CLIs:")
+        subprocess.run([sys.executable, str(script)])
+
+    # 4. Check config
+    cfg_path = resolve_active_config_path()
+    print(f"\nConfiguration: {cfg_path or 'None found'}")
     return 0
 
-
-def git(*args: str, cwd: Path = REPO) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
-
-
-def self_update(args: list[str], dry: bool) -> int:
-    """Update the plugin from the main branch: pull, rebuild, reinstall into every detected harness (or --agent X),
-    and, with --project, update the current project's files too."""
-    flags = set(args)
-    if not (REPO / ".git").exists():
-        sys.exit(f"swe-cli: {REPO} is not a git checkout; update it by hand")
-    if git("status", "--porcelain").stdout.strip():
-        sys.exit(f"swe-cli: {REPO} has uncommitted changes; commit or stash them first")
-    branch = git("branch", "--show-current").stdout.strip()
-    if branch != "main":
-        sys.exit(f"swe-cli: {REPO} is on {branch or 'a detached head'}, not main; switch with `git switch main`")
-    before = git("rev-parse", "--short", "HEAD").stdout.strip()
-    if "--no-pull" not in flags:
-        if execute([["git", "-C", str(REPO), "pull", "--ff-only", "origin", "main"]], dry):
-            return 1
-    after = git("rev-parse", "--short", "HEAD").stdout.strip()
-    print(f"{plugin_name()}: {before} -> {after}")
-    agents = [a for a in args if not a.startswith("--")]
-    for command in (["make", "-C", str(REPO), *(agents or ["install"])], ["make", "-C", str(REPO), "cli"]):
-        print(("would run: " if dry else "run: ") + " ".join(command))
-        if not dry and subprocess.run(command).returncode:
-            return 1
-    if "--project" in flags and WORKSPACE:
-        return project_update(WORKSPACE, dry, False)
-    print("projects: run `" + plugin_name() + "-cli project update` inside each project to refresh its AGENTS.md, workflows and roles")
-    return 0
-
-
-def init_workspace(args: list[str], dry: bool) -> int:
-    """Make the current (or the given) directory a project: AGENTS.md for the manager, workflows, roles, models,
-    project.yaml. It adds no repos: use `swe-cli project <project> add <git url>` afterwards."""
-    usage = "usage: swe-cli project init [dir] [--name N] [--mode pm|dev] [--manager <agent>] [--force]"
-    pos, name, manager, force, mode = [], "", "", False, ""
-    i = 0
-    while i < len(args):
-        a = args[i]
-        if a in ("--name", "--manager", "--mode") and i + 1 < len(args):
-            if a == "--mode":
-                mode = args[i + 1]
-            elif a == "--name":
-                name = args[i + 1]
+def cmd_models(argv: List[str]) -> int:
+    sub = argv[0] if argv else "show"
+    if sub == "subagent":
+        agent_name = argv[1] if len(argv) > 1 else ""
+        cfg = load_config()
+        agents = cfg.get("agents", {})
+        if agent_name == "worker":
+            target = agents.get("worker") or agents.get("developer-senior") or agents.get("developer")
+            if isinstance(target, dict):
+                print(target.get("model", "claude-sonnet-5-5"))
+            elif isinstance(target, str):
+                print(target)
             else:
-                manager = args[i + 1]
-            i += 2
-            continue
-        if a == "--force":
-            force = True
-        elif a.startswith("--"):
-            sys.exit(usage)
+                print("claude-sonnet-5-5")
+        elif agent_name == "adversary":
+            target = agents.get("adversary") or agents.get("reviewer-senior") or agents.get("reviewer")
+            if isinstance(target, dict):
+                print(target.get("model", "claude-sonnet-5-5"))
+            elif isinstance(target, str):
+                print(target)
+            else:
+                print("claude-sonnet-5-5")
         else:
-            pos.append(a)
-        i += 1
-    if len(pos) > 1:
-        sys.exit(usage)
-    root = Path(pos[0] if pos else ".").expanduser().resolve()
-    name = name or re.sub(r"[^a-z0-9]+", "-", root.name.lower()).strip("-")
-    if not NAME_RE.match(name):
-        sys.exit(f"swe-cli: project name {name!r} must match {NAME_RE.pattern}; pass --name")
-    if (root / "project.yaml").exists() and not force:
-        sys.exit(f"swe-cli: {root} is already a project (project.yaml exists); add repos with `swe-cli project {name} add <url>`, or --force")
-    if not mode and sys.stdin.isatty() and not dry:
-        answer = input("Who works here? [p]roject manager (plan, build, review, merge) or [d]eveloper (issue, code, PR only) [p]: ").strip().lower()
-        mode = "dev" if answer.startswith("d") else "pm"
-    mode = mode or "pm"
-    if mode not in ("pm", "dev"):
-        sys.exit(f"swe-cli: --mode is pm or dev, got {mode!r}")
-    files = shipped_files(name, with_notes=True, mode=mode)
-    if dry:
-        print(f"would make {root} the project {name}: " + ", ".join(sorted(files)) + ", project.yaml")
+            if agent_name in agents and isinstance(agents[agent_name], dict):
+                print(agents[agent_name].get("model", "inherit"))
+            else:
+                print("inherit")
         return 0
-    root.mkdir(parents=True, exist_ok=True)
-    record = {}
-    for rel, text in files.items():
-        target = root / rel
-        if target.exists() and not force:
-            print(f"keep {rel}")
-            continue
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(text, encoding="utf-8")
-        record[rel] = digest(text)
-        print(f"wrote {rel}")
-    save_shipped(root, record)
-    save_workspace(name, {"dir": str(root), "description": name, **({"manager": manager} if manager else {}), "repos": {}})
-    register_workspace(name, root)
-    print(f"project {name} at {root} (mode {mode})")
-    plugin = plugin_name()
-    print(f"next: cd {root} && {plugin}-cli orchestrate {name}   (add repos: {plugin}-cli project {name} add <git url>)")
+
+    if sub == "set":
+        parser = argparse.ArgumentParser(description="Set agent parameters in config.json")
+        parser.add_argument("agent", help="Agent role name (e.g. developer-junior)")
+        parser.add_argument("--cli", "-c", help="CLI name (codex, claude, omp, etc.)")
+        parser.add_argument("--model", "-m", help="Model slug")
+        parser.add_argument("--reasoning", "-r", help="Reasoning effort")
+        args = parser.parse_args(argv[1:])
+
+        cfg = load_config()
+        agents = cfg.setdefault("agents", {})
+        agent_dict = agents.setdefault(args.agent, {})
+        if args.cli is not None:
+            agent_dict["cli"] = args.cli
+        if args.model is not None:
+            agent_dict["model"] = args.model
+        if args.reasoning is not None:
+            if args.reasoning == "":
+                agent_dict.pop("reasoning", None)
+            else:
+                agent_dict["reasoning"] = args.reasoning
+        saved = save_config(cfg)
+        print(f"✓ Updated agent '{args.agent}' in {saved}")
+        return 0
+
+    if sub == "cmd":
+        agent_name = argv[1] if len(argv) > 1 else "developer-junior"
+        cfg = load_config()
+        agents = cfg.get("agents", {})
+        spec = agents.get(agent_name, {})
+        cli = spec.get("cli", "codex")
+        model = spec.get("model", "o3-mini")
+        reasoning = spec.get("reasoning")
+        
+        args_out = [cli]
+        if cli == "codex":
+            args_out.extend(["exec", "--model", model])
+            if reasoning:
+                args_out.extend(["--reasoning-effort", reasoning])
+            args_out.append("--dangerously-skip-permissions")
+        elif cli == "claude":
+            args_out.extend(["-p", "--model", model])
+            if reasoning:
+                args_out.extend(["--effort", reasoning])
+            args_out.append("--permission-mode bypassPermissions")
+        elif cli == "omp":
+            args_out.extend(["--prompt", "--model", model])
+            if reasoning:
+                args_out.extend(["--thinking", reasoning])
+            args_out.append("--approval-mode yolo")
+        else:
+            args_out.extend(["-p", "--model", model])
+        for a in args_out:
+            print(a)
+        return 0
+
+    # show
+    cfg = load_config()
+    print("=== Configured Agents ===")
+    agents = cfg.get("agents", {})
+    if not agents:
+        print("No agents defined in config.json. Using defaults.")
+    else:
+        for name, spec in agents.items():
+            if isinstance(spec, dict):
+                cli = spec.get("cli", "auto")
+                m = spec.get("model", "default")
+                r = spec.get("reasoning", "none")
+                print(f"  • {name:<20}: cli={cli:<10} model={m:<24} reasoning={r}")
     return 0
 
-
-def create_project(args: list[str], dry: bool) -> int:
-    """swe-cli project create <project>: a new directory <project> here, made a project."""
-    if not args or args[0].startswith("--"):
-        sys.exit("usage: swe-cli project create <project> [--manager <agent>] [--force]")
-    if not NAME_RE.match(args[0]):
-        sys.exit(f"swe-cli: project name {args[0]!r} must match {NAME_RE.pattern}")
-    return init_workspace([str(Path.cwd() / args[0]), "--name", args[0], *args[1:]], dry)
-
-
-def project_named_add(name: str, rest: list[str], dry: bool) -> int:
-    """swe-cli project <project> add <git url> [--name N] [--dir sub]: add a repo to a project by its name."""
-    known = registered_workspaces()
-    if name in known:
-        root = Path(known[name])
-    elif WORKSPACE and workspace_entry(WORKSPACE)[0] == name:
-        root = WORKSPACE
-    else:
-        sys.exit(f"swe-cli: no project named {name!r} (known: {', '.join(sorted(known)) or 'none'}); "
-                 f"make one with `swe-cli project create {name}`")
-    flags = dict(zip(rest[1::2], rest[2::2]))
-    if not rest or rest[0].startswith("--") or not set(flags) <= {"--name", "--dir"}:
-        sys.exit("usage: swe-cli project <project> add <git url|owner/repo> [--name N] [--dir subdir]")
-    return add_repo_to_workspace(root, rest[0], flags.get("--name", ""), flags.get("--dir", ""), dry)
-
-
-def project_notes(root: Path | None) -> int:
-    """PROJECT.md stays short: count its words against the limit the learn skill sets."""
-    if not root or not (root / "PROJECT.md").is_file():
-        sys.exit("swe-cli: no PROJECT.md here (run inside a project made by `swe-cli init`)")
-    text = re.sub(r"<!--.*?-->", "", (root / "PROJECT.md").read_text(encoding="utf-8"), flags=re.S)
-    words = len(text.split())
-    skills = sorted(p.parent.name for p in (root / "skills").glob("*/SKILL.md"))
-    print(f"PROJECT.md: {words} words (limit {NOTES_LIMIT}); project skills: {', '.join(skills) or 'none'}")
-    if words > NOTES_LIMIT:
-        print(f"PROBLEM PROJECT.md is over the limit: move the most detailed section into skills/<topic>/SKILL.md (learn skill)")
+def cmd_changelog(argv: List[str]) -> int:
+    sub = argv[0] if argv else "show"
+    ch_path = ROOT_DIR / "CHANGELOG.md"
+    if not ch_path.exists():
+        print("No CHANGELOG.md found in repository root.", file=sys.stderr)
         return 1
-    return 0
 
-
-def bootstrap(cfg: dict, projects: dict[str, dict], dry: bool) -> int:
-    """Projects (directories and clones), then models and context."""
-    for name in sorted(projects):
-        if project_sync(cfg, projects, name, dry):
+    if sub == "check":
+        pr = argv[1] if len(argv) > 1 else ""
+        content = ch_path.read_text(encoding="utf-8")
+        if f"#{pr}" in content:
+            print(f"✓ Changelog entry found for PR #{pr}")
+            return 0
+        else:
+            print(f"✗ No changelog entry found for PR #{pr}")
             return 1
-    return models_apply(cfg, projects, dry) or context_apply(cfg, dry)
-
-
-# ------------------------------------------------------------------------------------------------ changelog
-
-CHANGELOG_EXEMPT = {"docs", "chore", "ci", "test", "style", "build"}
-CONVENTIONAL = re.compile(r"^(\w+)(\([^)]*\))?(!)?:\s*(.+)$")
-
-
-def pr_kind(title: str) -> str:
-    match = CONVENTIONAL.match(title.strip())
-    return match.group(1).lower() if match else ""
-
-
-def changelog_needed(info: dict) -> tuple[bool, str]:
-    """Whether the PR needs a CHANGELOG.md entry, and whether it touches one: (needs, why)."""
-    labels = {(label.get("name") if isinstance(label, dict) else str(label)) for label in info.get("labels") or []}
-    if "no-changelog" in labels:
-        return False, "labelled no-changelog"
-    kind = pr_kind(info.get("title", ""))
-    if kind in CHANGELOG_EXEMPT:
-        return False, f"a {kind} change needs no entry"
-    return True, kind or "no conventional type"
-
-
-def changelog_touched(info: dict) -> bool:
-    return any(Path(f.get("path", "")).name.lower() == "changelog.md" for f in info.get("files") or [])
-
-
-def changelog_gate(info: dict) -> str:
-    """Empty when the PR is fine; else the refusal reason."""
-    needs, why = changelog_needed(info)
-    if needs and not changelog_touched(info):
-        return (f"CHANGELOG.md is missing from this PR ({why}): add an entry under ## [Unreleased] (changelog skill), "
-                "or label the PR no-changelog; start `swe-cli flow run <project> changelog --input pr=<n>`")
-    return ""
-
-
-def changelog_check(args: list[str]) -> int:
-    flags = dict(zip(args[1::2], args[2::2]))
-    if not args or args[0].startswith("--"):
-        sys.exit("usage: swe-cli changelog check <pr> [--repo owner/repo]")
-    target = ["--repo", flags["--repo"]] if flags.get("--repo") else []
-    view = run(["gh", "pr", "view", args[0], *target, "--json", "title,files,labels"])
-    if view.returncode != 0:
-        print(f"gh pr view failed: {view.stderr.strip()}", file=sys.stderr)
-        return 2
-    info = json.loads(view.stdout)
-    reason = changelog_gate(info)
-    if reason:
-        print(reason)
-        return 3
-    needs, why = changelog_needed(info)
-    print("changelog ok" if needs else f"changelog not needed ({why})")
-    return 0
-
-
-def changelog_dir(project: str) -> Path:
-    projects = load_projects()
-    if project in projects and projects[project].get("dir"):
-        return Path(projects[project]["dir"]).expanduser() / "changelog"
-    if WORKSPACE:
-        return WORKSPACE / "changelog"
-    sys.exit(f"swe-cli: no project directory for {project!r}")
-
-
-def changelog_append(path: Path, title: str, line: str, month: str) -> None:
-    """Add a line under its month heading (newest first; a new month goes on top); repeating a line is a no-op."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else [f"# {title}"]
-    if line in lines:
-        return
-    heading = f"## {month}"
-    if heading in lines:
-        at = lines.index(heading) + 1
-        while at < len(lines) and not lines[at].strip():
-            at += 1
-        lines[at:at] = [line]
-        if at == len(lines) - 1 or lines[at + 1].startswith("## "):
-            lines.insert(at + 1, "")
     else:
-        lines[1:1] = ["", heading, "", line]
-    path.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
-
-
-def changelog_record(args: list[str]) -> int:
-    if len(args) < 2:
-        sys.exit("usage: swe-cli changelog record <project> <repo> --pr N --title T [--url U] [--date D]")
-    project, repo = args[0], args[1]
-    flags = dict(zip(args[2::2], args[3::2]))
-    if "--pr" not in flags or "--title" not in flags:
-        sys.exit("usage: swe-cli changelog record <project> <repo> --pr N --title T [--url U] [--date D]")
-    date = flags.get("--date") or time.strftime("%Y-%m-%d", time.gmtime())
-    number, title = flags["--pr"], flags["--title"].strip()
-    kind = pr_kind(title)
-    summary = CONVENTIONAL.match(title).group(4) if kind else title
-    link = f"[#{number}]({flags['--url']})" if flags.get("--url") else f"#{number}"
-    label = f" {kind}:" if kind else ""
-    root = changelog_dir(project)
-    month = date[:7]
-    changelog_append(root / f"{repo}.md", f"{repo} change log", f"- {date}{label} {summary} ({link})", month)
-    changelog_append(root / "project.md", "Project change log", f"- {date} `{repo}`{label} {summary} ({link})", month)
-    print(f"recorded {repo}#{number} in {root}")
-    return 0
-
-
-def changelog_show(args: list[str]) -> int:
-    flags = dict(zip(args[0::2], args[1::2]))
-    if flags.get("--project"):
-        root = changelog_dir(flags["--project"])
-    elif WORKSPACE:
-        root = WORKSPACE / "changelog"
-    else:
-        sys.exit("swe-cli: not inside a project directory; pass --project <name>")
-    path = root / (f"{flags['--repo']}.md" if flags.get("--repo") else "project.md")
-    if not path.exists():
-        print(f"no change log yet: {path}")
+        print(ch_path.read_text(encoding="utf-8"))
         return 0
-    since = flags.get("--since", "")
-    for line in path.read_text(encoding="utf-8").splitlines():
-        match = re.match(r"- (\d{4}-\d{2}-\d{2})", line)
-        if since and match and match.group(1) < since:
-            continue
-        print(line)
-    return 0
-
-
-# ------------------------------------------------------------------------------------------------ merge
-
-
-def no_ci(pr: str, repo: str, sha: str, grace: int = 180) -> bool:
-    """True when no check of any kind is reported for the PR head and the head commit is older than `grace` seconds,
-    so no check is coming (a repo without CI, or workflows that never run on pull requests)."""
-    target = ["--repo", repo] if repo else []
-    everything = run(["gh", "pr", "checks", pr, *target, "--json", "name,bucket"])
-    if everything.stdout.strip() not in ("", "[]"):
-        return False
-    slug = repo or run(["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"]).stdout.strip()
-    stamp = run(["gh", "api", f"repos/{slug}/commits/{sha}", "--jq", ".commit.committer.date"]).stdout.strip()
-    try:
-        committed = datetime.datetime.fromisoformat(stamp.replace("Z", "+00:00")).timestamp()
-    except ValueError:
-        return False
-    return time.time() - committed > grace
-
-
-def merge(cfg: dict, pr: str, risk: str, sha: str, repo: str, approved: bool, dry: bool) -> int:
-    """The merge gate: an allowed risk class (or the human's approval), the verified SHA, green checks."""
-    allowed = set(cfg["autopilot"].get("auto_merge") or []) - NEVER_AUTO_MERGE
-    target = ["--repo", repo] if repo else []
-
-    def refuse(reason: str) -> int:
-        print(f"REFUSED {pr}: {reason}")
-        return 3
-
-    if not approved:
-        if risk in NEVER_AUTO_MERGE:
-            return refuse("money-path is never auto-merged: it needs the human's approval (--approved)")
-        if risk not in allowed:
-            return refuse(f"risk {risk!r} is not in autopilot.auto_merge {sorted(allowed) or '(off)'}: wait for the human")
-    view = run(["gh", "pr", "view", pr, *target, "--json", "headRefOid,state,isDraft,mergeStateStatus,title,files,labels"])
-    if view.returncode != 0:
-        return refuse(f"gh pr view failed: {view.stderr.strip()}")
-    info = json.loads(view.stdout)
-    if info.get("state") != "OPEN" or info.get("isDraft"):
-        return refuse(f"PR is {info.get('state')}{' (draft)' if info.get('isDraft') else ''}")
-    if info.get("headRefOid") != sha:
-        return refuse(f"head {info.get('headRefOid')} is not the verified SHA {sha}: a new push needs a new review")
-    if info.get("mergeStateStatus") in ("BEHIND", "DIRTY"):
-        return refuse(f"the branch is {info['mergeStateStatus'].lower()} main: run `swe-cli delegate sync-branch` in its worktree, "
-                      "re-run make verify, push, and get a new verdict")
-    missing = changelog_gate(info)
-    if missing:
-        return refuse(missing)
-    checks = run(["gh", "pr", "checks", pr, *target, "--required", "--json", "name,bucket"])
-    required = json.loads(checks.stdout or "[]") if checks.stdout.strip() else []
-    if not required and no_ci(pr, repo, sha):
-        # no check was reported for this head and none is coming: only the human's approval can merge it
-        if not approved:
-            return refuse("no check is reported for this PR and none is coming (no CI, or no workflow runs on pull requests): only a human-approved merge (--approved)")
-        print(f"note: {repo or 'this repo'} has no checks on this PR; merging on the human's approval and the reviewer's verdict")
-    else:
-        if checks.returncode != 0 and not checks.stdout.strip():
-            return refuse(f"gh pr checks failed: {checks.stderr.strip()}")
-        if not required:
-            return refuse("no required checks on this PR: make `make verify` a required check first (project skill)")
-        red = [f"{c['name']} ({c.get('bucket')})" for c in required if c.get("bucket") != "pass"]
-        if red:
-            return refuse("required checks not green: " + ", ".join(red))
-    print(f"gate passed for {pr} at {sha} ({'approved by the human' if approved else 'autopilot: ' + risk})")
-    merge_command = ["gh", "pr", "merge", pr, *target, "--squash", "--auto", "--delete-branch", "--match-head-commit", sha]
-    return execute([merge_command], dry)
-
-
-# ------------------------------------------------------------------------------------------------ main
-
 
 def main() -> int:
-    args = sys.argv[1:]
-    if not args or args[0] in ("-h", "--help"):
+    if len(sys.argv) < 2:
         print(__doc__)
         return 0
-    command, rest = args[0], args[1:]
-    if command == "name":
-        print(plugin_name())
-        return 0
-    if command == "update":
-        return self_update([a for a in rest if a != "--dry-run"], "--dry-run" in rest)
-    if command == "init" or (command == "project" and rest[:1] == ["init"]):
-        tail = rest[1:] if command == "project" else rest
-        return init_workspace([a for a in tail if a != "--dry-run"], "--dry-run" in rest)
-    if command == "project" and rest[:1] == ["create"]:
-        return create_project([a for a in rest[1:] if a != "--dry-run"], "--dry-run" in rest)
-    if command == "project" and len(rest) >= 2 and rest[1] == "add" and rest[0] not in ("add", "list", "sync", "update", "notes"):
-        return project_named_add(rest[0], [a for a in rest[2:] if a != "--dry-run"], "--dry-run" in rest)
-    if command in ("lane", "delegate", "orchestrate", "flow"):
-        script = FLEET / "bin" / {"lane": "lane", "flow": "flow"}.get(command, "delegate")
-        os.execv(str(script), [str(script), *(["orchestrate"] if command == "orchestrate" else []), *rest])
-    cfg = load()
-    projects = load_projects()
-    dry = "--dry-run" in rest
-    approved = "--approved" in rest
-    rest = [a for a in rest if a not in ("--dry-run", "--approved")]
-    if command == "models":
-        action = rest[0] if rest else "show"
-        if action == "show":
-            return models_show(cfg, projects)
-        if action == "check":
-            return models_check(cfg, projects)
-        if action == "apply":
-            return models_apply(cfg, projects, dry)
-        if action == "cmd" and len(rest) == 2:
-            print("\n".join(argv(cfg, agent_spec(cfg, rest[1]))))
-            return 0
-        if action == "set":
-            return models_set(rest[1:])
-        if action == "reviewer" and len(rest) == 2:
-            print(cfg["reviewers"].get(rest[1]) or REVIEWER)
-            return 0
-        if action == "subagent" and len(rest) == 2:
-            print(subagent_model(cfg, rest[1]))
-            return 0
-    if command == "project" and rest:
-        if rest[0] == "add" and "--repo" not in rest:
-            root = WORKSPACE
-            if not root:
-                sys.exit("swe-cli: not inside a project directory (no project.yaml above here); run `swe-cli init` first")
-            flags = dict(zip(rest[2::2], rest[3::2]))
-            if len(rest) < 2 or rest[1].startswith("--") or not set(flags) <= {"--name", "--dir"}:
-                sys.exit("usage: swe-cli project add <git url|owner/repo> [--name N] [--dir subdir]")
-            return add_repo_to_workspace(root, rest[1], flags.get("--name", ""), flags.get("--dir", ""), dry)
-        if rest[0] == "add":
-            return project_add(cfg, rest[1:], dry)
-        if rest[0] == "update":
-            return project_update(WORKSPACE, dry, "--force" in rest)
-        if rest[0] == "notes":
-            return project_notes(WORKSPACE)
-        if rest[0] == "list":
-            for name, project in sorted(projects.items()):
-                view = project_view(name, project)
-                print(f"{name:<20}{(view['manager'] or '-'):<10}{','.join(view['repos']):<32}{view['dir']}")
-            return 0
-        if rest[0] == "sync" and len(rest) == 2:
-            return project_sync(cfg, projects, rest[1], dry)
-    if command == "doctor":
-        return doctor(cfg, projects, rest[0] if rest else "")
-    if command == "bootstrap":
-        return bootstrap(cfg, projects, dry)
-    if command == "context" and rest:
-        if rest[0] == "show":
-            return context_show(cfg, projects)
-        if rest[0] == "apply":
-            return context_apply(cfg, dry)
-        if rest[0] == "env" and len(rest) == 2:
-            return context_env(cfg, rest[1])
-    if command == "changelog" and rest:
-        action = {"check": changelog_check, "record": changelog_record, "show": changelog_show}.get(rest[0])
-        if action:
-            return action(rest[1:])
-    if command == "merge" and rest:
-        flags = dict(zip(rest[1::2], rest[2::2]))
-        if "--risk" not in flags or "--sha" not in flags:
-            sys.exit("usage: swe-cli merge <pr> --risk <low|standard|money-path> --sha <verified sha> "
-                     "[--repo owner/repo] [--approved] [--dry-run]")
-        return merge(cfg, rest[0], flags["--risk"], flags["--sha"], flags.get("--repo", ""), approved, dry)
-    print(__doc__, file=sys.stderr)
-    return 2
 
+    cmd = sys.argv[1]
+    args = sys.argv[2:]
+
+    if cmd in ("-h", "--help", "help"):
+        print(__doc__)
+        return 0
+    elif cmd == "name":
+        return cmd_name()
+    elif cmd == "update":
+        return cmd_update(args)
+    elif cmd == "delegate":
+        return cmd_delegate(args)
+    elif cmd in ("playbooks", "playbook", "list"):
+        return cmd_playbooks()
+    elif cmd == "config":
+        return cmd_config(args)
+    elif cmd == "doctor":
+        return cmd_doctor()
+    elif cmd in ("models", "model"):
+        return cmd_models(args)
+    elif cmd == "changelog":
+        return cmd_changelog(args)
+    else:
+        print(f"Unknown command: {cmd}\n", file=sys.stderr)
+        print(__doc__, file=sys.stderr)
+        return 1
 
 if __name__ == "__main__":
     sys.exit(main())

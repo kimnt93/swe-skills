@@ -192,6 +192,10 @@ records the PR in both project files. **Say.** `/swe:changelog add the entry for
 A workflow (`workflows/*.yaml`) starts one agent per node. Each role loads only the skills listed for it in
 `roles.yaml`; the role skills below say how that agent works and how it ends (one outcome line, a report).
 
+### delegate
+
+**What it is.** Universal task delegation to AI agent CLIs (Codex, Claude, OMP, Pi, Devin, Antigravity) via Orca sessions, T3 Code threads, or direct CLI relays. **What happens.** Formulates self-contained briefs, executes in isolated worktrees, runs verification test commands, and inspects diffs before landing. **When.** Delegating implementation cards or subtasks to specialized coding agents.
+
 ### manager
 
 **What it is.** How a project's manager handles a request. **What happens.** It picks the workflow that fits

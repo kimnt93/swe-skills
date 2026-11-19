@@ -6,7 +6,7 @@ Read this file fully, then `docs/README.md` (and `docs/runbooks.md` for operatio
 
 The source of a software-engineering plugin. `scripts/build.py` renders it into
 `dist/<PLUGIN_NAME>/` (default name `swe`): a complete plugin for Claude Code, Codex and omp, and
-plain skills for every other harness. `cli/` is the `<name>-cli` command (`swe-cli`): `swe-cli project init` (here) or `swe-cli project create <name>` (a new directory) makes a project (AGENTS.md as the orchestrator, `workflows/*.yaml`, the `roles:` block of `config.yaml`, `project.yaml` listing the repo clones); the orchestrator is any CLI agent that runs YAML workflows (`cli/bin/flow`), one agent per node, in worktrees (tmux or Orca); every agent and model is set in the project's `config.yaml`.
+plain skills for every other harness. Workflows are defined as structured **playbooks** (`playbook-*` skills) rather than CLI workflow DAGs; configuration lives in `config.json` (in the installed directory or `~/.config/@PLUGIN@/config.json`); implementation cards are delegated to worker agents via Orca CLI sessions, T3 Code threads, or headless CLI relays via the `delegate` skill. `cli/` is the `<name>-cli` command (`swe-cli`), supporting `swe-cli update` to update latest, `swe-cli playbooks`, `swe-cli delegate`, `swe-cli config`, and `swe-cli doctor`.
 
 ## Rules
 

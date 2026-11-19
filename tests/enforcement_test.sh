@@ -74,28 +74,24 @@ grep -q "/x/api-contract/scripts/audit_api.py" "$tmp/mk.txt" && grep -q "go-code
   && grep -q "go-code/scripts/archcheck && go run" "$tmp/mk.txt" \
   || { cat "$tmp/mk.txt"; fail "verify.mk static gates"; }
 pass "verify.mk: static gates include the contract audit, structcheck and archcheck"
-python3 - "$root" <<'PY' || fail "play skills"
+python3 - "$root" <<'PY' || fail "playbook skills"
 import re, sys
 from pathlib import Path
 root = Path(sys.argv[1]); bad = []
-for f in sorted((root / "src/skills").glob("play*/SKILL.md")):
+playbooks = sorted((root / "src/skills").glob("playbook*/SKILL.md"))
+if not playbooks:
+    bad.append("no playbook skills found")
+for f in playbooks:
     text = f.read_text(encoding="utf-8")
     if not re.search(r"^  group: start$", text, re.M):
         bad.append(f"{f.parent.name}: group must be start")
-    if f.parent.name == "play":
-        continue
-    if f.parent.name == "play-solo":
-        # the one shortcut that runs no workflow: the current harness does every step, with no delegation
-        if "swe-cli flow run" in text or "swe-cli delegate" in text:
-            bad.append("play-solo: must not start a workflow or delegate")
-        if "Start a subagent or a workflow" not in text:
-            bad.append("play-solo: its Never section must forbid subagents and workflows")
-        continue
-    wf = re.search(r"swe-cli flow run <project> ([\w-]+)", text)
-    if not wf or not (root / "cli/workflows" / f"{wf.group(1)}.yaml").is_file():
-        bad.append(f"{f.parent.name}: names no existing workflow ({wf.group(1) if wf else 'none'})")
+    if not re.search(r'^  summary: ".+"$', text, re.M):
+        bad.append(f"{f.parent.name}: must have non-empty summary")
+    if f.parent.name == "playbook-solo":
+        if "Do not launch subagents or delegate" not in text:
+            bad.append("playbook-solo: must forbid subagents and delegation")
 if bad:
     raise SystemExit("; ".join(bad))
 PY
-pass "play skills: each is group start and names a workflow that exists in cli/workflows"
+pass "playbook skills: each is group start with valid summary and boundaries"
 echo "all passed"

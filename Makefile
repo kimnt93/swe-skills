@@ -48,7 +48,7 @@ build:
 cli: build
 	@mkdir -p $(BIN_DIR)
 	ln -sfn $(CURDIR)/cli/bin/main $(BIN_DIR)/$(PLUGIN_NAME)-cli
-	@echo "$(BIN_DIR)/$(PLUGIN_NAME)-cli -> $(CURDIR)/cli/bin/main (cd into a directory and run: $(PLUGIN_NAME)-cli init)"
+	@echo "$(BIN_DIR)/$(PLUGIN_NAME)-cli -> $(CURDIR)/cli/bin/main (run: $(PLUGIN_NAME)-cli playbooks)"
 
 validate: build
 	@$(PY) $(DIST)/scripts/validate_skills.py
@@ -62,8 +62,7 @@ test:
 	bash tests/harness_test.sh
 	bash tests/frontend_test.sh
 	bash cli/tests/selftest.sh
-	bash cli/tests/flowtest.sh
-	bash cli/tests/inittest.sh
+	bash cli/tests/install_test.sh
 
 package: validate
 	cd dist && rm -f $(PLUGIN_NAME)-$(PLUGIN_VERSION).zip && zip -qr $(PLUGIN_NAME)-$(PLUGIN_VERSION).zip $(PLUGIN_NAME)
