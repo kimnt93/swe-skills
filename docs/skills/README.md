@@ -15,7 +15,7 @@ when to use it, what to say, what happens, what you get, and its files.
 ## Skills
 
 <!-- skills:start -->
-56 skills in 6 groups. Click a skill for its detail.
+57 skills in 6 groups. Click a skill for its detail.
 
 ### Start here
 
@@ -68,6 +68,7 @@ when to use it, what to say, what happens, what you get, and its files.
 | [verify-create](process.md#verify-create) | Give a project make verify and a verify skill that drives it like a user |
 | [verify-maintain](process.md#verify-maintain) | Keep the verify skill and its feature map true as the app changes |
 | [why](process.md#why) | Find the history and reasons behind code before changing or removing it |
+| [work-package](process.md#work-package) | Issue ID: title, lane/difficulty/area labels, body sections, branch, commit, PR text and a linter |
 
 ### Languages
 

@@ -165,6 +165,10 @@ branch, merge by hand, put issue or comment text into a shell command. **Files.*
 (`local` mode before opening, `pr <n>` after), five references (branches and commits, pull requests, issues,
 reviews and comments, submit rules).
 
+### work-package
+
+**What it is.** The fixed text and names of one delegable card, so a planner writes it, any agent picks it up, another reviews it and a script checks it. **Issue.** Titled `ID: title` (`API-03: Cancel an open order`), labels = one lane (`backend`, `frontend`, ...), one difficulty (`simple`, `medium`, `hard`) and at least one area; body = `Lane`, `Wave`, `Difficulty` header lines, then Goal, Read first, Owned files, Forbidden, Depends on, Notes, Done when (runnable commands) and Branch and PR. **Branch, commits, PR.** Branch `<id>/<slug>`, commits and PR title `<type>(<id>): <summary>`, PR body with Summary, Files changed, Done-when evidence (commands, commit, output tails) and `Closes #N`; the author never merges. **Files.** `scripts/package_lint.py` (`issue`, `branch`, `commit`, `pr`, `--self-test`), three references (issue, pull request, labels), an issue and a PR template.
+
 ### project
 
 **What it is.** Run one project's documents, repo and backlog. **Use it when** you are a project manager

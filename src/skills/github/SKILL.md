@@ -30,7 +30,8 @@ issue #N ─► branch <type>/N-<slug> ─► small commits ─► push ─► P
 ## Rules that always apply
 
 - **Branch name is enforced:** `<type>/<issue>-<slug>`. No issue? `gh issue create` first, then branch from its number
-  ([branches-and-commits](references/branches-and-commits.md)).
+  ([branches-and-commits](references/branches-and-commits.md)). A delegated card (an issue titled `ID: title` with lane, difficulty and area labels) uses the
+  package form `<id>/<slug>` and the text rules of the `work-package` skill instead.
 - **Before you open a PR:** `python3 <this skill>/scripts/pr_lint.py local --body <body file>
   --allow '<the card's may-write globs>'` must report 0 problems. After you open it:
   `pr_lint.py pr <number>`.
