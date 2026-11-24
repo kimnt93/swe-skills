@@ -38,7 +38,7 @@ is touched). The merge gate refuses a PR that needs an entry and has none.
 
 ## For the manager
 
-- **Before merge**: verify the changelog for every ready PR. If it says the changelog is missing, run `playbook-changelog`:
+- **Before merge**: verify the changelog for every ready PR. If it says the changelog is missing, run the project changelog workflow (`swe-cli flow run <project> changelog ...`) with the `changelog` skill:
   a scribe adds the entry on the PR's branch, checks run again and a reviewer re-reviews the new head; merge that run's PR.
 - **After merge**: `flow merge` records every merged PR with `swe-cli changelog record` (date, repo, type, title, PR link) in
   `changelog/<repo>.md` and `changelog/project.md`. You do not write those lines by hand.

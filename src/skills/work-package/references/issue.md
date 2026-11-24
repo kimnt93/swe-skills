@@ -69,4 +69,5 @@ Packages link it (`Refs #<epic>`); the epic closes when the last package merges.
 ## Old or duplicate issues
 
 If an issue cannot be solved now: comment, create a package in this format that says "Replaces #N", link it in the comment and
-close the old one. If it can be solved now: solve it, comment, close it.
+close the old one. If it can be solved now: solve it, comment, close it. The comment and plan/verdict format is
+[comments](comments.md).

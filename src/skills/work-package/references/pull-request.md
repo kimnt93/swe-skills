@@ -49,7 +49,8 @@ Rules:
   output is not evidence.
 - Problems found in the spec or the card go in the PR text under a line `Problems:`; the author does not edit the spec.
 - The author **never merges**. A reviewer other than the author reads the diff and runs the commands again; the owner of the
-  merge gate merges, by squash, after checks are green and the branch is not behind `main`.
+  merge gate merges, by squash, after checks are green and the branch is not behind `main`. The verdict and fix format is
+  [comments](comments.md).
 - Delete the branch after the merge. Remove the worktree when its package is merged.
 
 ## Check

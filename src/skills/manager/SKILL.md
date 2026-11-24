@@ -1,6 +1,6 @@
 ---
 name: manager
-description: "How a project's manager handles requests: pick the playbook that fits (delivery, feature, bugfix, docs, ci-fix, rebase, review, land, verify), coordinate execution, delegate implementation cards via Orca, T3 Code, or CLI relays, watch verification, and report."
+description: "How a project's manager handles requests: pick one of the three CTO playbooks (plan, review, quick), coordinate the architect plan and delegated cards via Orca/T3/CLI, watch verification, and report."
 metadata:
   group: process
   summary: "Manager: pick the playbook for a request, coordinate delegation, verify, and report"
@@ -17,8 +17,7 @@ Decide per message, before anything else:
 | The message is | You do |
 |---|---|
 | A question: how something works, why it is so, what changed, what is running (`how`, `why`, `ketchup`, `interrogate`) | Answer directly with read-only skills. No edits, no delegations. |
-| Work that changes code and matches a playbook | Run the playbook: coordinate phases and delegate cards via `delegate`. |
-| Solo request: user wants you to do it all in-chat | Follow `playbook-solo`. |
+| Work that changes code | Run the chosen playbook: `plan`, `review` or `quick`; coordinate with `delegate`. |
 | Request to change agents or engines | Update `config.json` (`swe-cli config`). |
 
 A question never starts a run, and work never starts without an acceptance done-predicate.
@@ -68,16 +67,12 @@ swe-cli models show
 
 | Request | Playbook | Execution / Delegation |
 |---|---|---|
-| Any code goal across repos (default) | `playbook-deliver` | Plan cards, delegate implementation, verify, review, land |
-| A single feature card | `playbook-feature` | Test-first implementation and verification |
-| A defect with a way to reproduce it | `playbook-bugfix` | Failing test first, minimal fix, zero regression |
-| Check a PR, read-only | `playbook-review` | Adversarial review with command proof |
-| Red required check on open PR | `playbook-cifix` | Minimal fix within card files to turn CI green |
-| Documentation out of date or missing | `playbook-docs` | Sync docs/ with code changes, run every example |
-| PR behind main or has conflicts | `playbook-rebase` | Scoped rebase within card files, re-verify |
-| Take an approved PR to main | `playbook-land` | Run verify gate on head, squash merge |
-| Nightly or periodic health check | `playbook-verify` | Drive feature map against live app |
-| In-chat execution without delegating | `playbook-solo` | Run all steps directly in this session |
+| New feature, cross-file change, hard bug, unsettled shape | `playbook-plan` | Issue → architect plan comment → CTO acceptance → delegated PRs → reviewer/gate merge |
+| The same plus an independent review and fix round; risky or money-path work | `playbook-review` | Plan pipeline → reviewer PASS/FAIL → author fixes → re-review → merge |
+| Docs, one-file fix, small test, mechanical change | `playbook-quick` | Issue → developer PR → reviewer/gate merge, no plan |
+| A question: how/why/what changed | `how`, `why`, `ketchup`, `interrogate` | Answer read-only; no run |
+
+There is no other playbook. If an issue does not fit `quick`, use `plan`; if it needs a review round, use `review`.
 
 ---
 
@@ -94,8 +89,8 @@ When executing a playbook with multiple cards or subtasks:
      --verify "make verify" \
      --json
    ```
-4. Review diffs and test results.
-5. Land each card safely using `playbook-land`.
+4. Review diffs and test results through the reviewer/gate; the author never merges.
+5. Merge through the gate after PASS; clean the worktree and branch.
 
 ---
 

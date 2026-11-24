@@ -35,28 +35,20 @@ make cli
 
 ### 1. Playbooks (`/swe:playbook-<name>`)
 
+Exactly three CTO pipelines. Every repository change is one of them; all end at the reviewer/gate merge.
+
 ```text
-/swe:playbook-deliver implement table view pagination across web and API
-/swe:playbook-bugfix the orders consumer double-counts fills when Kafka redelivers. repro first, then fix and verify.
-/swe:playbook-review check this PR at its head commit
-/swe:playbook-cifix fix red check on open PR #42
-/swe:playbook-solo run the entire task in this chat without delegation
+/swe:playbook-plan add a new API endpoint and its UI, with an architect plan first
+/swe:playbook-review harden the order retry path; review every finding before merge
+/swe:playbook-quick fix the typo in docs/README.md and merge it
 ```
 
 | Playbook | Purpose |
 |---|---|
-| `/swe:playbook-deliver` | End-to-end delivery: goal to merged PR and verified code |
-| `/swe:playbook-feature` | Feature development from specification to verified implementation |
-| `/swe:playbook-bugfix` | Defect reproduction with failing test first, minimal fix, verification |
-| `/swe:playbook-review` | Read-only adversarial review of a PR or diff with command proof |
-| `/swe:playbook-cifix` | Investigation and fix for failing CI check on an open PR |
-| `/swe:playbook-docs` | Documentation authoring or synchronization with code changes |
-| `/swe:playbook-rebase` | Bring PR branch up to date with main and safely resolve conflicts |
-| `/swe:playbook-land` | Execute verify gate and squash merge approved PR |
-| `/swe:playbook-changelog` | Audit and update CHANGELOG.md for merged PRs |
-| `/swe:playbook-verify` | Drive live application verification against feature map |
-| `/swe:playbook-solo` | Execute task end-to-end in active chat without delegation |
-| `/swe:playbook` | Dispatcher and overview of all available engineering playbooks |
+| `/swe:playbook-plan` | CTO issue → architect plan comment → CTO accepts → delegated PRs → reviewer/gate merge |
+| `/swe:playbook-review` | The plan pipeline plus a reviewer PASS/FAIL and fix round, then merge |
+| `/swe:playbook-quick` | CTO issue → developer PR → reviewer/gate merge; docs, small fixes, no planning |
+| `/swe:playbook` | Dispatcher and the three-pipeline choice |
 
 ### 2. Multi-Agent Delegation (`/swe:delegate`)
 

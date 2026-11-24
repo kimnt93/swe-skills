@@ -78,20 +78,33 @@ python3 - "$root" <<'PY' || fail "playbook skills"
 import re, sys
 from pathlib import Path
 root = Path(sys.argv[1]); bad = []
-playbooks = sorted((root / "src/skills").glob("playbook*/SKILL.md"))
-if not playbooks:
-    bad.append("no playbook skills found")
-for f in playbooks:
+expected = {"playbook", "playbook-plan", "playbook-review", "playbook-quick"}
+actual = {p.parent.name for p in (root / "src/skills").glob("playbook*/SKILL.md")}
+if actual != expected:
+    bad.append(f"playbooks must be exactly {sorted(expected)}, got {sorted(actual)}")
+for f in sorted((root / "src/skills").glob("playbook*/SKILL.md")):
     text = f.read_text(encoding="utf-8")
     if not re.search(r"^  group: start$", text, re.M):
         bad.append(f"{f.parent.name}: group must be start")
     if not re.search(r'^  summary: ".+"$', text, re.M):
         bad.append(f"{f.parent.name}: must have non-empty summary")
-    if f.parent.name == "playbook-solo":
-        if "Do not launch subagents or delegate" not in text:
-            bad.append("playbook-solo: must forbid subagents and delegation")
+checks = {
+    "playbook-review": ["different model family", "PASS", "FAIL", "fix"],
+    "playbook-plan": ["architect", "plan comment", "CTO", "reviewer/gate"],
+    "playbook-quick": ["No architect", "simple", "reviewer/gate"],
+    "playbook": ["playbook-plan", "playbook-review", "playbook-quick"],
+}
+for name, needles in checks.items():
+    text = (root / "src/skills" / name / "SKILL.md").read_text(encoding="utf-8")
+    for needle in needles:
+        if needle not in text:
+            bad.append(f"{name}: missing {needle!r}")
+comments = (root / "src/skills/work-package/references/comments.md").read_text(encoding="utf-8")
+for needle in ("Architect plan", "Review verdict", "Verdict: PASS at", "Verdict: FAIL at"):
+    if needle not in comments:
+        bad.append(f"work-package comments: missing {needle!r}")
 if bad:
     raise SystemExit("; ".join(bad))
 PY
-pass "playbook skills: each is group start with valid summary and boundaries"
+pass "playbook skills: exactly three CTO pipelines, valid metadata, plan/review/quick boundaries and comment format"
 echo "all passed"

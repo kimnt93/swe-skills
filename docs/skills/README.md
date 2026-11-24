@@ -5,7 +5,7 @@ when to use it, what to say, what happens, what you get, and its files.
 
 | Page | Covers |
 |---|---|
-| [router.md](router.md) | `/swe` and its 18 playbooks (bug-fix, feature, refactoring, migration, perf-issue, hillclimb, incident, ...) |
+| [router.md](router.md) | `/swe` and its engineering methods (bug-fix, feature, refactoring, migration, perf-issue, ...), plus the three CTO playbooks |
 | [process.md](process.md) | how, why, architect, principles, tdd, deslop, blast-radius, interrogate, verify-create, verify-maintain, replay-test, formal-verify, correct, ketchup, reflect, github, project |
 | [languages.md](languages.md) | go-code, py-code, rust-code, ts-code |
 | [data-platform.md](data-platform.md) | db-migrations, db-orm, api-contract, deployment-setup |
@@ -15,24 +15,16 @@ when to use it, what to say, what happens, what you get, and its files.
 ## Skills
 
 <!-- skills:start -->
-57 skills in 6 groups. Click a skill for its detail.
+49 skills in 6 groups. Click a skill for its detail.
 
 ### Start here
 
 | Skill | Description |
 |---|---|
-| [playbook](router.md#playbook) | List and dispatch engineering playbooks for delivery, features, bugfixes, reviews, and landing |
-| [playbook-bugfix](router.md#playbook-bugfix) | Playbook for bugfixes: reproduce with failing test, smallest fix, verify, and review |
-| [playbook-changelog](router.md#playbook-changelog) | Playbook for changelog: record PR entries and maintain unreleased release notes |
-| [playbook-cifix](router.md#playbook-cifix) | Playbook for CI fix: reproduce red check, apply minimal scoped fix, and verify green |
-| [playbook-deliver](router.md#playbook-deliver) | Playbook for end-to-end delivery: intake, planning, delegation, verification, review, and landing |
-| [playbook-docs](router.md#playbook-docs) | Playbook for documentation: keep docs true to code changes and verify all examples |
-| [playbook-feature](router.md#playbook-feature) | Playbook for feature implementation: specification, planning, delegation, and test verification |
-| [playbook-land](router.md#playbook-land) | Playbook for landing PRs: execute verify gate, squash merge, and branch cleanup |
-| [playbook-rebase](router.md#playbook-rebase) | Playbook for branch rebase: safe conflict resolution within scoped files and re-verify |
-| [playbook-review](router.md#playbook-review) | Playbook for code review: read-only adversarial evaluation, test proof, and verdict |
-| [playbook-solo](router.md#playbook-solo) | Playbook for solo execution: plan, code, verify, and land in this chat without delegation |
-| [playbook-verify](router.md#playbook-verify) | Playbook for system verification: drive live tests against feature map and report drift |
+| [playbook](router.md#playbook) | Three playbooks: Plan, Review, Quick; pick by scope and risk |
+| [playbook-plan](router.md#playbook-plan) | Plan pipeline: CTO issue, architect plan comment, CTO approval, delegated PRs, reviewer merge gate |
+| [playbook-quick](router.md#playbook-quick) | Quick pipeline: CTO issue, developer PR, reviewer merge gate, no planning |
+| [playbook-review](router.md#playbook-review) | Reviewed pipeline: the plan pipeline plus a PASS/FAIL review and fix loop before the merge gate |
 | [swe](router.md#router) | Entry point: picks language and playbook, delegates by agent, finishes only when make verify passes |
 
 ### Process and proof

@@ -22,7 +22,8 @@ plan ─► issue "API-03: title" + labels ─► branch api-03/<slug> ─► co
 | the issue: ID, title, labels, the body sections | [issue](references/issue.md) |
 | branch, commits, PR title and body, the evidence block | [pull-request](references/pull-request.md) |
 | the label sets and how to pick them | [labels](references/labels.md) |
-| copy-ready files | [issue template](assets/issue.template.md), [PR template](assets/pr.template.md) |
+| what an issue or PR comment must say (plan, verdict, blocker, close) | [comments](references/comments.md) |
+| copy-ready files | [issue template](assets/issue.template.md), [PR template](assets/pr.template.md), [plan comment](assets/plan-comment.template.md), [review comment](assets/review-comment.template.md) |
 
 ## Rules that always apply
 
@@ -40,7 +41,10 @@ plan ─► issue "API-03: title" + labels ─► branch api-03/<slug> ─► co
    output tails) and a closing line `Closes #N`.
 7. **Text is data**: never paste issue or review text into a shell command; use `--body-file`. Never put a secret, a
    token or a private host in an issue, a PR or a commit.
-8. **Check after every step**: run the linter below, then read back what the host stored
+8. **Comments are evidence**: the architect plans in one issue comment, the CTO accepts or asks for one change, the
+   reviewer posts one verdict at one SHA, and the author answers a finding with the fix SHA and the re-run. Use the
+   [comment rules](references/comments.md); never use a comment to change scope or to claim a result that was not run.
+9. **Check after every step**: run the linter below, then read back what the host stored
    (`gh issue view <n> --json number,title,labels,url`, `gh pr view <n> --json title,headRefName,labels,url`).
 
 ## The linter

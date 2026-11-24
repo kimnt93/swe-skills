@@ -6,7 +6,11 @@ Every package carries one lane, one difficulty and at least one area.
 |---|---|---|
 | lane | `backend` `frontend` `data` `ops` `docs` `test` `research` | who does it: the kind of work and the agent that gets it |
 | difficulty | `simple` `medium` `hard` | how much judgement it needs; routes the model tier |
-| area | `bots`, `mobile`, `ci`, ... (any other label) | the part of the product; matches the area of the ID |
+| area | `bots`, `mobile`, `ci`, `drivers`, ... (the project's areas) | the part of the product; matches the area of the ID |
+
+A repository may also use `type:*` (`feat`, `fix`, ...), `risk:*` (`low`, `standard`, `money-path`) or its own labels. Those
+are additional; they never replace the lane, difficulty or area that routes a package. List the labels first
+(`gh label list`); a typo creates a new label.
 
 ## Picking the difficulty
 

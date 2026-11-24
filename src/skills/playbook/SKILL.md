@@ -1,37 +1,57 @@
 ---
 name: playbook
-description: "Dispatcher for engineering playbooks. Lists available playbooks and guides orchestrators and agents through structured workflows for delivery, features, bugfixes, reviews, CI fixes, documentation, rebasing, and landing."
+description: "Dispatcher for the three CTO pipelines. Use playbook-plan for a new feature or cross-file change, playbook-review when the plan pipeline also needs a reviewer PASS/FAIL fix loop, and playbook-quick for a genuinely simple issue. All three use the work-package issue/PR format and end at the reviewer/gate merge."
 metadata:
   group: start
-  summary: "List and dispatch engineering playbooks for delivery, features, bugfixes, reviews, and landing"
+  summary: "Three playbooks: Plan, Review, Quick; pick by scope and risk"
 ---
 
 # Playbook
 
-Playbooks define repeatable, structured procedures for software engineering tasks. They organize work into explicit phases (Intake, Architecture, Planning, Execution, Verification, Review, and Landing) and coordinate delegation via **Orca sessions**, **T3 Code threads**, or direct CLI relays using the `delegate` skill.
+There are **three** playbooks. Pick one; do not invent a fourth. All three use the `work-package` issue and PR format, the
+`github` rules and the reviewer/gate merge. The CTO owns the issue and acceptance; the developer owns the PR; the reviewer
+owns the verdict and the merge gate.
 
-## Available Playbooks
-
-| Playbook | Purpose | Delegation / Execution |
+| Playbook | Use it for | Pipeline |
 |---|---|---|
-| **playbook-deliver** | Complete end-to-end delivery: goal to merged PR and verified code | Multi-agent delegation (Orca / T3 / CLI) |
-| **playbook-feature** | Feature development from specification to verified implementation | Multi-agent delegation |
-| **playbook-bugfix** | Defect reproduction with failing test, minimal fix, and verification | Delegated or direct |
-| **playbook-review** | Read-only adversarial review of a PR or diff with command proof | Read-only reviewer |
-| **playbook-cifix** | Investigation and fix for failing CI check on an open PR | Delegated or direct |
-| **playbook-docs** | Documentation authoring or synchronization with code changes | Documenter / scribe |
-| **playbook-rebase** | Bring PR branch up to date with main and safely resolve conflicts | Integrator |
-| **playbook-land** | Execute verify gate and squash merge approved PR | Orchestrator gate |
-| **playbook-changelog** | Audit and update CHANGELOG.md for merged PRs and releases | Scribe |
-| **playbook-verify** | Drive live application verification against feature map | Verifier |
-| **playbook-solo** | Execute task end-to-end in active chat without delegation | In-chat solo |
+| **`playbook-plan`** | new feature, cross-file change, hard bug, a shape not yet settled | CTO issue → architect plan comment → CTO accepts → delegated PRs → reviewer/gate merge |
+| **`playbook-review`** | the plan pipeline plus an independent review round; risky or money-path code, code the author did not write, likely errors | plan pipeline → reviewer PASS/FAIL → author fixes → re-review → merge |
+| **`playbook-quick`** | docs, one-file fix, small test, mechanical change; **not** a new feature or cross-file work | CTO issue → developer PR → reviewer/gate merge, no plan |
 
-## How to Run a Playbook
+```text
+plan     issue ─► plan comment ─► CTO accept ─► dev(s) ─► PR ─► reviewer/gate merge
+review   plan pipeline ─► PASS/FAIL ─► fix ─► re-review ─► merge
+quick    issue ─► dev ─► PR ─► reviewer/gate merge
+```
 
-1. **Select the matching playbook** from the table above.
-2. **Review configuration** in `config.json` (or defaults) for target agents, models, and execution engine (Orca, T3 Code, or CLI).
-3. **Follow the playbook phases**:
-   - Establish done-predicate (command that proves completion).
-   - Use `architect` and `planner` for multi-file changes.
-   - Dispatch implementation units via the `delegate` skill (`/delegate` or `python3 src/skills/delegate/scripts/delegate.py`).
-   - Run verification and adversarial reviews before landing.
+## Pick in one minute
+
+- Does the issue need a design decision, more than one package, a shared file or a new contract? Use **`plan`**.
+- Is it risky, money-path, code you did not write, or likely to fail a review? Use **`review`** (which includes the plan).
+- Is it docs, one file, a small test or a mechanical fix that a competent developer can finish without planning? Use **`quick`**.
+- If `quick` grows, stop and move the issue to `plan` or `review`; never merge a scope-grown quick card.
+
+## Invariants
+
+- The issue is the contract: `ID: title`, lane + difficulty + area labels, `Goal`, owned files, `Done when`.
+- The architect plans in one issue comment; the CTO accepts in one comment; the developer does not merge.
+- The review verdict is `PASS`/`FAIL` at one full SHA; a new push needs a new verdict.
+- The reviewer/gate merges only after a PASS at the current SHA, green required checks and no conflict.
+- Comments are [evidence](../work-package/references/comments.md), not chat; no secrets, no text interpolation into shell.
+- One package, one worktree, one PR; clean the worktree and branch after merge.
+
+## Roles
+
+| Role | Skill | Does | Does not |
+|---|---|---|---|
+| CTO | the playbook + `manager` | writes/accepts the package, accepts the plan, routes and merges decisions | code, review, merge by author |
+| Architect | `architect`, `planner` | plan comment, packages/waves, contracts | code, merge |
+| Developer | `developer` + language skill | one package, test first, PR | merge, edit outside owned files |
+| Reviewer/gate | `reviewer` | PASS/FAIL at SHA, merge gate | edit during review, self-approve a fix |
+| Delegate | `delegate`, `orca-cli` | start the configured agent in a worktree | choose models outside the project table |
+| Triage | `github`, `intake` | issues/comments/links | design or code |
+
+## Reply
+
+State the chosen playbook, the issue/PR, the reviewer verdict and SHA, the merge result, and any decision waiting on the CTO.
+If a pipeline stopped, say which gate stopped it and the one next action.
