@@ -6,8 +6,9 @@
 2. Run `make verify` yourself, then the **interrogate** skill on `git diff origin/main...HEAD`.
 3. Check the submit rules (`pr_lint.py pr <n>`) and the architecture (`make verify` runs `archcheck` /
    `lint-imports`).
-4. Verdict, in a body file whose first line is `Verdict: PASS at <sha>` or `Verdict: CHANGES at <sha>`,
-   followed by the findings (command, output, expected) or "no verified findings":
+4. Verdict, in a body file whose first line is `Verdict: PASS at <sha>` or `Verdict: FAIL at <sha>`,
+   followed by the findings (command, output, expected) or "no verified findings". For a package, use the
+   comment format in the `work-package` skill.
 
 ```bash
 gh pr review <n> --comment --body-file review.md

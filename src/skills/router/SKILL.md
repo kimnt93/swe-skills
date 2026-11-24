@@ -32,7 +32,8 @@ Never start a new HTTP API in Python or Rust without a reason written in the PR.
 1. **In your own words first.** Before any edit, state the goal, the smallest change you expect to
    meet it, and the **done-predicate**: a command and its expected output. Don't wait for
    confirmation. If the evidence rules out the requested change, show it and stop.
-2. **Pick one playbook** from the table below. Open a todo list whose first items are its steps.
+2. **Pick one CTO pipeline** (`plan`, `review` or `quick`) from the table below. Open a todo list whose first items are
+   its steps.
 3. **Load the domain skill** before you write code. It carries the code standard and tested templates.
 4. **Principles.** Read the `principles` index; open each one whose "applies" line matches; name in
    your reply each one that changed a decision. `money-path` always applies to orders, fills,
@@ -50,9 +51,24 @@ Never start a new HTTP API in Python or Rust without a reason written in the PR.
 11. **Git and GitHub the one way:** branch from `main`, small Conventional Commits, a PR linked to
     its issue, merge only through the gate (the `github` skill).
 
-## Playbooks
+## CTO pipelines: exactly three
 
-| Task | Playbook | Proof |
+Every request that changes a repository is one of these. Pick by scope and risk; there is no fourth playbook.
+
+| Pipeline | Use it for | Flow |
+|---|---|---|
+| `playbook-plan` | new feature, cross-file change, hard bug, unsettled shape | CTO issue → architect plan comment → CTO accepts → delegated PRs → reviewer/gate merge |
+| `playbook-review` | the plan pipeline plus an independent review; risky or money-path work, code you did not write | plan flow → reviewer PASS/FAIL → author fixes → re-review → merge |
+| `playbook-quick` | docs, one-file fix, small test, mechanical change | CTO issue → developer PR → reviewer/gate merge, no plan |
+
+The issue, plan, verdict and comment formats are in `work-package`; the merge is the reviewer/gate's action after a PASS at
+the current SHA. A `quick` card that grows stops and becomes `plan` or `review`.
+
+## Engineering methods
+
+These are methods, not CTO pipelines; use one inside a pipeline when the task needs it.
+
+| Task | Method | Proof |
 |---|---|---|
 | how does X work / why is it like this | the `how` or `why` skill ([investigation](references/investigation.md)) | file:line and commit evidence |
 | defect | [bug-fix](references/bug-fix.md) + `tdd` | failing test first, then verify |
@@ -71,7 +87,6 @@ Never start a new HTTP API in Python or Rust without a reason written in the PR.
 | take over or stop work | [session-pickup](references/session-pickup.md), [pause-safely](references/pause-safely.md) | — |
 | nothing above fits | [figure-it-out](references/figure-it-out.md) | the designed playbook, then its proof |
 | change a skill or prompt | [eval](references/eval.md) | blind A/B result |
-| run a standard playbook | the `playbook-*` skills, or `playbook` to list them | verified result or merged PR |
 | a repo's `docs/` is stale or missing | the `docs-sync` skill (`follow` the changes, or `rewrite` from the code) | every command in it runs |
 
 Skills for any playbook: `github` (branches, PRs, issues, merges), `project` (a project's docs,

@@ -1,49 +1,50 @@
 # Playbooks
 
-A playbook is a workflow you start with one shortcut. Say the request to the manager, or type the shortcut. Each
-`play-*` skill restates the goal and its proof, then hands the run to the manager, which runs `swe-cli flow run`.
-`/swe:play` lists them, or starts any workflow by name (a project's own `workflows/` too).
+There are **three CTO pipelines**. Every repository change is one of them. They all use the `work-package` issue and PR
+format, the `github` rules and the reviewer/gate merge; none of them lets the author merge.
 
-| Shortcut | Workflow | Use it for | Inputs |
+| Shortcut | Pipeline | Use it for | Inputs |
 |---|---|---|---|
-| `/swe:play-deliver` | `delivery` | any code goal, one repo or several, merged to main without a human (the default) | `goal` |
-| `/swe:play-bugfix` | `bugfix` | a defect with a repro: failing test first | `goal` |
-| `/swe:play-docs` | `docs` | `docs/` stale or missing; no planner | `repo`, `mode` = `follow` or `rewrite` |
-| `/swe:play-cifix` | `ci-fix` | a red required check on an open PR | `pr`, `repo` |
-| `/swe:play-rebase` | `conflict` | a PR behind main or conflicting | `pr`, `repo` |
-| `/swe:play-changelog` | `changelog` | a PR missing its change log entry | `pr`, `repo` |
-| `/swe:play-verify` | `verify` | nightly or after merges; edits nothing | `repo` |
-| `/swe:play-review` | `review` | check any PR at its head, read-only | `pr`, `repo` |
-| `/swe:play-land` | `land` | take an existing PR, a human's too, to main | `pr`, `repo` |
-| `/swe:play-solo` | none: this chat does every step | one goal or issue, plan only or plan to merged PR, no subagent | `goal`, `mode` = `full` or `plan` |
-| (DEV mode) | `task` | one task to an open PR; you review and merge | `goal` |
+| `/swe:playbook-plan` | **Plan** | new feature, cross-file change, hard bug, a shape not yet settled | `issue` or `goal` |
+| `/swe:playbook-review` | **Review** | the plan pipeline plus an independent PASS/FAIL review and fix round; risky or money-path work, code the author did not write | `issue` or `goal` |
+| `/swe:playbook-quick` | **Quick** | docs, one-file fix, small test, mechanical change; **no** new feature or cross-file work | `issue` or `goal` |
 
-`feature` stays for a goal you want to merge by hand at the end.
+`/swe:playbook` lists the three. There is no other playbook.
 
 ## DAGs
 
 ```text
-delivery  plan ─► cards (one lane each, in parallel) ─► report
-lane      code ─► docs ─► build(PR) ─► [wait for providers ─► sync] ─► checks ⟲ci-fix ─► review ⟲fix ─► merge
-bugfix    plan ─► card (code ─► docs ─► PR ─► checks ─► review) ─► report
-docs      write ─► checks ⟲ci-fix ─► review ⟲fix ─► report
-ci-fix    fix ─► checks ─► review ─► report
-conflict  integrate ─► review ─► report
-changelog add ─► checks ─► review ─► report
-verify    verify ─► report
-review    review ─► report                                   (read-only)
-land      integrate ─► checks ⟲ci-fix ─► review ⟲fix ─► merge ─► report
-task      code ─► docs ─► build(PR) ─► checks ⟲ci-fix ─► report
-solo      (in this chat, no subagent) issue ─► plan ─► branch ─► code ─► docs ─► verify ─► PR ─► self-review ⟲fix ─► checks ⟲fix ─► merge
+Plan     CTO issue ─► architect plan comment ─► CTO accepts ─► dev(s)/subagents ─► PR ─► reviewer/gate merge
+Review   Plan ─► reviewer PASS/FAIL at SHA ─► author fixes findings ─► re-review ─► reviewer/gate merge
+Quick    CTO issue ─► dev ─► PR ─► reviewer/gate merge
 ```
+
+## The gates
+
+| Gate | Owner | Passes when |
+|---|---|---|
+| Issue ready | CTO | `ID: title`, lane + difficulty + area labels, closed file list, runnable `Done when` |
+| Plan accepted | CTO | architect's one plan comment has packages/waves/contracts/verify/risks; CTO accepts in one comment |
+| PR ready | developer | owned files only, test first, `Closes #N`, evidence from the card's verify command on the committed head |
+| Review | reviewer (different family) | `Verdict: PASS at <full sha>` and no open finding; a new push needs a new verdict |
+| Merge | reviewer/gate | PASS at the current SHA, green required checks, branch not behind `main`; merges through `swe-cli merge` or the documented gate |
+
+The exact issue, plan, verdict, fix and close comments are in
+[`work-package/references/comments.md`](../src/skills/work-package/references/comments.md).
 
 ## Rules
 
-- A shortcut starts one workflow and does none of its steps. The manager picks any other workflow.
-- `delivery` and `land` merge by themselves: set `autopilot.auto_merge` in `config.yaml`. `money-path` always waits
-  for the requester.
-- Every code card updates `docs/` before its PR opens (the `docs-sync` skill). Other repos read `docs/README.md` first.
-- A project's `PROJECT.md` opens with a `# Map` of its repos and dependencies; the planner uses it.
-- `play-solo` is the exception: it starts no workflow and no subagent, so the review is the author's own (the `interrogate`
-  skill, one adversary at a time) and the merge still goes through `swe-cli merge`; `mode=plan` stops after the plan and creates nothing.
-- Naming: `play-*` skills start a workflow (`play-solo` runs the steps in your chat); every other skill is knowledge loaded into your chat.
+- One package, one issue, one worktree, one branch, one PR; one owner.
+- The CTO does not code; the developer does not merge; the reviewer does not edit during review.
+- In `review`, the default fixer is the author; if the CTO assigns the reviewer as fixer, a different reviewer or the CTO
+  posts the PASS for the new SHA. Never self-approve.
+- A `quick` card that grows to a new feature, a shared file or a contract change stops and becomes `plan` or `review`.
+- Plans and verdicts are comments, not new issues. A plan that creates packages also creates their issues and links them.
+- A merge is not done until the issue is closed, the branch deleted and the worktree removed.
+
+## What happened to the old playbooks
+
+The old `playbook-deliver`, `playbook-feature`, `playbook-bugfix`, `playbook-review` (review-only), `playbook-cifix`,
+`playbook-docs`, `playbook-rebase`, `playbook-land`, `playbook-changelog`, `playbook-verify` and `playbook-solo` are
+removed. Their useful methods live in the skills they named (`github`, `tdd`, `docs-sync`, `ci-fixer`, `integrator`,
+`changelog`, `verifier`, `reviewer`, `delegate`); they are no longer separate CTO pipelines.

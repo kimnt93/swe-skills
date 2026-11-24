@@ -16,10 +16,11 @@ pass "cli: name outputs plugin name"
 
 # 2. Playbooks listing
 out="$("$cli" playbooks)"
-grep -q "playbook-deliver" <<<"$out" || fail "playbooks list missing playbook-deliver"
-grep -q "/swe:playbook-bugfix" <<<"$out" || fail "playbooks list missing /swe:playbook-bugfix"
-grep -q "playbook-solo" <<<"$out" || fail "playbooks list missing playbook-solo"
-pass "cli: playbooks lists all available playbooks and slash commands"
+grep -q "playbook-plan" <<<"$out" || fail "playbooks list missing playbook-plan"
+grep -q "/swe:playbook-review" <<<"$out" || fail "playbooks list missing /swe:playbook-review"
+grep -q "playbook-quick" <<<"$out" || fail "playbooks list missing playbook-quick"
+! grep -q "playbook-deliver" <<<"$out" || fail "playbooks list still shows the removed playbook-deliver"
+pass "cli: playbooks lists the three CTO pipelines and their slash commands"
 
 # 3. Config management
 cfg_file="$tmp/test_config.json"

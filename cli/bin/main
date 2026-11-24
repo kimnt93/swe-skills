@@ -202,18 +202,10 @@ def cmd_delegate(argv: List[str]) -> int:
 
 def cmd_playbooks() -> int:
     playbooks = [
-        ("playbook-deliver", "End-to-end delivery: goal to merged PR and verified code"),
-        ("playbook-feature", "Feature development: specification, planning, and test verification"),
-        ("playbook-bugfix", "Bugfix: defect reproduction with failing test first, minimal fix, verification"),
-        ("playbook-review", "Read-only adversarial review of a PR or diff with command proof"),
-        ("playbook-cifix", "Investigation and fix for failing CI check on an open PR"),
-        ("playbook-docs", "Documentation authoring and synchronization with code changes"),
-        ("playbook-rebase", "Bring PR branch up to date with main and safely resolve conflicts"),
-        ("playbook-land", "Execute verify gate and squash merge approved PR"),
-        ("playbook-changelog", "Record PR entries and maintain unreleased release notes"),
-        ("playbook-verify", "Drive live application verification against feature map"),
-        ("playbook-solo", "Execute task end-to-end in active chat without delegation"),
-        ("playbook", "Dispatcher and overview of all available engineering playbooks")
+        ("playbook-plan", "CTO issue, architect plan comment, CTO accept, delegated PRs, reviewer/gate merge"),
+        ("playbook-review", "Plan pipeline plus reviewer PASS/FAIL, author fixes, re-review, merge"),
+        ("playbook-quick", "CTO issue, developer PR, reviewer/gate merge; docs and small fixes, no plan"),
+        ("playbook", "Dispatcher for the three CTO pipelines"),
     ]
     name = get_plugin_name()
     print(f"=== Available Playbooks (invoke via /{name}:<playbook>) ===")

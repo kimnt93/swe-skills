@@ -28,7 +28,7 @@ gh issue create --title "Cancel an open order" --body-file issue.md \
 
 - Reference it from the branch (`feat/<n>-...`), the card body (`issue: #<n>`) and the PR (`Closes #<n>`).
 - Progress or a blocker: a comment (`gh issue comment <n> --body-file note.md`), never an edit of the
-  original goal.
+  original goal. A package uses the comment format in the `work-package` skill.
 
 ## Close
 

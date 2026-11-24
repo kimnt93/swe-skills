@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: "How the reviewer agent judges one pull request at one SHA, read-only: run the adversarial review, keep only findings proven by a command, write the report, post the verdict on the PR, and answer PASS or FAIL. A different model family than the author. Use when a workflow node asks you to review a card or PR."
+description: "How the reviewer/gate agent judges one pull request at one SHA, read-only: run the adversarial review, keep only findings proven by a command, write the report, post the verdict, and answer PASS or FAIL; after a PASS it may run the project merge gate. A different model family than the author. Use when a workflow node asks you to review a card or PR."
 metadata:
   group: process
   summary: "Reviewer: read-only verdict on one SHA, only findings proven by a run, PASS or FAIL"
@@ -26,7 +26,12 @@ You review; you never edit, commit, push or merge. You see the card's goal and t
    the tests prove the goal and are not tautological, and `make verify` passes on this SHA.
 5. Write the verdict line and the findings (or `no verified findings`) in your report, at exactly the path your brief names: a PR comment file is not the report.
 6. Post the verdict on the PR from a file: `Verdict: PASS at <sha>` or `Verdict: FAIL at <sha>` with the
-   findings (`gh pr comment --body-file`, the **github** skill).
+   findings (`gh pr comment --body-file`, the **github** skill). The package format is
+   `work-package/references/comments.md`.
+7. **Gate merge, only after a PASS at the current SHA.** In the three CTO pipelines the reviewer is also the gate: run
+   the project's merge command (`swe-cli merge ... --sha <sha>` or the documented equivalent) with green required checks
+   and a branch not behind `main`. This is a gate action, not an edit. A FAIL, a red check, a stale head or an open
+   finding means do not merge.
 
 ## Last line, exactly one of
 
@@ -40,4 +45,6 @@ REVIEW BLOCKED <one-line reason>
 
 ## Never
 
-Edit anything, approve your own earlier work, carry a verdict over to a new SHA, or merge.
+Edit during review, approve your own earlier work, carry a verdict over to a new SHA, merge across a FAIL, or merge
+without a PASS at the current SHA. If the CTO assigns you as the fixer, another reviewer or the CTO posts the PASS for
+your fix; you never approve your own new head.

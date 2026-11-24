@@ -42,7 +42,9 @@ keep a todo list in each harness).
 
 ---
 
-## Playbooks
+## Engineering methods
+
+These are methods used inside a CTO pipeline, not separate pipelines.
 
 Each playbook is a short procedure with a proof and a reply shape. The router picks one; you can also
 say its name ("use the hillclimb playbook").
@@ -203,55 +205,28 @@ limit: smaller scope; dropped connection: same brief; wrong approach: one tier u
 `harness.md` maps each abstract action (start a subagent, ask the human, todo list, wake later, project-local
 skill path) to Claude Code, oh-my-pi and Codex.
 
-## Playbooks
+## Playbooks: three CTO pipelines
 
-Playbooks define repeatable, structured workflows for software engineering tasks.
+Every repository change is one of these. They use the `work-package` issue/PR format; the reviewer/gate merges after a PASS.
+There is no fourth playbook.
 
 ### playbook
 
-**What it is.** Dispatcher: lists available playbooks, or guides the orchestrator through the standard engineering phases. **When.** Use when exploring available playbooks or when no single shortcut fits.
+**What it is.** Dispatcher for the three CTO pipelines. **When.** Choose `plan` for new or unsettled work, `review` when an
+independent PASS/FAIL and fix round is needed, and `quick` for a genuinely simple issue.
 
-### playbook-deliver
+### playbook-plan
 
-**What it is.** End-to-end delivery: takes a goal across repositories through architecture, card planning, delegation, verification, review, and landing. **When.** Complete features or deliverables spanning one or more repos.
-
-### playbook-feature
-
-**What it is.** Feature implementation: specification, contracts, test-first development, delegated implementation, and verification. **When.** Building a single feature card or requirement.
-
-### playbook-bugfix
-
-**What it is.** Bugfix playbook: reproduce the defect with a failing test first, apply the minimal scoped fix, and verify zero regressions. **When.** Any defect with a way to reproduce it.
+**What it is.** CTO issue → architect plan comment (packages, waves, contracts, verify, risks) → CTO acceptance → delegated
+developer/subagent PRs → reviewer/gate merge. **When.** New features, cross-file changes, hard bugs, or a shape not yet settled.
 
 ### playbook-review
 
-**What it is.** Review playbook: judges any PR or diff at its head, read-only, and posts PASS or FAIL backed by proven command findings. **When.** Reviewing changes before landing.
+**What it is.** The plan pipeline plus an independent reviewer PASS/FAIL at the head, an author fix round, a re-review at the
+new SHA, and the reviewer/gate merge. **When.** Risky or money-path work, code the author did not write, or work likely to
+have review findings.
 
-### playbook-cifix
+### playbook-quick
 
-**What it is.** CI fix playbook: reproduces a failing CI check locally, isolates the root cause, and applies a minimal fix within the card files. **When.** A required CI check is red on an open PR.
-
-### playbook-docs
-
-**What it is.** Documentation playbook: authors or syncs `docs/` with recent code changes and verifies all commands run. **When.** Updating or writing documentation.
-
-### playbook-rebase
-
-**What it is.** Rebase playbook: brings an open PR branch up to date with main and resolves conflicts cleanly within card files. **When.** A PR is behind main or has merge conflicts.
-
-### playbook-land
-
-**What it is.** Landing playbook: executes the pre-merge verify gate, squash merges the approved PR, and cleans up branches. **When.** Merging an approved PR into main.
-
-### playbook-changelog
-
-**What it is.** Changelog playbook: adds missing entries to PRs and maintains unreleased release notes. **When.** Ensuring release notes and change logs are true.
-
-### playbook-verify
-
-**What it is.** Verification playbook: drives the real application against the feature map and reports regressions or drift. **When.** Periodic, nightly, or post-merge health checks.
-
-### playbook-solo
-
-**What it is.** Solo execution playbook: executes task end-to-end in the active chat session without delegating to external agents. **When.** Single focused tasks performed directly in-chat.
-
+**What it is.** CTO issue → developer PR → reviewer/gate merge; no architect plan. **When.** Documentation, one-file fixes,
+small tests or mechanical changes. A card that grows stops and becomes `plan` or `review`.

@@ -27,7 +27,7 @@ import tempfile
 from pathlib import Path
 
 TYPES = ("feat", "fix", "refactor", "perf", "test", "docs", "chore", "ci", "build")
-BRANCH_RE = re.compile(rf"^({'|'.join(TYPES)})/\d+-[a-z0-9]+(-[a-z0-9]+)*$")
+BRANCH_RE = re.compile(rf"^(({'|'.join(TYPES)})/\d+-[a-z0-9]+(-[a-z0-9]+)*|[a-z][a-z0-9]{{1,7}}-\d{{2,4}}/[a-z0-9]+(-[a-z0-9]+)*)$")
 TITLE_RE = re.compile(rf"^({'|'.join(TYPES)})(\([a-z0-9-]+\))?!?: (?P<subject>.+)$")
 SECTIONS = ("## Why", "## What changed", "## Verification")
 ISSUE_RE = re.compile(r"\b(Closes|Fixes|Resolves|Refs) #\d+\b")
@@ -38,7 +38,7 @@ def lint(branch: str, title: str, body: str, files: list[str], changed: int, all
          max_lines: int, large_ok: bool = False) -> list[str]:
     problems = []
     if not BRANCH_RE.match(branch):
-        problems.append(f"branch {branch!r} is not <type>/<issue>-<slug>, e.g. feat/42-cancel-order")
+        problems.append(f"branch {branch!r} is not <type>/<issue>-<slug> (feat/42-cancel-order) or a work-package branch <id>/<slug> (api-03/cancel-order)")
     match = TITLE_RE.match(title)
     if not match:
         problems.append(f"title {title!r} is not a Conventional Commit: <type>(<scope>): <subject>")
@@ -97,6 +97,7 @@ def self_test() -> int:
     ok = lint("feat/42-cancel-order", "feat(orders): cancel an open order", good_body,
               ["internal/orders/cancel.go"], 120, ["internal/orders/**"], 400)
     assert ok == [], ok
+    assert lint("api-03/cancel-order", "feat(api-03): cancel an open order", good_body, [], 120, [], 400) == [], "package branch"
     bad = lint("my-branch", "Added cancel.", "did stuff", ["internal/risk/limits.go", ".env"], 900, ["internal/orders/**"], 400)
     joined = "\n".join(bad)
     for want in ("branch", "Conventional Commit", "## Why", "links no issue", "900 changed lines",
