@@ -1,5 +1,9 @@
 # Setup B: oh-my-pi (omp)
 
+> **Outdated in parts.** This page uses commands that `swe-cli` no longer has: `swe-cli context`, `swe-cli delegate start`, `swe-cli flow`, `swe-cli lane`, `swe-cli models apply`, `swe-cli models check`, `swe-cli orchestrate`, `swe-cli project`. Do not follow those
+> steps. `swe-cli --help` lists the commands that exist; [playbooks.md](playbooks.md) says how work is planned,
+> built, reviewed and merged now.
+
 oh-my-pi is the coding agent. It can use several providers (OpenAI through a Codex login, Google
 through Antigravity, Anthropic, ...), so one CLI can run strong and cheap models from different
 families.

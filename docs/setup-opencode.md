@@ -1,5 +1,9 @@
 # Setup D: opencode as the coding agent
 
+> **Outdated in parts.** This page uses commands that `swe-cli` no longer has: `swe-cli flow`, `swe-cli lane`, `swe-cli models check`. Do not follow those
+> steps. `swe-cli --help` lists the commands that exist; [playbooks.md](playbooks.md) says how work is planned,
+> built, reviewed and merged now.
+
 opencode runs any provider you logged in to (`opencode providers login`); models are written `provider/model`
 (`opencode models` lists them). It can be a coding agent in a workflow, a reviewer, or the project's manager.
 

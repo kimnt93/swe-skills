@@ -1,5 +1,9 @@
 # Recommended setup and usage
 
+> **Outdated in parts.** This page uses commands that `swe-cli` no longer has: `swe-cli context`, `swe-cli merge`, `swe-cli models apply`, `swe-cli models check`, `swe-cli orchestrate`, `swe-cli project`, `swe-cli sync`. Do not follow those
+> steps. `swe-cli --help` lists the commands that exist; [playbooks.md](playbooks.md) says how work is planned,
+> built, reviewed and merged now.
+
 What to run, in what order, and what to keep switched off until it has earned trust.
 
 ## The setup

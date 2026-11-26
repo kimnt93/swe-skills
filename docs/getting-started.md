@@ -8,15 +8,15 @@ Ten minutes from a fresh clone to `/swe` working in your coding agent.
 |---|---|---|
 | `git`, `make`, `python3` (3.11+) | build and install the plugin | `make --version && python3 --version` |
 | Claude Code and/or oh-my-pi (`omp`) | the coding agents | `claude --version`, `omp --version` |
-| `gh` (GitHub CLI), logged in | PRs, issues, merges | `gh auth status` |
+| `gh` (GitHub CLI), logged in | PRs, issues, merges; the merge rules also need the `read:project` scope | `gh auth status` |
 | Go, `uv`, Node 22 | only to run the template checks and tests | `go version`, `uv --version`, `node --version` |
-| tmux (or Orca) | only for a project of agents (step 5) | `tmux -V` |
+| Orca (optional) | the playbooks' worktrees and messages between agents | `orca status` |
 
 ## 2. Build and validate
 
 ```bash
 cd swe-skills
-make validate          # renders dist/swe/ and checks it: 41 skills checked, 0 error(s)
+make validate          # renders dist/swe/ and checks it: 52 skills checked, 0 error(s)
 ```
 
 The plugin's name comes from `plugin.env` (`PLUGIN_NAME ?= swe`). Change it there, or per command
@@ -55,24 +55,26 @@ In oh-my-pi the same request is `/skill:swe ...`.
 A project needs `make verify` for "done" to mean something: run `/swe:verify-create` once in it
 ([usage.md](usage.md#give-a-project-proof)).
 
-## 5. Optional: a project run by agents
+## 5. Run a playbook
 
-Only once step 4 works well on one repo by hand. A project is a directory holding one or more repo clones.
+Once step 4 works on one repository, let a playbook carry work through GitHub. Run this once, so the
+[merge rules](playbooks.md#merge-rules) can read your project boards:
 
 ```bash
-make cli                                 # links swe-cli into ~/.local/bin
-bash cli/tests/selftest.sh               # proves the cli against fake CLIs, a scratch repo and a fake Orca
-swe-cli project create orders            # ./orders/ with AGENTS.md, workflows/, config.yaml, config.yaml, project.yaml
-swe-cli project orders add <git url>     # add each repo; clones it into ./orders
-cd orders
-swe-cli update                           # later: pull main, reinstall everywhere
-swe-cli project update                   # later: refresh this project's workflows and AGENTS.md
-swe-cli doctor orders                    # git credentials, CLIs, tmux or Orca, the clones
-swe-cli orchestrate orders               # start the manager agent (default claude) in this directory
+gh auth refresh -h github.com -s read:project
 ```
 
-Then tell the manager what you want; it runs a workflow (`feature`, `bugfix`, `docs`, ...), reads the report,
-merges and cleans. Add a repo any time: `swe-cli project <project> add <git url>`, or ask the manager.
+| Say | What happens |
+|---|---|
+| `/swe:playbook-review review PR 54` | one `PASS` or `FAIL` comment; nothing changes. A safe first try |
+| `/swe:playbook-plan <problem>` | a planning issue and a plan comment; stops when the plan is accepted |
+| `/swe:playbook-quick <problem>` | issues, pull requests, the CTO/CEO's check and merge |
+| `/swe:playbook-complete <problem or plan>` | issues, pull requests, a separate reviewer who also fixes, then the merge |
+| `/swe:playbook-ship ship PR 54` | review and fix, then merge and close the issue |
+
+Work is built and merged only for an approved issue. To approve one an agent created, comment `Accepted by owner.` on it,
+or set its board status to `Todo` or `In Progress`. More: [playbooks.md](playbooks.md). To make `swe-cli` available, run
+`make cli`; its commands are in [cli/README.md](../cli/README.md).
 
 ## Troubleshooting
 
@@ -80,6 +82,7 @@ merges and cleans. Add a repo any time: `swe-cli project <project> add <git url>
 |---|---|
 | `/swe` is unknown | start a new session; `claude plugin list` should show `swe@swe-skills` |
 | `make validate` fails on a placeholder or name | read the first ERROR line; the validator names the file and line |
-| `swe-cli models check` lists `omp has no model ...` | `omp login <provider>`, then `omp models ls` and put the exact id in the project's `config.yaml` |
-| `gh auth status` fails inside a delegated session | `gh auth login` for the user that runs the orchestrator |
+| the merge check says the board cannot be read | `gh auth refresh -h github.com -s read:project` |
+| the merge check says an issue is not approved | comment `Accepted by owner.` on it yourself, or set its board status to `Todo` |
+| `gh auth status` fails inside a delegated session | `gh auth login` for the user that runs the session |
 | old `kim` or other plugin still listed | `PLUGIN_NAME=<old> make claude codex omp REMOVE=1` |

@@ -87,10 +87,10 @@ Claude Code, Codex and omp), `DRY_RUN=1` (show what would happen). A harness tha
 | Use | Harnesses |
 |---|---|
 | interactive coding with the skills | all of the above |
-| a **delegated session** (unattended, started by `swe-cli flow` or `swe-cli delegate`) | Claude Code (`claude`), Codex (`codex`), oh-my-pi (`omp`) and opencode (`opencode`) |
-| the **manager** of a project (`swe-cli orchestrate`, or the harness started in the project directory) | any of Claude Code, Codex, oh-my-pi, opencode |
+| a **delegated session** (unattended, started by `swe-cli delegate`) | Claude Code (`claude`), Codex (`codex`), oh-my-pi (`omp`) and opencode (`opencode`) |
+| the **manager** of a project (the harness started in the project directory) | any of Claude Code, Codex, oh-my-pi, opencode |
 
-The other harnesses use the same skills by hand; workflows drive the four coding CLIs above.
+The other harnesses use the same skills by hand; delegation drives the four coding CLIs above.
 A new coding CLI needs a branch in `cli/bin/main` (`argv`) and an entry under `clis:` and
 `agents:` in the project's `config.yaml`.
 

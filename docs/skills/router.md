@@ -164,7 +164,7 @@ committed head; a body with Why, What changed, Scope, Blast radius, Verification
 
 **What it is.** Drive a long task to a checkable predicate without stopping. **Use it when** you say "going
 to bed" or "run until done". **Steps.** Write the exit predicate first; pick a wake mechanism for the harness
-(`/loop`, `--max-time`, a scheduled `swe-cli flow run`); each iteration makes the smallest justified change, checks it,
+(`/loop`, `--max-time`, a scheduled run); each iteration makes the smallest justified change, checks it,
 commits or reverts; fix blockers yourself in their own PR; log each iteration; stop at the predicate, never
 earlier, never by relaxing it. Follow with `ketchup`.
 

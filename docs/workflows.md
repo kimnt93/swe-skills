@@ -1,5 +1,9 @@
 # Workflows
 
+> **Outdated in parts.** This page uses commands that `swe-cli` no longer has: `swe-cli flow`, `swe-cli init`, `swe-cli models check`, `swe-cli project`. Do not follow those
+> steps. `swe-cli --help` lists the commands that exist; [playbooks.md](playbooks.md) says how work is planned,
+> built, reviewed and merged now.
+
 A request becomes a **run** of a workflow: a DAG of nodes in YAML, executed by `swe-cli flow` (`cli/bin/flow`,
 one Python file). Every software task follows a flow (plan, build, check, review, merge), so the flow lives in
 YAML and the agents only do the steps. The manager (the orchestrator agent) starts runs and merges; it does not

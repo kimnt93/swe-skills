@@ -1,5 +1,9 @@
 # Delegation: sessions in git worktrees
 
+> **Outdated in parts.** This page uses commands that `swe-cli` no longer has: `swe-cli delegate review`, `swe-cli delegate scope`, `swe-cli delegate send`, `swe-cli delegate start`, `swe-cli delegate status`, `swe-cli delegate sync-branch`, `swe-cli merge`, `swe-cli orchestrate`, `swe-cli project`. Do not follow those
+> steps. `swe-cli --help` lists the commands that exist; [playbooks.md](playbooks.md) says how work is planned,
+> built, reviewed and merged now.
+
 How a project's orchestrator hands work to Claude Code, Codex or oh-my-pi, and how several agents code in one
 repository (or several) with few conflicts. The commands are `swe-cli delegate` and `swe-cli orchestrate` (see
 `cli/bin/delegate`); the orchestrator's rules are in the `manager` skill.

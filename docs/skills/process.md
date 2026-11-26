@@ -206,10 +206,9 @@ card, labels mirroring the card, milestones, triage, blocked); status reports fr
 behaviour, the merge gate says the entry is missing, you cut a release, or you ask what changed. **Two layers.** Every repo has a
 `CHANGELOG.md` with an `## [Unreleased]` section, and the PR adds its entry **before merge** (not needed for `docs`, `chore`, `ci`,
 `test`, `style`, `build` PRs or a `no-changelog` label). The project directory has `changelog/project.md` and one file per repo,
-written by the manager after each merge. **What happens.** `swe-cli merge` refuses a PR without the entry; `flow merge` then prints
-the `changelog` workflow to run (a `scribe` agent adds it on the PR branch, checks, a reviewer re-reviews); after the merge it
-records the PR in both project files. **Say.** `/swe:changelog add the entry for this PR`, or `swe-cli changelog show --repo api
---since 2026-11-01`. **Files.** `references/format.md`, `assets/CHANGELOG.template.md`.
+written by the manager after each merge. **What happens.** `swe-cli changelog check <pr>` says whether a pull request has its entry; a missing one is a review
+finding.
+**Say.** `/swe:changelog add the entry for this PR`, or `swe-cli changelog show`. **Files.** `references/format.md`, `assets/CHANGELOG.template.md`.
 
 ## Roles of the workflow agents
 
@@ -222,10 +221,9 @@ A workflow (`workflows/*.yaml`) starts one agent per node. Each role loads only 
 
 ### manager
 
-**What it is.** How a project's manager handles a request. **What happens.** It picks the workflow that fits
-(`feature`, `bugfix`, `docs`, `ci-fix`, `conflict`, `verify`), starts it with `swe-cli flow run`, watches it, then
-reads the run report, merges the ready PRs through the gate (`flow merge`) and removes what the run left
-(`flow clean`). It adds repos with `swe-cli project add`. **Never.** Plan cards, code, review or merge by hand.
+**What it is.** How a project's manager handles a request. **What happens.** A question it answers read-only. Otherwise
+it runs one of the five playbooks (`plan`, `quick`, `complete`, `review`, `ship`) and coordinates the agents with
+`delegate`. **Never.** Start work on an unapproved issue, or let an author merge its own pull request.
 
 ### planner
 

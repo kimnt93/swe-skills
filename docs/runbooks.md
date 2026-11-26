@@ -1,5 +1,9 @@
 # Runbooks
 
+> **Outdated in parts.** This page uses commands that `swe-cli` no longer has: `swe-cli bootstrap`, `swe-cli flow`, `swe-cli merge`, `swe-cli models apply`, `swe-cli models check`, `swe-cli orchestrate`, `swe-cli project`. Do not follow those
+> steps. `swe-cli --help` lists the commands that exist; [playbooks.md](playbooks.md) says how work is planned,
+> built, reviewed and merged now.
+
 Operations that need you: your real repo, your logins, your approval. Everything the agents could build is
 built and tested; these are the steps that use it. Do them in order 1 → 3; 4 to 6 any time. Each ends with
 commands whose output proves it worked.

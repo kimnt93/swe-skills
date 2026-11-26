@@ -1,5 +1,9 @@
 # Setup A: Claude Code on your Claude subscription
 
+> **Outdated in parts.** This page uses commands that `swe-cli` no longer has: `swe-cli context`, `swe-cli delegate start`, `swe-cli delegate status`, `swe-cli flow`, `swe-cli models check`, `swe-cli orchestrate`, `swe-cli project`. Do not follow those
+> steps. `swe-cli --help` lists the commands that exist; [playbooks.md](playbooks.md) says how work is planned,
+> built, reviewed and merged now.
+
 Claude Code is the coding agent, signed in with your Claude subscription (Pro or Max), no API key.
 The plugin adds `/swe`, the skills, and two subagents.
 

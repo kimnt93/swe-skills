@@ -1,8 +1,9 @@
 # swe-skills
 
-A software-engineering plugin for coding agents. One entry command (`/swe`) picks the language for the job, routes the task to a
-structured playbook, the engineering principles, and tested skills, and does not finish until the project's `make verify` passes.
-Workflows are defined as repeatable **playbooks** (`/swe:playbook-<name>`), configured via `config.json`, and implementation cards are delegated to worker agents via **Orca CLI sessions**, **T3 Code threads**, or direct headless CLI relays using `/swe:delegate`.
+A software-engineering plugin for coding agents. One entry command (`/swe`) picks the language for the job, routes the task to
+tested skills and engineering principles, and does not finish until the project's `make verify` passes. Five **playbooks**
+(`/swe:playbook-<name>`) take work from a problem or a pull request to its end, and `/swe:delegate` hands tasks to other
+coding agents through **Orca**, **T3 Code** or a direct CLI.
 
 | The job | Language |
 |---|---|
@@ -35,8 +36,15 @@ make cli
 
 ### 1. Playbooks (`/swe:playbook-<name>`)
 
-Exactly five pipelines. `plan` ends at an accepted plan; `quick` and `complete` build from a problem; `review` only
-comments on a PR; `ship` takes one PR to `main`.
+Exactly five. Pick by what you have and who should judge the code.
+
+| You have | Playbook | What happens | Ends |
+|---|---|---|---|
+| a problem whose design is open | [`plan`](src/skills/playbook-plan/SKILL.md) ([example](src/skills/playbook-plan/references/example.md)) | CTO/CEO card → architect comments the plan → back to the CTO/CEO | at the accepted plan; nothing built |
+| small or medium work | [`quick`](src/skills/playbook-quick/SKILL.md) ([example](src/skills/playbook-quick/references/example.md)) | CTO/CEO issues → one worktree and PR each → the CTO/CEO checks, at most 3 feedback rounds | merged or stopped |
+| features, hard work, an accepted plan | [`complete`](src/skills/playbook-complete/SKILL.md) ([example](src/skills/playbook-complete/references/example.md)) | CTO/CEO issues → a PR each → a **reviewer** reviews and fixes → the CTO/CEO trusts the PASS | merged or stopped |
+| a PR you want judged | [`review`](src/skills/playbook-review/SKILL.md) | read it, run it when safe, post one `PASS` or `FAIL` comment | at the comment; nothing changed |
+| a PR you want on `main` | [`ship`](src/skills/playbook-ship/SKILL.md) ([example](src/skills/playbook-ship/references/example.md)) | one reviewer reviews, fixes and re-reviews, at most 3 rounds, then merges | merged and issue closed, or stopped |
 
 ```text
 /swe:playbook-plan users cannot export the orders they filtered; plan it
@@ -46,20 +54,46 @@ comments on a PR; `ship` takes one PR to `main`.
 /swe:playbook-ship ship PR 54
 ```
 
-| Playbook | Purpose |
-|---|---|
-| `/swe:playbook-plan` | CTO card → architect plan comment → back to the CTO → accepts → stop ([example](src/skills/playbook-plan/references/example.md)) |
-| `/swe:playbook-quick` | CTO/CEO issues → a PR each → ≤3 feedback rounds → CTO/CEO merges or stops ([example](src/skills/playbook-quick/references/example.md)) |
-| `/swe:playbook-complete` | CTO/CEO issues → a PR each → a reviewer reviews and fixes → CTO/CEO trusts the PASS and merges ([example](src/skills/playbook-complete/references/example.md)) |
-| `/swe:playbook-review` | Read a PR and post one verdict comment; nothing changes |
-| `/swe:playbook-ship` | One PR: review and fix, ≤3 rounds → merge and close its issue, or stop ([example](src/skills/playbook-ship/references/example.md)) |
+In `complete` and `ship`, nobody else checks the reviewer's own fixes before `main`. The final `PASS` names those
+commits, and a `risk:money-path` pull request is never auto-merged ([fix loop](src/skills/reviewer/references/fix-loop.md)).
 
-Work is built or merged only for an approved issue ([merge rules](src/skills/github/references/pull-requests.md#merge-rules)).
+### Merge rules: only approved work
 
-### Templates: one style, yours to change
+Nothing is built or merged unless the pull request links an issue of the same repository and **every linked issue is
+approved** by one of:
 
-Issues, plans, pull request bodies and PR comments each follow a Markdown template that the linters read. Edit the file
-to change the style: [the list and how](src/skills/write-issue/references/templates.md).
+- the repository owner's comment on the issue ([template](src/skills/github/assets/owner-acceptance.template.md));
+- the repository owner being its author;
+- a project board status of `Todo` or `In Progress`.
+
+```text
+Accepted by owner.
+
+Notes: none
+```
+
+An issue that is closed (done, not planned or duplicate), labelled `duplicate` or `wontfix`, or marked `Done`,
+`Not planned`, `Duplicate` or `Canceled` on a board is refused whatever else says yes. Agents often share the owner's
+account, so text signed by an agent never counts as the owner's. The check reads the board, which needs this once:
+
+```bash
+gh auth refresh -h github.com -s read:project
+python3 src/skills/github/scripts/issue_gate.py issue <number> --repo <owner>/<repo>   # may it be built?
+python3 src/skills/github/scripts/issue_gate.py pr <number> --repo <owner>/<repo>      # may it be merged?
+```
+
+These checks are run by the agents; GitHub does not enforce them. Full rules:
+[merge rules](src/skills/github/references/pull-requests.md#merge-rules); the names are in
+[merge-rules.json](src/skills/github/assets/merge-rules.json).
+
+### One style for issues, comments, commits and pull requests
+
+- Issues are written with [`write-issue`](src/skills/write-issue/SKILL.md), comments with
+  [`write-comment`](src/skills/write-comment/SKILL.md), pull requests from one template.
+- Every commit is authored by the agent's name, and every issue, comment and PR body ends with `Created: <agent name>`
+  ([identity](src/skills/github/references/identity.md)). Merges are by rebase, so the name stays on `main`.
+- The linters read the Markdown templates: edit a file to change the style
+  ([the list and how](src/skills/write-issue/references/templates.md)).
 
 ### 2. Multi-Agent Delegation (`/swe:delegate`)
 
@@ -109,6 +143,7 @@ Configuration is managed in `config.json` (search paths: `$SWE_CONFIG` -> `./con
 |---|---|
 | [docs/getting-started.md](docs/getting-started.md) | install, first task, troubleshooting |
 | [docs/usage.md](docs/usage.md) | what to say for each kind of task |
+| [docs/playbooks.md](docs/playbooks.md) | the five playbooks, their gates and rules |
 | [docs/skills/](docs/skills/README.md) | each skill in detail |
 | [docs/harnesses.md](docs/harnesses.md) | every supported harness and how it installs |
 | [docs/development.md](docs/development.md) | make targets, build settings, layout, enforced rules |

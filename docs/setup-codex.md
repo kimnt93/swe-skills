@@ -1,5 +1,9 @@
 # Setup C: Codex CLI
 
+> **Outdated in parts.** This page uses commands that `swe-cli` no longer has: `swe-cli context`, `swe-cli delegate start`, `swe-cli lane`, `swe-cli models check`, `swe-cli orchestrate`, `swe-cli project`. Do not follow those
+> steps. `swe-cli --help` lists the commands that exist; [playbooks.md](playbooks.md) says how work is planned,
+> built, reviewed and merged now.
+
 Codex CLI is a coding agent on your ChatGPT login (OpenAI models). It can be a project's default coding CLI,
 a reviewer, or the project's orchestrator.
 

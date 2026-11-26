@@ -1,5 +1,9 @@
 # Context limits
 
+> **Outdated in parts.** This page uses commands that `swe-cli` no longer has: `swe-cli context`, `swe-cli lane`. Do not follow those
+> steps. `swe-cli --help` lists the commands that exist; [playbooks.md](playbooks.md) says how work is planned,
+> built, reviewed and merged now.
+
 How long a session may grow before each agent compacts it.
 
 One policy in the project's `config.yaml`, applied to every tool:

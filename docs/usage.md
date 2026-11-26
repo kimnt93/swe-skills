@@ -59,44 +59,41 @@ For orders, fills, positions, balances, risk and P&L also use `/swe:replay-test`
 day, then with duplicated and redelivered events) and, for state machines and races,
 `/swe:formal-verify`.
 
+## Playbooks: from a problem or a pull request to its end
+
+| You have | Say | You get |
+|---|---|---|
+| a problem whose design is open | `/swe:playbook-plan <problem>` | an accepted plan on the issue; nothing built |
+| small or medium work | `/swe:playbook-quick <problem>` | merged pull requests checked by the CTO/CEO |
+| features or hard work | `/swe:playbook-complete <problem or plan>` | pull requests a separate reviewer reviewed, fixed and passed, then merged |
+| a pull request to judge | `/swe:playbook-review review PR <n>` | one verdict comment; nothing changed |
+| a pull request to land | `/swe:playbook-ship ship PR <n>` | merged with its issue closed, or stopped with the reasons |
+
+A review loop has at most 3 rounds. After that the pull request passes or is stopped: it stays open with its branch, and
+you decide what happens. Details and gates: [playbooks.md](playbooks.md).
+
+## What waits for you
+
+- **Approving an issue.** One an agent created is not approved by that. Comment on it, or set its board status to
+  `Todo` or `In Progress`:
+
+  ```text
+  Accepted by owner.
+
+  Notes: none
+  ```
+
+- **A money path.** A pull request labelled `risk:money-path` is never auto-merged.
+- **A stopped pull request**, and any pull request from a fork or an outside contributor.
+
 ## Git and GitHub, the one way
 
-Every agent follows the `github` skill: issue → branch `<type>/<issue>-<slug>` → small Conventional
-Commits → PR with `Closes #N` → `pr_lint.py` clean → checks green → merge through the gate → issue
-closed. Say `/swe:github open the PR for this branch` and it writes the body, lints it, opens it and
-checks the result. A good submit is one feature function, at most about 400 changed lines, simple
-code, only the files the task allows, and the project's `ARCHITECTURE.md` respected.
-
-## With a project of agents (unattended)
-
-A project is a directory. In it, `swe-cli project init` writes `AGENTS.md` (the manager's instructions), the
-workflows, the `roles:` block of `config.yaml`, `config.yaml` and `project.yaml`, and asks for git URLs until you are done. You talk to
-the **manager**, any CLI agent started with `swe-cli orchestrate <project>` (or just `claude`, `codex`, `omp`, `opencode` in that
-directory). A question (`/swe:how ...`) it answers itself; work that matches a workflow it runs as a DAG; every node is one agent; every node is one agent; the **gate** merges. See [workflows.md](workflows.md).
-
-```text
-you → manager: "add cancel-order and a Cancel button"
-manager:         swe-cli flow run orders feature --goal "..."
-workflow:        plan → two cards in parallel (build → checks → review by another family) → report
-manager:         reads the report: "2 PRs ready"; you say "merge"; it runs flow merge, then flow clean
-you → manager: "add github.com/acme/billing-api to this project"     (it runs swe-cli project add)
-```
-
-Your commands:
-
-```bash
-swe-cli project init [dir]                 # make a directory a project (no repos)
-swe-cli project create <project>           # ./<project>/ made a project
-swe-cli project <project> add <git url>    # a repo in that project (project.yaml + clone)
-swe-cli orchestrate <name>                 # start the project's manager (any CLI) in its directory
-swe-cli flow run|status|retry|merge|clean|stop ...   # what the manager runs; you can too
-swe-cli models show | check | apply        # who runs on which model
-swe-cli delegate status <project>          # live cards: state, outcome, behind main
-tmux attach -t <project>-<card>            # watch or take over a session (or open it in Orca)
-```
-
-Risk classes decide what waits for you: `money-path` always; `standard` until you turn on
-autopilot for it; `low` after the first 20 clean merges ([recommended-setup.md](recommended-setup.md)).
+Every agent follows the `github` skill: approved issue → branch `<id>/<slug>` or `<type>/<issue>-<slug>` → Conventional
+Commits under the agent's own name → a pull request from the one template, with `Closes #N` → `pr_lint.py` → checks
+green → the playbook's judgment of one commit → rebase merge → issue closed. Every issue, comment and pull request body
+ends with `Created: <agent name>`. Say `/swe:github open the PR for this branch` and it writes the body, lints it, opens
+it and checks the result. A good pull request is one outcome, at most about 400 changed lines (more needs `size:large`
+and a reason), only the files the issue owns, and the project's `ARCHITECTURE.md` respected.
 
 ## Reading what the agent says back
 

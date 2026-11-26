@@ -37,6 +37,14 @@ Quick ([commands](../src/skills/playbook-quick/references/orchestration.md),
 [example](../src/skills/playbook-complete/references/example.md)) and Ship
 ([example](../src/skills/playbook-ship/references/example.md)) ship their own.
 
+## Merge rules
+
+A pull request merges only when it links an issue of its repository and every linked issue is approved: the repository
+owner commented `Accepted by owner.`, the owner is its author, or its board status is `Todo` or `In Progress`. A closed
+issue (done, not planned, duplicate), a `duplicate` or `wontfix` label, a refusing board status or a board that cannot be
+read refuses it. The same check runs before any work starts. Agents never approve for the owner.
+[Full rules](../src/skills/github/references/pull-requests.md#merge-rules).
+
 ## The gates
 
 | Gate | Owner | Passes when |

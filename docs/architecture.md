@@ -1,5 +1,9 @@
 # Architecture: the swe-skills agents
 
+> **Outdated in parts.** This page uses commands that `swe-cli` no longer has: `swe-cli delegate cleanup`, `swe-cli delegate review`, `swe-cli delegate start`, `swe-cli delegate status`, `swe-cli delegate sync-branch`, `swe-cli lane`, `swe-cli merge`, `swe-cli models check`, `swe-cli orchestrate`, `swe-cli project`. Do not follow those
+> steps. `swe-cli --help` lists the commands that exist; [playbooks.md](playbooks.md) says how work is planned,
+> built, reviewed and merged now.
+
 How the plugin and its agents run several software projects with any CLI agent as the orchestrator
 (Claude Code, Codex, oh-my-pi), with GitHub as the place where all code lands. Written in the `architect` skill's rationale shape: usage first, then
 the shape, then the decisions and what was rejected.
