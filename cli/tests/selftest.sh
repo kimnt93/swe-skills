@@ -17,10 +17,10 @@ pass "cli: name outputs plugin name"
 # 2. Playbooks listing
 out="$("$cli" playbooks)"
 grep -q "playbook-plan" <<<"$out" || fail "playbooks list missing playbook-plan"
-for name in build plan quick refactor-plan review ship test; do
+for name in build plan quick refactor-plan review ship test security; do
   grep -q "/swe:playbook-$name" <<<"$out" || fail "playbooks list missing /swe:playbook-$name"
 done
-[ "$(grep -c '| /swe:playbook-' <<<"$out")" = 7 ] || fail "playbooks list must show exactly seven pipelines"
+[ "$(grep -c '| /swe:playbook-' <<<"$out")" = 8 ] || fail "playbooks list must show exactly eight pipelines"
 grep -q "^playbook-build .*DEFAULT" <<<"$out" || fail "playbooks list must mark playbook-build as the default"
 grep -q "^playbook-quick .*Only when named" <<<"$out" || fail "playbooks list must say quick runs only when named"
 ! grep -qE "/swe:playbook( |$)" <<<"$out" || fail "playbooks list still shows the removed dispatcher"
@@ -28,7 +28,8 @@ grep -q "^playbook-quick .*Only when named" <<<"$out" || fail "playbooks list mu
 ! grep -q "playbook-complete" <<<"$out" || fail "playbooks list still shows the removed playbook-complete"
 grep -q "^playbook-test .*fixes nothing" <<<"$out" || fail "playbooks list must say the test pipeline fixes nothing"
 grep -q "^playbook-quick .*no review" <<<"$out" || fail "playbooks list must say quick has no review"
-pass "cli: playbooks lists the seven pipelines, build as the default, quick only when named"
+grep -q "^playbook-security .*changes nothing" <<<"$out" || fail "playbooks list must say the security audit changes nothing"
+pass "cli: playbooks lists the eight pipelines, build as the default, quick only when named"
 
 # 3. Config management
 cfg_file="$tmp/test_config.json"

@@ -109,7 +109,7 @@ A bot starts agents for **its own** job only. Only when no bot has the role may 
 | **Developer** | the code job: difficulty, agents, worktrees, verification, the PR, the report | write the code itself, design or priority calls, review of its own PR, the merge |
 | **Tester** | a `test` lane issue: tests and verification work, built and reported like the developer's; a [playbook-test](../playbook-test/SKILL.md) run: test as a user, report, fix nothing | judge a PR as its reviewer, the merge |
 | **Devops** | an `ops` lane issue: deployment, CI and infrastructure work, built and reported like the developer's | deploy or touch production without the owner's go, the merge |
-| **Reviewer** | the verdict on a PR it did not write, drafted by its own agents; in `build` and `ship` also the fixes and the check against the accepted plan, and in `ship` the merge | build the PR it judges; take part in `quick`, which has no check |
+| **Reviewer** | the verdict on a PR it did not write, drafted by its own agents, with its [security and outbound-data check](../reviewer/SKILL.md#security-and-outbound-data); in `build` and `ship` also the fixes and the check against the accepted plan, and in `ship` the merge; a [playbook-security](../playbook-security/SKILL.md) audit: proven findings, change nothing | build the PR it judges; take part in `quick`, which has no check |
 
 Each role is the same rule: the bot that holds it does the job through its own agents. With no tester or devops bot, the
 developer bot builds that issue; with no bot for a role at all, the CEO/CTO starts its own agent for it, named

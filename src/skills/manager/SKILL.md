@@ -1,6 +1,6 @@
 ---
 name: manager
-description: "How a project's manager handles requests: pick one of the seven playbooks (build by default, quick only when named, plan, refactor plan, review, ship, test), orchestrate only (each plan, code, test, deploy or review job goes to the role that holds it), coordinate the architect plan and delegated cards in Orca, each agent on a row of the team's agent table, watch verification, and report."
+description: "How a project's manager handles requests: pick one of the eight playbooks (build by default, quick only when named, plan, refactor plan, review, ship, test, security), orchestrate only (each plan, code, test, deploy or review job goes to the role that holds it), coordinate the architect plan and delegated cards in Orca, each agent on a row of the team's agent table, watch verification, and report."
 metadata:
   group: process
   summary: "Manager: pick the playbook (build by default), orchestrate only, delegate by role, verify, report"
@@ -23,6 +23,7 @@ Decide per message, before anything else:
 | A refactoring plan | Run `playbook-refactor-plan`: the architect writes the new issues, you post them unchanged; nothing is built. |
 | A pull request to look at, or to land | `playbook-review` (it only comments) or `playbook-ship`. |
 | Test an app, API or tool; find its bugs | Run `playbook-test`: the tester uses it as its user does; a short report with evidence; nothing is fixed. |
+| A security audit of a pull request or a repository | Run `playbook-security`: the reviewer proves each finding and lists what data leaves; nothing is changed or merged. |
 | A job another bot's role owns (plan, code, tests, deployment, review) | Delegate it to that bot ([bot-orchestration](../bot-orchestration/SKILL.md)); do not start its agents yourself, and never do it yourself. |
 | Request to change which harness, model or effort agents use | The owner edits the team's agent table; nothing else sets them. |
 
@@ -65,6 +66,7 @@ its row. A missing table or row: **stop and ask the owner**; there is no default
 | Review this PR | `playbook-review` | One verdict comment; nothing changes |
 | Ship, finish or land this PR | `playbook-ship` | Reviewer reviews and fixes → merges and closes the issue, or stops |
 | Test this app, API or tool | `playbook-test` | Request → tester writes expected results, uses it, confirms failures → pass or fail per function, evidence, bugs ready to file → stop, no code fixed |
+| Audit this for security or leaks | `playbook-security` | Request → reviewer scans, lists every outbound path, proves findings locally → report and issues ready to file → stop, no code changed, nothing merged |
 | A question: how/why/what changed | `how`, `why`, `ketchup`, `interrogate` | Answer read-only; no run |
 
 There is no other playbook. A request that names one follows it.
