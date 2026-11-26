@@ -20,6 +20,10 @@ Refused (done, not planned, duplicate or not approved): change nothing and repor
    `git branch --show-current` against that. If the brief has no issue number, create the issue with `gh issue create`
    and rename the branch (`git branch -m`) before the first commit. Never commit on `main` or on a branch that breaks the pattern.
 1. Work only in your worktree and only in the card's files. Another file is a new card: stop and say so.
+   **Send no data the card does not ask for:** no new or wider call, telemetry, SDK, upload, CI or install step that
+   sends, unless the issue names that destination and data. The review fails it
+   ([outbound data](../security-review/references/outbound-data.md)). A card that needs one it does not name: stop and
+   say so. Run the [security scan](../security-review/SKILL.md#the-scan) before the PR and resolve its items.
 2. **Test first** (the **tdd** skill): a failing test that states the goal, then the smallest change that passes.
    Money-path cards also get a replay test (**replay-test**).
 3. Small Conventional Commits (the **github** skill), one feature function, a small diff. Run **deslop** before

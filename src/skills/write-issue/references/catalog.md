@@ -92,7 +92,7 @@ The part of the product (`bots`, `mobile`, `ci`, ...). Each project has its own;
 | `epic-plan` | architect, on an epic | ``## Architecture & Planning (`ID`)`` |
 | `decision` | CTO/CEO, on a plan or a PR | `Accepted by CTO (<name>).`, `Changes required by CTO (<name>)`, or on a PR `Stopped by CTO (<name>).` and, in quick, `Returned by CTO (<name>).`; a reviewer posts only `Stopped by reviewer (<name>).` |
 | `status` | whoever holds the work | `Status: started\|blocked\|done` |
-| `verdict` | reviewer, on the PR | `Verdict: PASS\|FAIL at <40-character sha>`; a FAIL in a fix loop adds `. Round K of 3.` |
+| `verdict` | reviewer, on the PR, with its `## Security` section | `Verdict: PASS\|FAIL at <40-character sha>`; a FAIL in a fix loop adds `. Round K of 3.` |
 | `fix` | author, on the PR | `Fixed in <sha>:` |
 | `merge` | whoever the playbook names to merge, on the PR | `Merged by <who> at <sha> after PASS.`, `after checks.` (quick) or `after acceptance.` |
 | `close` | the owner of the issue | `Closed: <outcome>` or `Replaced by #N` |

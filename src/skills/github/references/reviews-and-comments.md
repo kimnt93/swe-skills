@@ -3,12 +3,13 @@
 ## Review a PR
 
 1. Check out the head and record its SHA: `gh pr checkout <n> && git rev-parse HEAD`.
-2. Run `make verify` yourself, then the **interrogate** skill on `git diff origin/main...HEAD`.
+2. Run `make verify` yourself, then the **interrogate** skill on `git diff origin/main...HEAD`. Every review also gets
+   the [security and outbound-data check](../../reviewer/SKILL.md#security-and-outbound-data).
 3. Check the submit rules (`pr_lint.py pr <n>`) and the architecture (`make verify` runs `archcheck` /
    `lint-imports`).
-4. Verdict, in a body file whose first line is `Verdict: PASS at <sha>` or `Verdict: FAIL at <sha>`,
-   followed by the findings (command, output, expected) or "no verified findings". For a package, use the
-   comment format in the `write-comment` skill. The body ends with `Created: <agent name>`.
+4. Verdict, in a body file in the format of the `write-comment` skill: the first line `Verdict: PASS at <sha>` or
+   `Verdict: FAIL at <sha>`, the findings (command, output, expected) or what was verified, and the `## Security`
+   section, without which no verdict passes the linter. The body ends with `Created: <agent name>`.
 
 ```bash
 gh pr review <n> --comment --body-file review.md

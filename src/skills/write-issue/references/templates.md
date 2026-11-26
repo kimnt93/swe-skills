@@ -22,6 +22,7 @@ read the sections, their order and what they hold from it, so changing the file 
 | a heading | have it, in this order (text after the name, as in `## Verified on <sha>`, is free) |
 | `<!-- optional -->` on a heading | may leave it out |
 | `<!-- on pass -->`, `<!-- on fail -->` (PR comments) | have it after a PASS or acceptance; after a FAIL or changes required |
+| `<!-- on verdict -->` (PR comments) | have it in every `verdict` comment, PASS or FAIL |
 | `<!-- needs code -->` | put a command, path or symbol in backticks there |
 | `<!-- needs fence -->` | put a fenced block there |
 | a `**Label:**` line with a fixed label | have that line (bold or not); with a command in the template line, a command in yours |

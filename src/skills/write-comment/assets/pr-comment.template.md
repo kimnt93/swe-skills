@@ -11,6 +11,12 @@
 1. **Scope & Diff:** `git diff origin/main...HEAD --stat` <the files touched; only owned files>
 2. **<area: code, UI, security, tests, docs>:** <what was checked and what showed it>
 
+## Security <!-- on verdict, needs code -->
+- **Scan:** `security_scan.py --base origin/main --head <40-character sha>`: exit <0 or 1>; <each item: safe because, asked for by, or a finding under Blocking>
+- **Outbound data:** <none added or widened, or one line per path: asked for by #<n>: <the destination in backticks> receives <data>; or: not asked for: <what> (a FAIL, under Blocking)>
+- **Risk:** <no proven finding, or the findings under Blocking>
+- **Not checked:** <what, or: none>
+
 ## Gate <!-- needs fence -->
 ```text
 <command, run on the head above>

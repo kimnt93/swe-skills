@@ -176,7 +176,9 @@ Follow the [review and fix loop](../reviewer/references/fix-loop.md): own worktr
 `FAIL ... Round k of 3.` before each fix, **at most 3 rounds**, then a PASS that names its own commits, or
 `Stopped by reviewer`. The reviewer checks the code against the issue **and the accepted plan**
 ([against the plan](../reviewer/SKILL.md#against-the-accepted-plan)): its packages, contracts, owned files and verify
-commands. **A departure from the plan is a finding** ([example](assets/example/verdict-fail.md)). An agent reports only
+commands. Every turn also does the [security and outbound-data check](../reviewer/SKILL.md#security-and-outbound-data):
+a proven finding, or data going out that no accepted issue asks for, is a FAIL. So a package issue that needs an
+outbound path **names the destination and the data** before it is built. **A departure from the plan is a finding** ([example](assets/example/verdict-fail.md)). An agent reports only
 to the bot that started it. A reviewer **bot** sends the CTO/CEO the [review report](assets/example/review-report.md):
 `REVIEW PASSED` or `REVIEW STOPPED`, the PR, the head SHA, the verdict link, rounds used and the commits it pushed.
 
@@ -233,4 +235,5 @@ it: it reports the verdict to the owner. Work that depends on it is not sent; ot
 - Plan, code, test, deploy or review as the CTO/CEO, or start an agent for a role a bot holds.
 - Let a builder or the reviewer's author judge its own PR, or one agent be both builder and reviewer.
 - Merge without `can-merge`, on a new head, with a red required check, or with an admin override.
+- Pass or merge without the security check, or add an outbound path to an issue after its code to make it pass.
 - Auto-merge a money path, ask for a fourth round, or close a stopped PR.

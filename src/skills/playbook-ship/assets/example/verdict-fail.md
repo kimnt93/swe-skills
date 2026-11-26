@@ -7,6 +7,12 @@ With `TZ=Asia/Kathmandu` the page test shows `15:15`; the issue requires the tim
 
 **Smallest fix:** fall back to the UTC offset when there is no abbreviation, with a test for that zone.
 
+## Security
+- **Scan:** `security_scan.py --base origin/main --head 4f2c9a1d8b7e6c5a4f3e2d1c0b9a8f7e6d5c4b3a`: exit 0, no item
+- **Outbound data:** none added or widened
+- **Risk:** no proven finding
+- **Not checked:** none
+
 ## Gate
 ```text
 cd web && npm run check

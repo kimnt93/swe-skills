@@ -10,6 +10,12 @@ minutes.
 
 **Smallest fix:** drop a bucket on its next lookup once it has been idle for 10 minutes, with a test that moves the clock.
 
+## Security
+- **Scan:** `security_scan.py --base origin/main --head 3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f`: exit 0, no item
+- **Outbound data:** none added or widened
+- **Risk:** the finding under Blocking: callers with new keys grow memory without bound
+- **Not checked:** none
+
 ## Gate
 ```text
 make verify

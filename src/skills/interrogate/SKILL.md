@@ -42,6 +42,7 @@ Attacks worth trying in this stack:
 | Python ML | a different seed, an empty or skewed batch, NaN and inf in features, train/serve skew |
 | Rust | overflow, an empty input, a panic path (`unwrap`, indexing), a PyO3 call with the GIL held |
 | Frontend | an API error envelope, a slow or empty response, a refresh mid-flow, keyboard-only use |
+| security | each topic of [security-review](../security-review/SKILL.md#topics) the diff touches: another user's id, hostile input, a local fake receiver to see what leaves |
 | everything | a missing or blank env variable; `audit_api.py` and `probe_api.py` for services |
 
 ## Verify and report

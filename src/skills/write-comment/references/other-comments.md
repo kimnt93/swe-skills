@@ -6,8 +6,8 @@ Every comment ends with `Created: <author>`, and none carries a "Generated with"
 
 A verdict, a CTO/CEO decision on a PR, a fix and a merge all use **one** template,
 [pr-comment.template.md](../assets/pr-comment.template.md): the headline, one or two sentences, then **Blocking** (only
-when something fails), **Verified** (when it passes), **Gate** (commands and their output on that head) and
-**Residual** (open notes, or `none`). See a [PASS](../assets/example/verdict-pass.md) and a
+when something fails), **Verified** (when it passes), **Security** (every verdict), **Gate** (commands and their output
+on that head) and **Residual** (open notes, or `none`). See a [PASS](../assets/example/verdict-pass.md) and a
 [FAIL](../assets/example/verdict-fail.md).
 
 Only the headline and which sections apply differ:
@@ -16,10 +16,25 @@ Only the headline and which sections apply differ:
 
 `Verdict: PASS at <40-character sha>` or `Verdict: FAIL at <40-character sha>`; in a fix loop (`playbook-build`,
 `playbook-ship`) a FAIL ends `. Round <k> of 3.`, and the loop's end is `Stopped by reviewer (<name>). PR #<n> at
-<sha>.` PASS: Verified, Gate, Residual. FAIL:
-one Blocking section per finding, Gate, Residual (Verified for what did pass). There is no `CHANGES` verdict. A finding
+<sha>.` PASS: Verified, Security, Gate, Residual. FAIL:
+one Blocking section per finding, Security, Gate, Residual (Verified for what did pass). There is no `CHANGES` verdict. A finding
 without a command and its output is dropped. A verdict is never carried to a new SHA or posted by the author on their
 own work.
+
+### Its Security section
+
+The [security and outbound-data check](../../reviewer/SKILL.md#security-and-outbound-data) of that head, exactly one
+section, four labels. The linter refuses a verdict without it; the rule is in `package_lint.py`, so a team's own
+template cannot drop it, and `pr_loop.py` refuses to post or merge on a PASS that fails it.
+
+| Line | A PASS needs |
+|---|---|
+| `- **Scan:** ...` | `security_scan.py`, the verdict's 40-character head SHA, `exit 0` or `exit 1`, and how each item is resolved |
+| `- **Outbound data:** ...` | `none added or widened` (a note may follow after `.`, `:` or `(`), or one such line per path: ``asked for by #<n>: `<destination>` receives <data>``, with an issue the pull request links and a destination its text holds |
+| `- **Risk:** ...` | it starts with `no proven finding` |
+| `- **Not checked:** ...` | what you did not check, or `none` |
+
+A FAIL fills the same four lines and puts each finding, an unasked path included, under its own `Blocking`.
 
 ## decision (CTO/CEO)
 

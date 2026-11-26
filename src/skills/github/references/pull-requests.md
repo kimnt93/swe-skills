@@ -128,6 +128,11 @@ collaborator, and a `Verdict: PASS` only when its author can also push (the same
 `trusted_author`): a read-only member's PASS approves nothing, and a failed lookup never drops a refusal. An old
 `Accepted by CTO ... PR #<n>` approves nothing.
 
+**A PASS counts only with its security check.** `can-merge` and `decide` refuse a PASS without the `## Security`
+section of the [security-review](../../security-review/SKILL.md) skill, one with a proven finding, one whose scan is of
+another head or did not run, and one with an outbound path that no linked issue asks for: each `asked for by #<n>` line
+is checked against the text `issue_gate.py asked <n> --repo <owner>/<repo> --pr <pr>` prints. A FAIL counts without it.
+
 In `playbook-quick` nobody judged the head, so its first line is the unreviewed form of `can-merge`, with the head
 the developer reported ([quick, step 5](../../playbook-quick/SKILL.md#5-ctoceo-merge-then-confirm)). Only quick uses it,
 and the script holds it to that: it refuses any PR that carries a judgment or a stop, and any PR whose linked issues do

@@ -13,6 +13,12 @@ the issue requires the time and the zone name.
 1. **Scope & Diff:** `git diff origin/main...HEAD --stat` touches only the three owned files.
 2. **Tests:** the page tests fail without the change.
 
+## Security
+- **Scan:** `security_scan.py --base origin/main --head 4f2c9a1d8b7e6c5a4f3e2d1c0b9a8f7e6d5c4b3a`: exit 0, no item
+- **Outbound data:** none added or widened
+- **Risk:** no proven finding
+- **Not checked:** none
+
 ## Gate
 ```text
 cd web && npm run check

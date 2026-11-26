@@ -32,7 +32,9 @@ ORCA worktree create --repo <repo> --name review-pr-<n> --branch review/pr-<n> -
 ## Each turn
 
 1. Where the loop stands: `python3 <github skill>/scripts/pr_loop.py state --pr <n> --repo <owner>/<repo>`.
-2. [Review](../SKILL.md#steps) the whole head, your earlier fixes included.
+2. [Review](../SKILL.md#steps) the whole head, your earlier fixes included, the
+   [security and outbound-data check](../SKILL.md#security-and-outbound-data) too: a fix is new code, and the scan runs
+   again on the new head.
 3. **No finding:** post the PASS ([below](#the-pass)).
 4. **Findings, rounds left:** post `Verdict: FAIL at <sha>. Round <k> of 3.` **before** you change anything, with every
    finding you have. Check it first: `pr_loop.py decide --pr <n> --repo <owner>/<repo> --body-file verdict.md`.
@@ -47,6 +49,8 @@ this PR, and never resets.
 ## What a fix may touch
 
 - Only the findings you posted, in the files the issue owns.
+- The fix for an outbound path no issue asks for is to **remove it**. If the change needs it, that is the owner's call
+  on the issue: stop.
 - **Never make your own check easier:** do not delete, skip or weaken a test, check or lint rule to get a PASS. If a test
   is itself wrong, say so as a finding, and keep it testing the goal.
 - Never edit the issue, widen the scope or add a dependency the issue does not allow.
@@ -66,7 +70,7 @@ follows the `integrator` skill; one outside the owned files is a stop.
 
 ## The PASS
 
-`Verdict: PASS at <40-character sha>` with Verified, Gate and Residual. If you pushed any commit, `Residual` **names each
+`Verdict: PASS at <40-character sha>` with Verified, Security (of this head), Gate and Residual. If you pushed any commit, `Residual` **names each
 one** by its short SHA, so whoever relies on your verdict sees what had a single pair of eyes:
 
 ```text
@@ -74,7 +78,8 @@ one** by its short SHA, so whoever relies on your verdict sees what had a single
 - pushed by the reviewer and checked by nobody else: 4f2c9a1, 9b8a7c6
 ```
 
-`pr_loop.py decide` refuses a PASS that leaves one out, or that the pull request's writer signed. With `pr_lint.py`, add
+`pr_loop.py decide` refuses a PASS that leaves one out, that the pull request's writer signed, or whose
+[security section](../SKILL.md#security-and-outbound-data) is missing or does not pass. With `pr_lint.py`, add
 `--also-author "<you>"`.
 
 ## Stopped

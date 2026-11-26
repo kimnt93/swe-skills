@@ -41,6 +41,10 @@ python3 <github skill>/scripts/issue_gate.py pr <n> --repo <owner>/<repo>
 
 ## 2. Review and fix until PASS
 
+Every review turn includes the [security and outbound-data check](../reviewer/SKILL.md#security-and-outbound-data):
+the verdict has its `## Security` section, a proven finding or a path no accepted issue asks for is a FAIL, and
+`can-merge` refuses a PASS without it.
+
 Follow the [review and fix loop](../reviewer/references/fix-loop.md): your own worktree on the PR branch, a
 `FAIL ... Round k of 3.` before each fix, **at most 3 rounds**, then PASS or `Stopped by reviewer`. A first review with no
 finding goes straight to the PASS. When the linked issue comes from an accepted plan, check the code
@@ -93,3 +97,4 @@ issue linked with `Refs` is partial work: **leave it open**.
 - Ship a PR you wrote, one the merge rules refuse, or auto-merge a money path.
 - Fix before posting the finding, ask for a fourth round, or weaken a check to pass.
 - Merge a head you did not pass, with a red or missing required check, or with an admin override.
+- Pass a head without the security check, or one that sends data no accepted issue asks for.

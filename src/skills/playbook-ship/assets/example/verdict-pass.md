@@ -12,6 +12,12 @@ Checked PR #54 (`ord-02/local-order-times`, closes #52) at its new head after on
 
 2. **Tests:** the new zone test fails without the fix and passes with it.
 
+## Security
+- **Scan:** `security_scan.py --base origin/main --head 9b8a7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b`: exit 0, no item
+- **Outbound data:** none added or widened
+- **Risk:** no proven finding
+- **Not checked:** none
+
 ## Gate
 ```text
 cd web && npm run check

@@ -16,8 +16,12 @@ answers admin, maintain or write (issue_gate.read_write_access). A failed lookup
 'Accepted by CTO|CEO (...). PR #n at <sha>.' is an old quick form: it is still read for the state, it approves no
 merge, and decide refuses to post a new one. (An 'Accepted by' on a plan is an issue comment, not read here.)
 
-An approval (Verdict: PASS) must be signed by an agent that did not write the pull request, and
-must name every commit its signer pushed to it, because nobody else checked those. `can-merge` allows a merge only
+An approval (Verdict: PASS) must be signed by an agent that did not write the pull request, must name every commit
+its signer pushed to it, because nobody else checked those, and must hold the '## Security' section of the
+security-review skill (package_lint.security_problems): no proven finding, and no outbound path but one a linked issue
+asks for. Each 'asked for by #n' is checked against that issue's text as `issue_gate.py asked` gives it, which must
+hold the destination; a script cannot read what the issue means, the reviewer does. `decide` refuses to post and
+`can-merge` refuses to merge on a PASS that fails any of this; a refusal needs none of it. `can-merge` allows a merge only
 when the newest judgment is such an approval of the current head; it does not read checks or the issue
 (`gh pr checks`, `issue_gate.py pr`). `can-merge --unreviewed --head <sha>` is for playbook-quick, which has no
 judgment: it refuses a PR that is not open, any judgment or stop on the PR by anyone on any head (a judged PR is a
@@ -53,7 +57,8 @@ from typing import Callable
 # the round limit lives with the one linter; an installed copy may prefix every skill directory
 _OWN = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_OWN.parent / _OWN.name.replace("github", "work-package") / "scripts"))
-from package_lint import MAX_RETURNS, MAX_ROUNDS, QUICK_MARK, header_problem, quick_marked  # noqa: E402
+from package_lint import (MAX_RETURNS, MAX_ROUNDS, QUICK_MARK, asked_paths, header_problem,  # noqa: E402
+                          quick_marked, security_problems)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from issue_gate import issue_refs, parse_time  # noqa: E402
 
@@ -192,8 +197,31 @@ def residual(body: str) -> str:
     return re.split(r"(?m)^## ", part[1])[0] if len(part) > 1 else ""
 
 
-def approval_problems(body: str, pr: dict) -> list[str]:
-    """Why this approval does not count: unsigned, by the PR's writer, or hiding commits only its signer saw."""
+Asked = Callable[[int], "tuple[str | None, str]"]  # issue number -> (its text, '') or (None, why not)
+
+
+def names(text: str, destination: str) -> bool:
+    """Whether the text holds the destination as a whole: 'vendor.test' is not named by 'api.vendor.test', nor
+    'api.vendor' by 'api.vendor.test'."""
+    return bool(re.search(rf"(?<![\w.-]){re.escape(destination)}(?![\w-]|\.\w)", text, re.I))
+
+
+def outbound_problems(body: str, asked: Asked | None) -> list[str]:
+    """Why an 'asked for by #n' line of a verdict does not hold. Without a way to read the issue, none does."""
+    problems = []
+    for number, destination in asked_paths(body):
+        text, why = asked(number) if asked else (None, "the issue was not read")
+        if text is None:
+            problems.append(f"'asked for by #{number}' does not hold: {why}")
+        elif not names(text, destination):
+            problems.append(f"#{number} does not name `{destination}`: an outbound path its issue does not ask for is "
+                            "a FAIL")
+    return problems
+
+
+def approval_problems(body: str, pr: dict, asked: Asked | None = None) -> list[str]:
+    """Why this approval does not count: unsigned, by the PR's writer, hiding commits only its signer saw, or
+    without a security section that passes."""
     name = signer(body)
     if not name:
         return ["the approval's last line is not 'Created: <agent name>'"]
@@ -204,11 +232,11 @@ def approval_problems(body: str, pr: dict) -> list[str]:
     hidden = [sha[:7] for sha, who in commits if who.lower() == name.lower() and sha[:7] not in residual(body)]
     if hidden:
         return [f"{name!r} pushed {', '.join(hidden)} and nobody else checked them: name them under Residual"]
-    return []
+    return security_problems(body) or outbound_problems(body, asked)
 
 
 def check_decision(past: list[dict], body: str, number: int, pr: dict,
-                   merged: Callable[[int], datetime | None] | None = None) -> list[str]:
+                   merged: Callable[[int], datetime | None] | None = None, asked: Asked | None = None) -> list[str]:
     """Why this decision or verdict may not be posted. Empty: post it."""
     if pr["state"] != "OPEN":
         return [f"PR #{number} is {pr['state']}: no further decision on it"]
@@ -238,11 +266,11 @@ def check_decision(past: list[dict], body: str, number: int, pr: dict,
         problems.append("'Accepted by' on a pull request no longer approves a merge: the reviewer posts the PASS "
                         "(playbook-build, playbook-ship); playbook-quick has no judgment")
     if item["verb"] in APPROVALS:
-        problems += approval_problems(body, pr)
+        problems += approval_problems(body, pr, asked)
     return problems
 
 
-def merge_problems(past: list[dict], pr: dict) -> list[str]:
+def merge_problems(past: list[dict], pr: dict, asked: Asked | None = None) -> list[str]:
     """Why the review does not allow a merge. Empty: the newest judgment approves the current head."""
     if pr["state"] != "OPEN":
         return [f"the PR is {pr['state']}"]
@@ -262,7 +290,7 @@ def merge_problems(past: list[dict], pr: dict) -> list[str]:
                            "reviewer's PASS does"]
     if last["verb"] not in APPROVALS:
         return problems + [f"the newest judgment on the head is '{last['verb']}'"]
-    return problems + approval_problems(last["body"], pr)
+    return problems + approval_problems(last["body"], pr, asked)
 
 
 def unreviewed_problems(seen: list[dict], pr: dict, head: str, issues: list[dict],
@@ -369,6 +397,25 @@ def writer_check(repo: str) -> Callable[[str], bool]:
     return can_grant
 
 
+def asked_check(repo: str, pr: dict) -> Asked:
+    """The text of an issue that may ask this pull request to send data (issue_gate.asked_text), read once per issue;
+    any failure gives no text."""
+    from issue_gate import asked_text, owner_check, rules  # same folder; standard library only
+    seen: dict[int, tuple[str | None, str]] = {}
+
+    def asked(number: int) -> tuple[str | None, str]:
+        if number not in seen:
+            try:
+                allowed, text = asked_text(number, pr, repo, owner_check(repo), rules())
+                seen[number] = (text, "") if allowed else (None, text)
+            except (SystemExit, OSError, subprocess.CalledProcessError, ValueError, KeyError, TypeError,
+                    AttributeError) as error:
+                seen[number] = (None, f"#{number} could not be read ({error})")
+        return seen[number]
+
+    return asked
+
+
 def entries_of(data: dict) -> list[dict]:
     return [{**c, "at": c.get("createdAt")} for c in data.get("comments", [])] + \
         [{**r, "at": r.get("submittedAt")} for r in data.get("reviews", [])]
@@ -437,8 +484,13 @@ def self_test() -> int:
         who = "reviewer" if verb == "Stopped" else "CTO"
         return f"{verb} by {who} (X ({who})). PR #54 at {sha}.{tail}"
 
-    def text(verb: str, sha: str, number: int | None = None, by: str = rev, more: str = "") -> str:
-        return f"{line(verb, sha, number)}\n\ntext\n\n## Residual\n- {more or 'none'}\n\nCreated: {by}\n"
+    def security(sha: str, outbound: str = "none added or widened", risk: str = "no proven finding") -> str:
+        return (f"## Security\n- **Scan:** `security_scan.py --base origin/main --head {sha}`: exit 0\n"
+                f"- **Outbound data:** {outbound}\n- **Risk:** {risk}\n- **Not checked:** none\n\n")
+
+    def text(verb: str, sha: str, number: int | None = None, by: str = rev, more: str = "", checked: str | None = None) -> str:
+        section = security(sha) if checked is None else checked
+        return f"{line(verb, sha, number)}\n\ntext\n\n{section}## Residual\n- {more or 'none'}\n\nCreated: {by}\n"
 
     def say(verb: str, sha: str, number: int | None = None, who: str = "OWNER", at: str = "", login: str = "rev",
             **extra) -> dict:
@@ -495,6 +547,39 @@ def self_test() -> int:
 
     passed = judged([say("PASS", a)], 54)
     assert merge_problems(passed, pull(a)) == []
+
+    # a PASS holds the security check: without the section, with a finding or with a path no issue asks for, it is
+    # neither posted nor merged on; a refusal needs no section and always counts
+    path = "asked for by #7: `hooks.vendor.test/orders` receives the order id"
+    issue_text = "Send each order id to `https://hooks.vendor.test/orders`."
+    holds_it = lambda number: (issue_text, "") if number == 7 else (None, f"the pull request does not link #{number}")
+    for why, section, asked, needle in (
+            ("no section", "", holds_it, "exactly one '## Security'"),
+            ("a finding", security(a, risk="SQL injection, `a.py:3`"), holds_it, "proven finding is a FAIL"),
+            ("an unasked path", security(a, "not asked for: `x.vendor.test`"), holds_it, "a path no issue asks for"),
+            ("another head's scan", security(b), holds_it, "head SHA"),
+            ("nobody can read the issue", security(a, path), None, "was not read"),
+            ("an unlinked issue", security(a, path.replace("#7", "#8")), holds_it, "does not link #8"),
+            ("a refused issue", security(a, path), lambda n: (None, "its body was edited later"), "edited later"),
+            ("another destination", security(a, path.replace("hooks.", "stats.")), holds_it, "does not name"),
+            ("a wider destination", security(a, path.replace("hooks.vendor.test/orders", "vendor.test")), holds_it,
+             "does not name"),
+            ("a cut destination", security(a, path.replace("hooks.vendor.test/orders", "hooks.vendor")), holds_it,
+             "does not name"),
+            ("one path of two", security(a, path + "\n- **Outbound data:** " + path.replace("hooks.", "stats.")),
+             holds_it, "does not name")):
+        bad = judged([say("PASS", a, checked=section)], 54)
+        assert bad, why
+        for found in (merge_problems(bad, pull(a), asked), check_decision([], text("PASS", a, checked=section), 54,
+                                                                           pull(a), None, asked)):
+            assert needle in " ".join(found), (why, found)
+    good = judged([say("PASS", a, checked=security(a, path))], 54)
+    assert merge_problems(good, pull(a), holds_it) == [], "a path its issue asks for"
+    assert check_decision([], text("PASS", a, checked=security(a, path)), 54, pull(a), None, holds_it) == []
+    assert names("to hooks.vendor.test.", "hooks.vendor.test") and not names("to a-vendor.test", "vendor.test")
+    bare = judged([say("PASS", a, at="1"), say("FAIL", a, 1, at="2", checked="")], 54)
+    assert rounds_used(bare) == [a] and "'FAIL'" in merge_problems(bare, pull(a))[0], "a bare FAIL still refuses"
+    assert check_decision([], text("FAIL", a, 1, checked=""), 54, pull(a)) == []
     # an old 'Accepted by CTO' on a PR is read for the state, approves no merge, and cannot be posted any more
     old = judged([say("Accepted", a, by=boss, login="boss")], 54)
     assert old and "approves no merge" in merge_problems(old, pull(a))[0]
@@ -653,7 +738,8 @@ def self_test() -> int:
         assert "uncommitted" in removal_problems(*_facts_for_no_pr(work))[0], "untracked file"
         git("add", "."); git("commit", "-qm", "two")
         assert "not fully pushed" in removal_problems(*_facts_for_no_pr(work))[0], "unpushed commit"
-    print("self-test passed: three rounds then pass or stop; only another agent that can push grants a PASS, an old "
+    print("self-test passed: three rounds then pass or stop; only another agent that can push grants a PASS, only with "
+          "a security section that passes and outbound paths its issue names, an old "
           "'Accepted by' approves nothing, a failed lookup never hides a refusal; at most 3 counted returns of a quick "
           "PR, a rebase free only after a later merge; an unreviewed merge only of an unjudged PR whose issues, all of "
           "this repository, say 'Pipeline: quick' in their header, at the given head, never a money path; removal "
@@ -702,7 +788,7 @@ def main(argv: list[str]) -> int:
             return 0
         if args.mode == "decide":
             body = Path(args.body_file).read_text(encoding="utf-8")
-            problems = check_decision(past, body, args.pr, pr, merged_quick(args.repo))
+            problems = check_decision(past, body, args.pr, pr, merged_quick(args.repo), asked_check(args.repo, pr))
             ok = "decision allowed"
         elif args.unreviewed:
             issues, refs = linked_issues(pr, args.repo)
@@ -712,7 +798,7 @@ def main(argv: list[str]) -> int:
             issues, refs = linked_issues(pr, args.repo)
             labels = [x for issue in issues for x in issue["labels"]]
             pr = {**pr, "labels": pr.get("labels", []) + labels}
-            problems = refs + merge_problems(past, pr)
+            problems = refs + merge_problems(past, pr, asked_check(args.repo, pr))
             ok = "the review allows the merge"
             if not problems:
                 own = [sha[:7] for sha, who in authors(pr) if who.lower() == signer(past[-1]["body"]).lower()]

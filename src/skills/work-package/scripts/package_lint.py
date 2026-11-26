@@ -71,7 +71,7 @@ FIRST_LINE = {
 }
 CLOSE_RE = re.compile(r"^(Closes|Refs) #\d+\s*$", re.M)
 GENERATED_RE = re.compile(r"(?im)^\W*generated (?:with|by) (?:\[|claude\b|chatgpt\b|copilot\b|codex\b|gemini\b)")
-MARKERS = ("optional", "on pass", "on fail", "needs code", "needs fence")
+MARKERS = ("optional", "on pass", "on fail", "on verdict", "needs code", "needs fence")
 PR_HEAD_RE = re.compile(r"PR #\d+ at [0-9a-f]{40}")
 OWNER_ONLY_RE = re.compile(r"Accepted by owner\b", re.I)
 QUICK_MARK = "Pipeline: quick"  # a header line on each issue playbook-quick creates; can-merge --unreviewed needs it
@@ -207,7 +207,7 @@ def lint_shape(section: dict, content: str) -> list[str]:
     return problems
 
 
-def lint_sections(template: str, body: str, outcome: str | None = None) -> list[str]:
+def lint_sections(template: str, body: str, outcome: str | None = None, kind: str | None = None) -> list[str]:
     """The body against a template: required sections, their order, and each one's shape."""
     level, _, wanted = read_template(template)
     _, found = split_sections(body, level)
@@ -223,7 +223,8 @@ def lint_sections(template: str, body: str, outcome: str | None = None) -> list[
     for rank, section in enumerate(wanted):
         markers = section["markers"]
         conditional = [m for m in markers if m in ("on pass", "on fail")]
-        required = "optional" not in markers and (not conditional or f"on {outcome}" in conditional)
+        required = "optional" not in markers and (not conditional or f"on {outcome}" in conditional) \
+            and ("on verdict" not in markers or kind == "verdict")
         if rank not in matched:
             if required:
                 problems.append(f"body has no '{'#' * level} {section['name']}' section ({template} template)")
@@ -354,6 +355,76 @@ def pr_comment_outcome(kind: str, first: str) -> str | None:
     return "note" if kind in ("fix", "merge") else None
 
 
+VERDICT_RE = re.compile(r"Verdict: (PASS|FAIL) at ([0-9a-f]{40})")
+SECURITY_LABELS = ("Scan", "Outbound data", "Risk", "Not checked")
+ASKED_RE = re.compile(r"asked for by #(\d+): `([^`]+)` +\S.*")
+NONE_OUT_RE = re.compile(r"(?:none added or widened|`none added or widened`)(?:[.:].*| \(.*)?")
+
+
+def security_lines(body: str) -> tuple[int, dict[str, list[str]]]:
+    """(how many '## Security' sections GitHub shows, the labelled lines of the first). A section or a line inside an
+    HTML comment (closed or not) or a code block is not shown as the verdict's own, so it never counts."""
+    shown = re.sub(r"<!--.*?(?:-->|\Z)", "", body or "", flags=re.S)
+    found = [content for name, _, content in split_sections(shown, 2)[1] if name == "Security"]
+    lines: dict[str, list[str]] = {label: [] for label in SECURITY_LABELS}
+    fenced = False
+    for line in (found[0].splitlines() if found else []):
+        if line.lstrip().startswith(("```", "~~~")):
+            fenced = not fenced
+        elif not fenced:
+            match = re.match(rf"- \*\*({'|'.join(SECURITY_LABELS)}):\*\*[ \t]+(\S.*?)[ \t]*$", line)
+            if match:
+                lines[match[1]].append(match[2])
+    return len(found), lines
+
+
+def asked_paths(body: str) -> list[tuple[int, str]]:
+    """(issue number, destination) of every outbound path a verdict says an issue asked for."""
+    return [(int(m[1]), m[2]) for line in security_lines(body)[1]["Outbound data"] if (m := ASKED_RE.fullmatch(line))]
+
+
+def security_problems(body: str) -> list[str]:
+    """What a verdict's security section lacks. This rule is in the code and not only in the template, so a team's own
+    template cannot drop it; pr_loop.py applies it too, and refuses a PASS that fails it."""
+    first = body.lstrip().splitlines()[0] if body.strip() else ""
+    verdict = VERDICT_RE.match(first)
+    if not verdict:
+        return []
+    passed, sha = verdict[1] == "PASS", verdict[2]
+    count, lines = security_lines(body)
+    if count != 1:
+        return ["a verdict has exactly one '## Security' section: the security and outbound-data check of "
+                "the security-review skill"]
+    problems = []
+    for label in SECURITY_LABELS:
+        if not lines[label] or (label != "Outbound data" and len(lines[label]) != 1):
+            times = "at least once" if label == "Outbound data" else "exactly once"
+            problems.append(f"'Security' needs the line '- **{label}:** ...' {times}")
+        elif any(x.startswith("<") for x in lines[label]):
+            problems.append(f"'Security' still has the template's placeholder on the '{label}' line")
+    if problems:
+        return problems
+    scan = lines["Scan"][0]
+    if "security_scan.py" not in scan or sha not in scan:
+        problems.append("the 'Scan' line names security_scan.py and this verdict's 40-character head SHA")
+    if not passed:
+        return problems
+    if not re.search(r"\bexit [01]\b", scan):
+        problems.append("a PASS needs a scan that ran: its 'Scan' line says 'exit 0' or 'exit 1' (exit 2 scanned nothing)")
+    outbound = lines["Outbound data"]
+    if not (len(outbound) == 1 and NONE_OUT_RE.fullmatch(outbound[0])):
+        for line in outbound:
+            match = ASKED_RE.fullmatch(line)
+            if not match or len(match[2]) < 4 or not re.search(r"[._:/]", match[2]):
+                problems.append("a PASS says 'none added or widened' under 'Outbound data', or gives one line per path as "
+                                "'asked for by #<n>: `<destination>` receives <data>'; a path no issue asks for is a "
+                                "FAIL")
+                break
+    if not lines["Risk"][0].startswith("no proven finding"):
+        problems.append("a PASS starts its 'Risk' line with 'no proven finding'; a proven finding is a FAIL")
+    return problems
+
+
 def lint_comment(kind: str, body: str) -> list[str]:
     if OWNER_ONLY_RE.match(body.lstrip()):
         return ["'Accepted by owner' is written only by the repository owner; an agent never posts it"]
@@ -381,7 +452,9 @@ def lint_comment(kind: str, body: str) -> list[str]:
         problems.append(f"a change request on a PR ends its first line with 'Round K of {MAX_ROUNDS}.' (K from 1 to {MAX_ROUNDS})")
     outcome = pr_comment_outcome(kind, first)
     if outcome:
-        problems += lint_sections("pr-comment", body, outcome)
+        problems += lint_sections("pr-comment", body, outcome, kind)
+    if kind == "verdict":
+        problems += security_problems(body)
     return problems + lint_signature(body)
 
 
@@ -420,12 +493,14 @@ FIXTURES = {
     "plan": "## Architecture & Planning (`<ID>` — Priority: Low)\n\n### Code analysis <!-- needs code -->\n`f`\n\n### Core design decision\nd\n\n**Stack:** <s>\n**Rejected:** <r>\n\n### Planned Packages\n1. **`<ID>a` (<t>):** <w>\n\n### Risks & Gates <!-- needs code -->\n- **<risk>:** <r>\n- **Gates:** `<c>`\n",
     "epic-plan": "## Architecture & Planning (`<ID>`)\n\n### Code analysis <!-- needs code -->\n`f`\n\n### Core design decision\n**Stack:** <s>\n**Rejected:** <r>\n\n### Packages & Wave Order\n| Wave | Issue | Scope | Key Owned Files | Gate |\n|---|---|---|---|---|\n\n### Shared-File Sequencing Rules\nnone\n\n### Risks & Mitigations\n- **<risk>:** <r>\n",
     "pr": "Closes #<n>\n\n## Why\nw\n\n## What changed\nc\n\n## Review fix <!-- optional -->\nr\n\n## Scope\ns\n\n## Blast radius\nb\n\n## Verification <!-- needs code -->\n`c`\n",
-    "pr-comment": "<headline>\n\n## Blocking — <t> <!-- on fail, needs code -->\n**Smallest fix:** <f>\n\n## Verified <!-- on pass, needs code -->\n1. **Scope & Diff:** <d>\n\n## Gate <!-- needs fence -->\n```\nc\n```\n\n## Residual\n- none\n",
+    "pr-comment": "<headline>\n\n## Blocking — <t> <!-- on fail, needs code -->\n**Smallest fix:** <f>\n\n## Verified <!-- on pass, needs code -->\n1. **Scope & Diff:** <d>\n\n## Security <!-- on verdict, needs code -->\n- **Scan:** `c`\n- **Outbound data:** <o>\n- **Risk:** <r>\n- **Not checked:** <n>\n\n## Gate <!-- needs fence -->\n```\nc\n```\n\n## Residual\n- none\n",
 }
 SHA = "a1b2c3d4" * 5
 GATE = "\n\n## Gate\n```text\nmake verify\n  12 passed\n```\n\n## Residual\n- none"
 VERIFIED = "\n\n## Verified\n1. **Scope & Diff:** only `src/orders.py`."
 BLOCKING = "\n\n## Blocking — double cancel\n`src/orders.py:9` cancels twice.\n\n**Smallest fix:** check the status first."
+SECURITY = (f"\n\n## Security\n- **Scan:** `security_scan.py --base origin/main --head {SHA}`: exit 0, no item\n"
+            "- **Outbound data:** none added or widened\n- **Risk:** no proven finding\n- **Not checked:** none")
 SIGN = "\nCreated: Builder (Developer)\n"
 GOOD_ISSUE = """Lane: backend
 Wave: 1
@@ -538,7 +613,7 @@ GOOD_COMMENTS = {
     "epic-plan": GOOD_EPIC_PLAN,
     "decision": "Accepted by CTO (Boss). Plan v1; the packages stay in the backlog." + SIGN,
     "status": "Status: blocked\nCard: API-03\nEvidence: a log line\nNext: ask the owner" + SIGN,
-    "verdict": f"Verdict: PASS at {SHA}\n\nReview of PR #3." + VERIFIED + GATE + SIGN,
+    "verdict": f"Verdict: PASS at {SHA}\n\nReview of PR #3." + VERIFIED + SECURITY + GATE + SIGN,
     "fix": "Fixed in a1b2c3d4:\n- x: y\n\nNew head: a1b2c3d4. Please re-review." + GATE + SIGN,
     "merge": "Merged by the gate at a1b2c3d4 after PASS." + GATE + SIGN,
     "close": "Replaced by #9" + SIGN,
@@ -686,12 +761,62 @@ def run_cases(folder: Path) -> int:
     expect("epic table", plan("| Wave | Issue |", "| Step | Issue |", "epic-plan"), "needs the table columns")
     expect("epic sequencing", plan("### Shared-File Sequencing Rules", "### Other", "epic-plan"), "Shared-File")
     expect("short sha", lint_comment("verdict", "Verdict: PASS at a1b2c3d4" + VERIFIED + GATE + SIGN), "40-character")
-    expect("good fail", lint_comment("verdict", f"Verdict: FAIL at {SHA}" + BLOCKING + GATE + SIGN))
-    expect("fail needs blocking", lint_comment("verdict", f"Verdict: FAIL at {SHA}" + GATE + SIGN), "no '## Blocking'")
-    expect("fail needs a fix", lint_comment("verdict", f"Verdict: FAIL at {SHA}" + BLOCKING.replace("**Smallest fix:**", "Fix:") + GATE + SIGN), "Smallest fix")
-    expect("a label may be plain", lint_comment("verdict", f"Verdict: FAIL at {SHA}" + BLOCKING.replace("**Smallest fix:**", "Smallest fix:") + GATE + SIGN))
-    expect("pass with blocking", lint_comment("verdict", f"Verdict: PASS at {SHA}" + BLOCKING + VERIFIED + GATE + SIGN), "passing comment")
-    expect("pass needs verified", lint_comment("verdict", f"Verdict: PASS at {SHA}" + GATE + SIGN), "no '## Verified'")
+    def verdict(word: str, *parts: str) -> list[str]:
+        return lint_comment("verdict", f"Verdict: {word} at {SHA}" + "".join(parts) + SIGN)
+
+    expect("good fail", verdict("FAIL", BLOCKING, SECURITY, GATE))
+    expect("fail needs blocking", verdict("FAIL", SECURITY, GATE), "no '## Blocking'")
+    expect("fail needs a fix", verdict("FAIL", BLOCKING.replace("**Smallest fix:**", "Fix:"), SECURITY, GATE), "Smallest fix")
+    expect("a label may be plain", verdict("FAIL", BLOCKING.replace("**Smallest fix:**", "Smallest fix:"), SECURITY, GATE))
+    expect("pass with blocking", verdict("PASS", BLOCKING, VERIFIED, SECURITY, GATE), "passing comment")
+    expect("pass needs verified", verdict("PASS", SECURITY, GATE), "no '## Verified'")
+    # the security section: a verdict without it is refused, and a PASS holds no unasked path and no proven finding
+    for word, parts in (("PASS", (VERIFIED, GATE)), ("FAIL", (BLOCKING, GATE))):
+        expect(f"{word} needs security", verdict(word, *parts), "exactly one '## Security'")
+
+    def passing(old: str, new: str) -> list[str]:
+        assert old in SECURITY, old
+        return verdict("PASS", VERIFIED, SECURITY.replace(old, new), GATE)
+
+    out = "- **Outbound data:** none added or widened"
+    asked = "- **Outbound data:** asked for by #12: `hooks.vendor.test/orders` receives the order id"
+    expect("a path an issue asked for", passing(out, asked))
+    expect("two asked paths", passing(out, asked + "\n" + asked.replace("orders`", "fills`")))
+    assert asked_paths(f"Verdict: PASS at {SHA}" + SECURITY.replace(out, asked)) == [(12, "hooks.vendor.test/orders")]
+    for note in (".", " (the diff adds no sender)", ": only a log field the host keeps"):
+        expect(f"none, then {note!r}", passing(out, out + note))
+    for bad in ("not asked for: `x.vendor.test` receives the email", "none added or widened except the new webhook",
+                "asked for by #12: the webhook receives orders", "asked for by #12: `url` receives it",
+                "the issue asks for monitoring", "asked for in the PR body: `x.vendor.test` receives it"):
+        expect(f"pass with {bad[:24]!r}", passing(out, f"- **Outbound data:** {bad}"), "a path no issue asks for")
+    expect("one good line does not cover a bad one", passing(out, asked + "\n- **Outbound data:** not asked for: x"),
+           "a path no issue asks for")
+    expect("none beside a path", passing(out, out + "\n" + asked), "a path no issue asks for")
+    expect("a fail may report it", verdict("FAIL", BLOCKING, SECURITY.replace(out, "- **Outbound data:** not asked for: `x`"), GATE))
+    expect("pass with a finding", passing("no proven finding", "SQL injection in `a.py:3`, small"), "proven finding is a FAIL")
+    expect("the scan ran on this head", passing(SHA, SHA[:12]), "40-character head SHA")
+    expect("a scan that scanned nothing", passing("exit 0", "exit 2"), "a scan that ran")
+    expect("no scan", passing("security_scan.py", "a look"), "security_scan.py")
+    for label in SECURITY_LABELS:
+        line = next(x for x in SECURITY.splitlines() if x.startswith(f"- **{label}:**"))
+        expect(f"no {label} line", passing(line, "- other `x`"), f"'- **{label}:** ...'")
+    expect("a second risk line", passing("- **Risk:** no proven finding", "- **Risk:** no proven finding\n- **Risk:** a hole"),
+           "exactly once")
+    expect("an unfilled line", passing(out, "- **Outbound data:** <none added or widened, or one line per path>"), "placeholder")
+    whole = SECURITY.lstrip("\n")
+    for why, hidden_section in (("a comment", f"\n\n<!--\n{whole}\n-->"), ("an open comment", f"\n\n<!--\n{whole}"),
+                                ("a code block", f"\n\n```text\n{whole}\n```")):
+        expect(f"hidden in {why}", security_problems(f"Verdict: PASS at {SHA}" + VERIFIED + hidden_section), "exactly one")
+    expect("lines in a code block", passing(out, f"```\n{out}\n```"), "'- **Outbound data:** ...'")
+    expect("two sections", verdict("PASS", VERIFIED, SECURITY, SECURITY.replace("none added or widened", "not asked"), GATE),
+           "exactly one")
+    # a team's own template without the section cannot switch the rule off
+    own = folder / "pr-comment.template.md"
+    own.write_text("<h>\n\n## Gate\n```\nc\n```\n", encoding="utf-8")
+    expect("own template, no section", verdict("PASS", GATE), "exactly one '## Security'")
+    own.write_text(FIXTURES["pr-comment"], encoding="utf-8")
+    expect("a decision needs no security section", lint_comment("decision", f"Stopped by CTO (Boss). PR #3 at {SHA}."
+                                                                + BLOCKING + GATE + SIGN))
     expect("gate needs output", plan("```text\nmake verify\n  12 passed\n```", "it passed", "verdict"), "fenced block")
     expect("residual", plan("\n\n## Residual\n- none", "", "merge"), "no '## Residual'")
     for after in ("PASS", "acceptance", "checks"):
