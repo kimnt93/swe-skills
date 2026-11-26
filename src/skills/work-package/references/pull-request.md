@@ -24,8 +24,8 @@ Rules:
 - `## Verification` is real: the *Done when* commands, run on the head, with their results. A claim without a command is
   not evidence. The full output goes in the PR comment that judges the head.
 - Problems found in the spec or the card go under `## Scope`; the author does not edit the spec.
-- The author **never merges**. Someone other than the author reads the diff and runs the commands again (`quick`: the
-  CTO/CEO; `review`: the reviewer); the role the playbook names merges, by rebase, after checks are green and the branch
+- The author **never merges**. Someone other than the author reads the diff and runs the commands again, as the playbook
+  says; the role the playbook names merges, by rebase, after checks are green and the branch
   is not behind `main`. Their comments use the one [PR comment](../../write-comment/references/other-comments.md).
 - Delete the branch after the merge. Remove the worktree when its package is merged.
 
