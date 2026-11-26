@@ -19,7 +19,7 @@ python3 <github skill>/scripts/issue_gate.py issue <number> --repo <owner>/<repo
 
 **Never implement** an issue that is done, not planned or duplicate. An open issue also needs one approval of the
 [merge rules](pull-requests.md#merge-rules): the owner's acceptance comment, the owner as its author, or board status
-`Todo` / `In Progress`.
+`Todo` / `In Progress` (counted only when the check could read the board).
 
 **Not approved yet:** report the issue link and give the owner this comment to post
 ([template](../assets/owner-acceptance.template.md)), then stop. The owner posts it, never an agent:

@@ -78,7 +78,7 @@ approved** by one of:
 
 - the repository owner's comment on the issue ([template](src/skills/github/assets/owner-acceptance.template.md));
 - the repository owner being its author;
-- a project board status of `Todo` or `In Progress`.
+- a project board status of `Todo` or `In Progress`, when the `gh` login can read the board.
 
 ```text
 Accepted by owner.
@@ -88,10 +88,12 @@ Notes: none
 
 An issue that is closed (done, not planned or duplicate), labelled `duplicate` or `wontfix`, or marked `Done`,
 `Not planned`, `Duplicate` or `Canceled` on a board is refused whatever else says yes. Agents often share the owner's
-account, so text signed by an agent never counts as the owner's. The check reads the board, which needs this once:
+account, so text signed by an agent never counts as the owner's. The check uses your `gh` login as it is. If GitHub
+answers that the login lacks the scope for project boards, it goes on without the board and says so: a board status then
+neither refuses nor approves ([what is not checked](src/skills/github/references/pull-requests.md#merge-rules)). Any
+other failure to read the board refuses.
 
 ```bash
-gh auth refresh -h github.com -s read:project
 python3 src/skills/github/scripts/issue_gate.py issue <number> --repo <owner>/<repo>   # may it be built?
 python3 src/skills/github/scripts/issue_gate.py pr <number> --repo <owner>/<repo>      # may it be merged?
 ```

@@ -8,7 +8,7 @@ Ten minutes from a fresh clone to `/swe` working in your coding agent.
 |---|---|---|
 | `git`, `make`, `python3` (3.11+) | build and install the plugin | `make --version && python3 --version` |
 | Claude Code and/or oh-my-pi (`omp`) | the coding agents | `claude --version`, `omp --version` |
-| `gh` (GitHub CLI), logged in | PRs, issues, merges; the merge rules also need the `read:project` scope | `gh auth status` |
+| `gh` (GitHub CLI), logged in | PRs, issues, merges | `gh auth status` |
 | Go, `uv`, Node 22 | only to run the template checks and tests | `go version`, `uv --version`, `node --version` |
 | Orca (optional) | the playbooks' worktrees and messages between agents | `orca status` |
 
@@ -57,12 +57,8 @@ A project needs `make verify` for "done" to mean something: run `/swe:verify-cre
 
 ## 5. Run a playbook
 
-Once step 4 works on one repository, let a playbook carry work through GitHub. Run this once, so the
-[merge rules](playbooks.md#merge-rules) can read your project boards:
-
-```bash
-gh auth refresh -h github.com -s read:project
-```
+Once step 4 works on one repository, let a playbook carry work through GitHub. The
+[merge rules](playbooks.md#merge-rules) check uses your `gh` login as it is.
 
 | Say | What happens |
 |---|---|
@@ -73,8 +69,9 @@ gh auth refresh -h github.com -s read:project
 | `/swe:playbook-ship ship PR 54` | review and fix, then merge and close the issue |
 
 Work is built and merged only for an approved issue. To approve one an agent created, comment `Accepted by owner.` on it,
-or set its board status to `Todo` or `In Progress`. More: [playbooks.md](playbooks.md). To make `swe-cli` available, run
-`make cli`; its commands are in [cli/README.md](../cli/README.md).
+or set its board status to `Todo` or `In Progress` (counted only when the check can read the board). More:
+[playbooks.md](playbooks.md). To make `swe-cli` available, run `make cli`; its commands are in
+[cli/README.md](../cli/README.md).
 
 ## Troubleshooting
 
@@ -82,7 +79,8 @@ or set its board status to `Todo` or `In Progress`. More: [playbooks.md](playboo
 |---|---|
 | `/swe` is unknown | start a new session; `claude plugin list` should show `swe@swe-skills` |
 | `make validate` fails on a placeholder or name | read the first ERROR line; the validator names the file and line |
-| the merge check says the board cannot be read | `gh auth refresh -h github.com -s read:project` |
-| the merge check says an issue is not approved | comment `Accepted by owner.` on it yourself, or set its board status to `Todo` |
+| the merge check says the board status cannot be read | run it again; if it still fails, check `gh auth status` and GitHub's status |
+| the merge check says the board was not read | the `gh` login lacks the scope for project boards; the check went on without them ([what is not checked](../src/skills/github/references/pull-requests.md#merge-rules)) |
+| the merge check says an issue is not approved | comment `Accepted by owner.` on it yourself; a board status of `Todo` counts only when the check can read the board |
 | `gh auth status` fails inside a delegated session | `gh auth login` for the user that runs the session |
 | old `kim` or other plugin still listed | `PLUGIN_NAME=<old> make claude codex omp REMOVE=1` |

@@ -56,8 +56,15 @@ python3 <github skill>/scripts/issue_gate.py pr <number> --repo <owner>/<repo>  
   owner's. An agent **never** writes the acceptance comment, signs as the owner, or moves an unapproved issue to `Todo`
   or `In Progress`. The script cannot tell who typed an unsigned comment: this is the agent's duty.
 - The owner leaves the `Created:` line out of their own issues, or signs it with their account name.
-- **The board must be readable** (`gh auth refresh -h github.com -s read:project`, run by the account's owner).
-  Otherwise everything is refused: the board may say done or not planned.
+- **The check uses the `gh` login as it is.** When GitHub answers that the login lacks the scope to read project
+  boards, the check goes on without the board and its output says `the board was not read`. The closed state, the
+  refusing labels, and the owner's comment and authorship work as before. **Not checked then:**
+  - a board `Done` or `Not planned` (or `Duplicate`, `Canceled`) on an issue that is **still open**: it does not
+    refuse. To stop such an issue, close it or give it a refusing label;
+  - **approval by board status**: `Todo` or `In Progress` approves nothing. The issue needs the owner's comment or
+    the owner as its author.
+- **Any other failure to read the board refuses** everything: the board may say done or not planned. Run the check
+  again; do not merge until it reads the board or reports the missing scope.
 - Refused: do not merge. Report the reason and the one thing the owner can do.
 
 ## Merge
