@@ -84,6 +84,18 @@ out-of-order Kafka messages, a crash between the DB commit and the offset commit
 a different ML seed, overflow and panic paths, API error envelopes in the UI. You re-run every finding and
 keep only those that reproduce and break the intent. **You get** Intent, Findings (command, output), Dropped.
 
+### security-review
+
+**What it is.** The security and outbound-data check every reviewed pull request gets, for Go, Python, Rust,
+TypeScript, web, API, SQL, CI, container, money, wallet, agent and prompt code. Three rules: data leaves only where an
+accepted issue asks for that destination and data; a proven finding the change brings in blocks the merge; a finding
+needs a proof, run on your own machine, never against a live system. **What happens.** Scan the diff, list every
+outbound path, read the diff against each topic it touches (what to look for, a bad and a good example, how to prove
+it), prove, and fill the verdict's `## Security` section. **Files.** One page per topic, and
+`scripts/security_scan.py`: it lists secrets (never their values), outbound paths, dependencies, risky patterns and
+removed controls in a diff, sends nothing, runs nothing from the diff, and exits 2 when it could not scan. It is an aid
+with line rules: a clean scan is never a pass.
+
 ## Proving it
 
 ### verify-create
@@ -286,7 +298,8 @@ conflict, an unclear goal or a file outside its list.
 ### reviewer
 
 **What it is.** Judges one PR at one SHA, read-only; it wrote none of the change, and is another model family where the
-agent table gives one. **What happens.** Runs the adversarial review, keeps only findings proven by a command, checks the PR against the card,
+agent table gives one. Every review has two parts: is it correct, and is it safe to let in
+([security-review](#security-review)); the verdict says both. **What happens.** Runs the adversarial review, keeps only findings proven by a command, checks the PR against the card,
 and posts `Verdict: PASS|FAIL at <sha>`. When the issue comes from an accepted plan it checks
 the code against that plan too, and a departure is a finding. In `build` and `ship` it fixes its own findings; `quick`
 has no reviewer. When a branch is behind, it also updates it and resolves conflicts.

@@ -30,6 +30,8 @@ Build settings live in `plugin.env`. Put private values (your real domain, owner
 | a good submit: branch, title, body, issue, size, scope | `github/scripts/pr_lint.py` |
 | repo: rebase only, protected `main`, labels | `project/scripts/setup_repo.sh` |
 | "done" means proven | `verify-create/assets/verify.mk` + the `verify` CI job in `deployment-setup` |
+| security and outbound data on every reviewed PR: the verdict's `## Security` section, no unasked outbound path | `work-package/scripts/package_lint.py`, `github/scripts/pr_loop.py`, `issue_gate.py asked`; their self-tests and `tests/enforcement_test.sh` |
+| the security scan: sends nothing, prints no secret, never reads a broken diff as clean | `security-review/scripts/security_scan.py --self-test`; the fixture diffs in `tests/fixtures/security-diffs` |
 | a test run: allowed targets, production approvals, secrets and evidence outside repositories | `web-testing/scripts/testkit.py`, `web_test.py`, `api-cli-testing/scripts/io_test.py`; their self-tests and `tests/testing_skills_test.sh` |
 
 ## Make targets

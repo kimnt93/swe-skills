@@ -5,8 +5,8 @@ when to use it, what to say, what happens, what you get, and its files.
 
 | Page | Covers |
 |---|---|
-| [router.md](router.md) | `/swe` and its engineering methods (bug-fix, feature, refactoring, migration, perf-issue, ...), plus the seven playbooks |
-| [process.md](process.md) | how, why, architect, principles, tdd, deslop, blast-radius, interrogate, verify-create, verify-maintain, replay-test, formal-verify, correct, ketchup, reflect, github, project |
+| [router.md](router.md) | `/swe` and its engineering methods (bug-fix, feature, refactoring, migration, perf-issue, ...), plus the eight playbooks |
+| [process.md](process.md) | how, why, architect, principles, tdd, deslop, blast-radius, interrogate, security-review, verify-create, verify-maintain, replay-test, formal-verify, correct, ketchup, reflect, github, project |
 | [languages.md](languages.md) | go-code, py-code, rust-code, ts-code |
 | [data-platform.md](data-platform.md) | db-migrations, db-orm, api-contract, deployment-setup |
 | [observability.md](observability.md) | service-logging, service-tracing, service-errors |
@@ -15,7 +15,7 @@ when to use it, what to say, what happens, what you get, and its files.
 ## Skills
 
 <!-- skills:start -->
-57 skills in 6 groups. Click a skill for its detail.
+59 skills in 6 groups. Click a skill for its detail.
 
 ### Start here
 
@@ -26,6 +26,7 @@ when to use it, what to say, what happens, what you get, and its files.
 | [playbook-quick](router.md#playbook-quick) | Quick, only when named: CTO issues, developer PRs, CTO merges on mechanical checks only; no review |
 | [playbook-refactor-plan](router.md#playbook-refactor-plan) | Refactoring plan only: the architect writes the issues, the CTO/CEO posts them unchanged |
 | [playbook-review](router.md#playbook-review) | Review: read a PR and post one verdict comment; nothing is changed or merged |
+| [playbook-security](router.md#playbook-security) | Security audit only: proven findings, outbound paths and issues ready to file, nothing changed |
 | [playbook-ship](router.md#playbook-ship) | Ship: review a PR, fix and re-review (3 rounds), merge it and close its issue, or stop |
 | [playbook-test](router.md#playbook-test) | Testing only: use the software as a user, report pass or fail per function with evidence |
 | [swe](router.md#router) | Entry point: picks language and playbook, delegates by table row, ends only on make verify |
@@ -59,7 +60,8 @@ when to use it, what to say, what happens, what you get, and its files.
 | [project](process.md#project) | Run a project's docs, GitHub repo setup, backlog and status |
 | [reflect](process.md#reflect) | Turn a long task's lessons into approved skill edits or new checks |
 | [replay-test](process.md#replay-test) | Prove money-path code on a recorded day, with duplicate and redelivery runs |
-| [reviewer](process.md#reviewer) | Reviewer: a verdict on one SHA from proven findings, against the plan; fixes only in build and ship |
+| [reviewer](process.md#reviewer) | Reviewer: one SHA, correctness and security, proven findings; fixes only in build and ship |
+| [security-review](process.md#security-review) | Security check of every PR: proven findings block, and no data leaves unless the issue asks |
 | [tdd](process.md#tdd) | Failing test first, then the smallest change that makes it pass |
 | [verifier](process.md#verifier) | Verifier: run the real app against the feature map, file regressions, list findings; edits nothing |
 | [verify-create](process.md#verify-create) | Give a project make verify and a verify skill that drives it like a user |

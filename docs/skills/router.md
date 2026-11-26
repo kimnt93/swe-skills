@@ -202,13 +202,14 @@ change only if it is not worse on any case that matters.
 skill path) to Claude Code, oh-my-pi and Codex. Which harness, model and effort an agent runs on is not here: only
 the team's agent table says it.
 
-## Playbooks: seven pipelines
+## Playbooks: eight pipelines
 
 They use the `write-issue`, `write-comment` and `work-package` formats; the role each playbook names merges, under the
-merge rules. There is no eighth playbook, and every one that builds ends with the merge. A request that names one follows
+merge rules. There is no ninth playbook, and every one that builds ends with the merge. A request that names one follows
 it; with none named, the CTO/CEO uses `playbook-build`. Nobody picks `playbook-quick` by itself. The CTO/CEO only
 orchestrates: it never plans, codes, tests, deploys or reviews code. By default the owner approves and reviews no code:
-the weight is on the plan, and the reviewer checks the code against it.
+the weight is on the plan, and the reviewer checks the code against it. Every reviewed pull request also gets the
+security and outbound-data check ([security-review](process.md#security-review)).
 
 ### playbook-build
 
@@ -270,3 +271,13 @@ or fail per function, evidence paths and bugs ready to file. No code is fixed, n
 only when asked. The safety rules of a test run bind it: no production action that spends, trades, deletes or messages
 real people without explicit approval. **When.** Test, QA or find bugs in a running app, API or tool. **Files.** An
 example run with its messages.
+
+### playbook-security
+
+**What it is.** A security audit on request, auditing only. The CTO/CEO sends a pull request or a repository to the
+reviewer, whose agent works from a clean checkout: it scans, lists every path data leaves by with the issue that asks
+for it, works the security topics, proves each finding with a command on its own machine and returns a report with the
+proven findings, what was not checked and issues ready to file. The CTO/CEO runs each proof again and reports. No code
+is changed, no verdict posted, nothing merged; issues are filed only when asked. **When.** Audit, check for leaks or
+vulnerabilities, or list what a project sends out. **Files.** An example run, its messages, an example report and a
+ready-to-file issue.

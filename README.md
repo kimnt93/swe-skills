@@ -1,9 +1,9 @@
 # swe-skills
 
 A software-engineering plugin for coding agents. One entry command (`/swe`) picks the language for the job, routes the task to
-tested skills and engineering principles, and does not finish until the project's `make verify` passes. Seven **playbooks**
-(`/swe:playbook-<name>`) cover the path from a problem or a pull request to its end, and testing running software, run
-by a team of bots in **Orca**.
+tested skills and engineering principles, and does not finish until the project's `make verify` passes. Eight **playbooks**
+(`/swe:playbook-<name>`) cover the path from a problem or a pull request to its end, testing running software and
+auditing its security, run by a team of bots in **Orca**.
 
 ## The stack
 
@@ -47,7 +47,7 @@ make cli
 
 ### 1. Playbooks (`/swe:playbook-<name>`)
 
-Exactly seven. A request that names one follows it; with none named, the CTO/CEO uses **`build`**. Every one that
+Exactly eight. A request that names one follows it; with none named, the CTO/CEO uses **`build`**. Every one that
 builds ends with the merge.
 
 | You have | Playbook | What happens | Ends |
@@ -59,6 +59,7 @@ builds ends with the merge.
 | a PR you want judged | [`review`](src/skills/playbook-review/SKILL.md) | read it, run it when safe, post one `PASS` or `FAIL` comment | at the comment; nothing changed |
 | a PR you want on `main` | [`ship`](src/skills/playbook-ship/SKILL.md) ([example](src/skills/playbook-ship/references/example.md)) | one reviewer reviews, fixes and re-reviews, at most 3 rounds, then merges | merged and issue closed, or stopped |
 | software you want tested | [`test`](src/skills/playbook-test/SKILL.md) ([example](src/skills/playbook-test/references/example.md)) | the tester writes the expected results, uses it as its user does (a real browser with screenshots and a video of every click; real inputs for an API or CLI) and runs each failure again | at a short report: pass or fail per function, evidence, bugs ready to file; no code fixed |
+| code you want audited for security | [`security`](src/skills/playbook-security/SKILL.md) ([example](src/skills/playbook-security/references/example.md)) | the reviewer's agent scans a PR or a repository, lists every path data leaves by and proves each finding locally | at a report: proven findings and issues ready to file; no code changed, nothing merged |
 
 ```text
 /swe:playbook-build limit requests per API key
@@ -68,7 +69,14 @@ builds ends with the merge.
 /swe:playbook-review review PR 54
 /swe:playbook-ship ship PR 54
 /swe:playbook-test test that a customer can sign in and get a price on staging
+/swe:playbook-security audit the orders service for leaks and vulnerabilities
 ```
+
+**Every reviewed pull request gets a security check** besides the check that it is correct
+([security-review](src/skills/security-review/SKILL.md)). One that adds or widens a way data leaves (a call, telemetry,
+an SDK, an upload, a CI or install step) **fails unless its accepted issue asks for that destination and data**; a
+proven security finding blocks the merge; and a `PASS` without the verdict's security section is refused. A scanner
+lists what to look at first. It is an aid: a clean scan is never a pass. `quick` has no check, so it has none of this.
 
 **By default you approve and review no code.** The weight is on the plan: the architect plans carefully, the CTO/CEO
 checks it against the card, and the reviewer checks the code against the accepted plan. The CEO or CTO only
@@ -167,7 +175,7 @@ and runs the check before anything lands ([delegate](src/skills/delegate/SKILL.m
 
 ```bash
 swe-cli update        # pull the latest code, rebuild the plugin, reinstall it into harnesses
-swe-cli playbooks     # list the seven playbooks and their slash commands
+swe-cli playbooks     # list the eight playbooks and their slash commands
 swe-cli agents        # check the team's agent table (also: path, row <row>, init)
 swe-cli delegate      # start one Orca worker for a brief, on a row of the agent table
 swe-cli config show   # show config.json
@@ -182,7 +190,7 @@ All commands and `config.json`: [cli/README.md](cli/README.md). `make cli` links
 |---|---|
 | [docs/getting-started.md](docs/getting-started.md) | install, first task, troubleshooting |
 | [docs/usage.md](docs/usage.md) | what to say for each kind of task |
-| [docs/playbooks.md](docs/playbooks.md) | the seven playbooks, their gates and rules |
+| [docs/playbooks.md](docs/playbooks.md) | the eight playbooks, their gates and rules |
 | [docs/skills/](docs/skills/README.md) | each skill in detail |
 | [docs/harnesses.md](docs/harnesses.md) | every supported harness and how it installs |
 | [docs/runbooks.md](docs/runbooks.md) | the steps that need you: agent table, local install, publish |
