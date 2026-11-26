@@ -23,7 +23,7 @@ when to use it, what to say, what happens, what you get, and its files.
 |---|---|
 | [playbook](router.md#playbook) | Three playbooks: Plan, Review, Quick; pick by scope and risk |
 | [playbook-plan](router.md#playbook-plan) | Plan only: CTO card, architect analysis comment, back to the CTO to accept, then stop |
-| [playbook-quick](router.md#playbook-quick) | Quick pipeline: CTO issue, developer PR, reviewer merge gate, no planning |
+| [playbook-quick](router.md#playbook-quick) | Quick: CTO issues, a worktree and PR each, 3 feedback rounds, CTO merges or stops, clean up |
 | [playbook-review](router.md#playbook-review) | Build an accepted plan: delegated PRs, PASS/FAIL review and fix loop, then the merge gate |
 | [swe](router.md#router) | Entry point: picks language and playbook, delegates by agent, finishes only when make verify passes |
 

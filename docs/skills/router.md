@@ -213,7 +213,7 @@ There is no fourth playbook.
 ### playbook
 
 **What it is.** Dispatcher for the three CTO pipelines. **When.** Choose `plan` to plan new or unsettled work, `review` to
-build an accepted plan or risky work with a PASS/FAIL fix round, and `quick` for a genuinely simple issue.
+build an accepted plan or risky work with a PASS/FAIL fix round, and `quick` when every issue is ready to build with no design question.
 
 ### playbook-plan
 
@@ -229,5 +229,8 @@ work, code the author did not write, or work likely to have review findings.
 
 ### playbook-quick
 
-**What it is.** CTO issue → developer PR → reviewer/gate merge; no architect plan. **When.** Documentation, one-file fixes,
-small tests or mechanical changes. A card that grows stops and becomes `plan` or `review`.
+**What it is.** CTO/CEO issues (a parent when there is more than one) → each developer in its own worktree opens one
+PR and sends it back → at most 3 feedback rounds → the CTO/CEO merges the accepted SHA and confirms, or stops it with
+final feedback (PR and branch stay on GitHub) → the developer removes the worktree. No architect plan and no separate
+reviewer. **When.** Every issue can be written now with no design question, each `simple` or `medium`. **Files.**
+`scripts/quick_loop.py` (round count, decision check, safe-removal check), the orchestration commands and an example.

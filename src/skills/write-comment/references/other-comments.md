@@ -46,7 +46,7 @@ the PASS for the new SHA.
 
 ## merge (whoever the playbook names)
 
-`Merged by <who> at <sha> after PASS.` (`after acceptance.` when the check was an `Accepted by` decision), what happened after (issue closed, branch
+`Merged by <who> at <sha> after PASS.` (`quick`: `after acceptance.`), what happened after (issue closed, branch
 deleted, changelog), then Gate (the required checks and their state) and Residual.
 
 ## Comments on an issue
