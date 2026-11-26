@@ -1,0 +1,38 @@
+diff --git a/README.md b/README.md
+index 3ded947..5b3c385 100644
+--- a/README.md
++++ b/README.md
+@@ -1 +1,3 @@
+ # Orders
++
++Totals use exact decimals. See https://docs.vendor-fixture.io/money for why.
+diff --git a/app/total.py b/app/total.py
+index 21f97a1..d20a193 100644
+--- a/app/total.py
++++ b/app/total.py
+@@ -2,4 +2,5 @@ from decimal import Decimal
+ 
+ 
+ def total(lines):
+-    return sum((x.price for x in lines), Decimal(0))
++    """Price times quantity, in exact decimals."""
++    return sum((x.price * x.quantity for x in lines), Decimal(0))
+diff --git a/internal/orders/repo.go b/internal/orders/repo.go
+index a4db336..84ec046 100644
+--- a/internal/orders/repo.go
++++ b/internal/orders/repo.go
+@@ -1 +1,14 @@
+ package orders
++
++const getOrder = `
++    SELECT id, total
++    FROM orders
++    WHERE id = $1
++`
++
++func (r Repo) Order(ctx context.Context, id string) (Order, error) {
++	var out Order
++	err := r.db.QueryRow(ctx, getOrder, id).Scan(&out.ID, &out.Total)
++	log.Info().Str("order_id", id).Msg("order read")
++	return out, err
++}

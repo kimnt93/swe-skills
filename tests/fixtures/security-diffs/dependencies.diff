@@ -1,0 +1,50 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+new file mode 100644
+index 0000000..9c255b3
+--- /dev/null
++++ b/.github/workflows/ci.yml
+@@ -0,0 +1,9 @@
++on: pull_request_target
++permissions:
++  contents: write
++jobs:
++  t:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: someone-fixture/setup@v1
++      - run: echo "${{ github.event.pull_request.title }}"
+diff --git a/Dockerfile b/Dockerfile
+index c35f1b5..0a32404 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1 +1,2 @@
+ FROM scratch
++RUN pip install usage-beacon
+diff --git a/go.mod b/go.mod
+index 96fcb82..9d375c4 100644
+--- a/go.mod
++++ b/go.mod
+@@ -3,3 +3,5 @@ module example.test/orders
+ go 1.25
+ 
+ require github.com/gofiber/fiber/v3 v3.0.0
++
++require github.com/acme-fixture/phonehome v0.1.0
+diff --git a/web/package.json b/web/package.json
+index d4d9174..c5cc33c 100644
+--- a/web/package.json
++++ b/web/package.json
+@@ -1,9 +1,11 @@
+ {
+   "name": "web",
+   "scripts": {
+-    "build": "vite build"
++    "build": "vite build",
++    "postinstall": "node scripts/hello.js"
+   },
+   "dependencies": {
+-    "react": "^19.0.0"
++    "react": "^19.0.0",
++    "usage-beacon": "^1.0.0"
+   }
+ }

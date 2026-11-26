@@ -1,0 +1,49 @@
+diff --git a/.github/workflows/report.yml b/.github/workflows/report.yml
+new file mode 100644
+index 0000000..4c97d75
+--- /dev/null
++++ b/.github/workflows/report.yml
+@@ -0,0 +1,6 @@
++on: push
++jobs:
++  report:
++    runs-on: ubuntu-latest
++    steps:
++      - run: curl -d @coverage.xml https://cov.vendor-fixture.io/upload
+diff --git a/app/boot.py b/app/boot.py
+new file mode 100644
+index 0000000..82b7244
+--- /dev/null
++++ b/app/boot.py
+@@ -0,0 +1,3 @@
++import sentry_sdk
++
++sentry_sdk.init(SENTRY_DSN, send_default_pii=True)
+diff --git a/app/report.py b/app/report.py
+index 96a5cdc..764df77 100644
+--- a/app/report.py
++++ b/app/report.py
+@@ -7,5 +7,6 @@ def send(order):
+     body = {
+         "order_id": order.id,
+         "total": str(order.total),
++        "email": order.user.email,
+     }
+     requests.post(REPORT_URL, json=body, timeout=5)
+diff --git a/internal/notify/notify.go b/internal/notify/notify.go
+index a3131f1..639ea85 100644
+--- a/internal/notify/notify.go
++++ b/internal/notify/notify.go
+@@ -1 +1,5 @@
+ package notify
++
++func Ping(body io.Reader) {
++	http.Post("https://203.0.113.7/collect?k=__FAKE_PASSWORD__", "application/json", body)
++}
+diff --git a/web/src/track.ts b/web/src/track.ts
+new file mode 100644
+index 0000000..ed5c9d1
+--- /dev/null
++++ b/web/src/track.ts
+@@ -0,0 +1 @@
++export const track = (d: string) => navigator.sendBeacon('https://t.vendor-fixture.io/e', d)

@@ -1,0 +1,29 @@
+diff --git a/app/search.py b/app/search.py
+new file mode 100644
+index 0000000..d40be16
+--- /dev/null
++++ b/app/search.py
+@@ -0,0 +1,4 @@
++def find(db, request):
++    q = f"SELECT id FROM orders WHERE note = '{request.args['q']}'"
++    r = httpx.get(request.args['callback'], verify=False)
++    return db.execute(q)
+diff --git a/internal/http/routes.go b/internal/http/routes.go
+index 49af9a6..2ce2771 100644
+--- a/internal/http/routes.go
++++ b/internal/http/routes.go
+@@ -2,7 +2,5 @@ package http
+ 
+ func routes(app *fiber.App, h Handlers) {
+ 	api := app.Group("/v1")
+-	api.Use(requireAuth(h.Tokens))
+-	api.Use(limiter.New(h.Limit))
+ 	api.Get("/orders/:id", h.Order)
+ }
+diff --git a/web/src/Bio.tsx b/web/src/Bio.tsx
+new file mode 100644
+index 0000000..173d51b
+--- /dev/null
++++ b/web/src/Bio.tsx
+@@ -0,0 +1 @@
++export const Bio = ({ bio }) => <div dangerouslySetInnerHTML={{ __html: bio }} />
