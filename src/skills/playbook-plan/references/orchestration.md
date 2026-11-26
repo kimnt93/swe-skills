@@ -21,7 +21,7 @@ If somebody is already planning the card, send to that chat or worker. Never sta
 
 ## 2. Send the card to the architect
 
-The messages and their templates are [bot-orchestration](../../bot-orchestration/SKILL.md#the-four-messages).
+The messages and their templates are [bot-orchestration](../../bot-orchestration/SKILL.md#the-messages).
 
 | Who plans | Pick it when | The plan comes back as |
 |---|---|---|

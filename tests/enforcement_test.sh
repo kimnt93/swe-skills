@@ -498,7 +498,8 @@ def slug(heading):
 for doc in sorted([*skills.rglob("*.md")]):
     for target, anchor in re.findall(r"\]\(([^)#\s]*\.md)#([^)\s]+)\)", doc.read_text(encoding="utf-8")):
         page = (doc.parent / target).resolve()
-        if "playbook-" not in str(page) or not page.is_file():
+        # judged on the path inside skills/: a checkout in a directory named playbook-* must not widen the rule
+        if not page.is_relative_to(skills.resolve()) or "playbook-" not in str(page.relative_to(skills.resolve())) or not page.is_file():
             continue
         heads = {slug(h) for h in re.findall(r"^#+ (.+)$", page.read_text(encoding="utf-8"), re.M)}
         if anchor not in heads:
