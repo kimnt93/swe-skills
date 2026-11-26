@@ -15,7 +15,7 @@ The owner asks the CTO bot for one rule for filtering orders across two reposito
 
 ```bash
 ORCA orchestration send --to "bot:<architect>" --chat new --type handoff \
-    --subject "REFACTOR PLAN ORDERS: one order filter" --body-file architect-brief.md
+    --subject "<parent chat name>" --body-file architect-brief.md      # opens the child chat; record its id
 # the status arrives; then, with the directory and digest it names:
 python3 <this skill>/scripts/refactor_bundle.py plan <bundle dir>
 python3 <this skill>/scripts/refactor_bundle.py post <bundle dir> --digest <digest>

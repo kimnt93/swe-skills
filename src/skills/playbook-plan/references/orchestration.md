@@ -13,7 +13,7 @@ terminal it is `orca-ide`, never bare `orca`). Write every message body to a fil
 ```bash
 ORCA bot list                                # which bots exist and what each is for
 ORCA bot chats --bot "<name>"                # its chats: is this card already being planned?
-ORCA bot chats                               # your own chats; the line marked "(this chat)" is your return chat
+ORCA bot chats                               # "(this chat)": your return chat; its title is your chat's name
 ORCA worktree ps --since 2h                  # what is running now
 ```
 
@@ -28,14 +28,19 @@ The messages and their templates are [bot-orchestration](../../bot-orchestration
 | **A. the architect bot** | `bot list` shows an architect for this project | its `status` to your return address |
 | **B. a supervised agent** | no bot has the role | the agent's `worker_done` |
 
-**A. Bot.** Delegate with a `handoff`, from the [delegate template](../../bot-orchestration/assets/delegate.template.md):
+**A. Bot.** Delegate with a `handoff`, from the [delegate template](../../bot-orchestration/assets/delegate.template.md),
+in your [one child chat](../../bot-orchestration/SKILL.md#one-child-chat-per-parent-chat-and-bot) on that bot:
 
 ```bash
+# the first delegation from this chat to the architect; record the new chat's id
 ORCA orchestration send --to "bot:<architect>" --chat new --type handoff \
+    --subject "<parent chat name>" --body-file delegate.md
+# you have the child chat already
+ORCA orchestration send --to "bot:<architect>" --chat <child chat id> --type handoff \
     --subject "PLAN <ID>: <outcome>" --body-file delegate.md
 ```
 
-`--chat <id>` continues an earlier chat. A handoff returns nothing by itself, so the brief carries your return address.
+A handoff returns nothing by itself, so the brief carries your return address.
 
 **B. Agent.** The spec file is an [agent brief](../../bot-orchestration/assets/agent-brief.template.md).
 
@@ -70,13 +75,14 @@ the middle uses `ORCA orchestration ask`, as its preamble says, and ends its tur
 ## 4. Changes required
 
 ```bash
-ORCA orchestration send --to "bot:<architect>" --chat <id> --type handoff \
+ORCA orchestration send --to "bot:<architect>" --chat <child chat id> --type handoff \
     --subject "PLAN <ID> v2: changes required" --body-file follow-up.md
 ORCA orchestration send --to dispatch:<id> --subject "PLAN <ID> v2: changes required" --body-file changes.md
 ```
 
-The first line is for a bot, with a [follow-up](../../bot-orchestration/assets/follow-up.template.md) that links the
-decision comment; the second is for your own agent. A finished agent takes it as a follow-up task.
+The first line is for a bot, in its child chat, with a [follow-up](../../bot-orchestration/assets/follow-up.template.md)
+that links the decision comment; when that chat is gone or unknown, open a new one as in section 2 and add the context to
+the follow-up. The second is for your own agent. A finished agent takes it as a follow-up task.
 
 ## 5. When you need to look
 

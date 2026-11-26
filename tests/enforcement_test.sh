@@ -476,6 +476,64 @@ for doc in sorted(skills.glob("playbook*/**/*.md")):
     for line in doc.read_text(encoding="utf-8").replace("\\\n", " ").splitlines():
         if re.search(r'--to "bot:.*--type question\b.*--subject "(PLAN|BUILD|REVIEW|PR|MERGED|STOPPED|<ID)', line):
             bad.append(f"{doc.relative_to(skills)}: delegates with a question; use handoff, and report with status: {line.strip()}")
+# one child chat per parent chat and receiving bot: every documented send to a bot names the chat it goes to, a new chat
+# is opened only to hand over or ask, and a full command opens it under the parent chat's name
+def chatless(text):
+    found = []
+    for line in re.sub(r"\\\n\s*", " ", text).splitlines():
+        for send in line.split("`"):
+            if not re.search(r"""\bsend\b.*--to[ =]["']?bot:""", send):
+                continue
+            chat = re.search(r"--chat[ =](new\b|<child chat id>|<return chat id>)", send)
+            kind = re.search(r"--type[ =](\w+)", send)
+            if not chat:
+                why = "a send to a bot takes --chat new, --chat <child chat id> or --chat <return chat id>"
+            elif not kind or kind[1] not in ("handoff", "question", "status"):
+                why = "a send to a bot is a handoff, a question or a status"
+            elif (kind[1] == "status") != (chat[1] == "<return chat id>"):
+                why = "a status goes to the <return chat id>; delegated work goes to new or the <child chat id>"
+            elif chat[1] == "new" and "orchestration send" in send and '--subject "<parent chat name>"' not in send:
+                why = 'a new chat takes --subject "<parent chat name>"'
+            else:
+                why = ""
+            found.append(f"{why}: {send.strip()}" if why else "")
+    return found
+
+full = 'ORCA orchestration send --to "bot:<x>" '
+for wrong in ('--type handoff --subject "<ID>: fix" --body-file f.md', '--chat <id> --type handoff --body-file f.md',
+              '--chat <its chat id> --type handoff', '--chat new --type handoff --subject "BUILD <ID>: x"',
+              '--chat new --type status --subject "<parent chat name>"', '--chat <child chat id> --type status',
+              '--chat <return chat id> --type handoff', '--chat <child chat id> --body-file f.md', '\\\n    --type handoff'):
+    if not any(chatless(full + wrong)):
+        bad.append(f"the child chat check accepts: {wrong!r}")
+if not any(chatless("| bot | `send --to bot:<name> --type handoff` |")):
+    bad.append("the child chat check misses an unquoted send in a table")
+for right in ('--chat new --type handoff --subject "<parent chat name>"', '--chat <child chat id> \\\n    --type question',
+              '--chat <return chat id> --type status'):
+    if chatless(full + right) != [""]:
+        bad.append(f"the child chat check refuses: {right!r}")
+sends = 0
+for doc in sorted([*skills.rglob("*.md"), root / "README.md", *(root / "docs").rglob("*.md")]):
+    for why in chatless(doc.read_text(encoding="utf-8")):
+        sends += 1
+        if why:
+            bad.append(f"{doc.relative_to(root)}: {why}")
+if sends < 25:
+    bad.append(f"the child chat check found only {sends} documented sends to a bot: it no longer sees them")
+rules = {
+    "bot-orchestration/SKILL.md": [
+        "## One child chat per parent chat and bot", "Each bot you delegate to from it has **one child chat** for it.",
+        "with the **parent chat's name as the subject**", "**Record the child chat's id**, by parent chat and receiving bot",
+        "**Never send delegated work to a bot with no `--chat`:**", "**A different parent chat gets its own child chat.**",
+        "keeps the same subject", "**The child chat is gone, unknown, or more than one matches:**", "**Never guess a chat.**",
+        "A status still goes to the parent's return address."],
+    "bot-orchestration/references/commands.md": ["## The child chat", "A resumed run reads it before it sends anything.",
+                                                 "**Not tried:** sending while the child chat is busy"],
+    "bot-orchestration/assets/delegate.template.md": ["Delegating further: one child chat per receiving bot from this chat"],
+}
+for name, needles in rules.items():
+    body = " ".join((skills / name).read_text(encoding="utf-8").split())
+    bad += [f"{name}: missing {needle!r}" for needle in needles if needle not in body]
 text_of = (skills / "bot-orchestration/SKILL.md").read_text(encoding="utf-8")
 for needle in ("Agents do separate work and never talk to each other", "agent → agent", "Do not start that role's agents yourself",
                "--type handoff", "--type status", "An agent starts **no helpers**", "**ends its turn**", "**A bot never does the task itself.**",

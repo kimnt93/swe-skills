@@ -35,7 +35,8 @@ gh issue create --repo <owner>/<repo> --title "EXPORT-00: Export the filtered or
 ORCA bot list
 ORCA bot chats                     # note the id on the "(this chat)" line and put it in the brief
 ORCA orchestration send --to "bot:<architect>" --chat new --type handoff \
-    --subject "PLAN EXPORT-00: export the filtered order list" --body-file delegate.md
+    --subject "<parent chat name>" --body-file delegate.md
+ORCA bot chats --bot "<architect>" # record the child chat's id: a change request goes there
 
 # 3. Architect
 python3 <work-package skill>/scripts/package_lint.py comment --kind plan --body-file plan.md

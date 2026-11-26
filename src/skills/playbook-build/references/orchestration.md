@@ -12,7 +12,7 @@ the bot list:
 
 ```bash
 ORCA bot list                                # which bots hold architect, developer, tester, devops, reviewer
-ORCA bot chats                               # your own chats; "(this chat)" is the return chat
+ORCA bot chats                               # "(this chat)": your return chat; its title is your chat's name
 ORCA worktree ps --since 2h                  # is somebody already on these files?
 ```
 
@@ -34,16 +34,21 @@ posts the decision comment and, once it is `Accepted by`, goes on to section 3 i
 
 ## 3. Send each package to its builder
 
-Once `issue_gate.py issue <n>` allows the issue, one `handoff` per issue, each in a chat of its own, in the
-[delegate](../../bot-orchestration/assets/delegate.template.md) format:
+Once `issue_gate.py issue <n>` allows the issue, one `handoff` per issue, in the
+[delegate](../../bot-orchestration/assets/delegate.template.md) format. All of one bot's issues go to your
+[one child chat](../../bot-orchestration/SKILL.md#one-child-chat-per-parent-chat-and-bot) on it:
 
 ```bash
+# the first message from this chat to each bot opens its child chat; record each id
 ORCA orchestration send --to "bot:<developer>" --chat new --type handoff \
-    --subject "BUILD <ID>: <outcome>" --body-file developer-brief.md
+    --subject "<parent chat name>" --body-file developer-brief.md
 ORCA orchestration send --to "bot:<devops>" --chat new --type handoff \
-    --subject "BUILD <ID>: <outcome>" --body-file devops-brief.md
+    --subject "<parent chat name>" --body-file devops-brief.md
 ORCA orchestration send --to "bot:<tester>" --chat new --type handoff \
-    --subject "BUILD <ID>: <outcome>" --body-file tester-brief.md
+    --subject "<parent chat name>" --body-file tester-brief.md
+# every later issue for one of them
+ORCA orchestration send --to "bot:<developer>" --chat <child chat id> --type handoff \
+    --subject "BUILD <ID>: <outcome>" --body-file developer-brief.md
 ```
 
 Each builder bot creates the issue's worktree and [runs its own agent](../../bot-orchestration/references/commands.md)
@@ -80,7 +85,11 @@ ORCA orchestration send --to "bot:<cto>" --chat <return chat id> --type status \
 **The reviewer bot** whenever it exists, with a `handoff` that links the accepted plan:
 
 ```bash
+# the first review from this chat; record the new chat's id
 ORCA orchestration send --to "bot:<reviewer>" --chat new --type handoff \
+    --subject "<parent chat name>" --body-file reviewer-brief.md
+# every later PR
+ORCA orchestration send --to "bot:<reviewer>" --chat <child chat id> --type handoff \
     --subject "REVIEW <ID>: PR #<n>" --body-file reviewer-brief.md
 ```
 
@@ -108,8 +117,8 @@ Then **end your turn**; do not poll.
 ## 7. After the merge, or to send it back
 
 ```bash
-ORCA orchestration send --to "bot:<reviewer>" --chat <its chat id> --type handoff --subject "MERGED <ID>: remove your worktree" --body-file follow-up.md
-ORCA orchestration send --to "bot:<reviewer>" --chat <its chat id> --type handoff --subject "<ID>: behind main, rebase and judge the new head" --body-file follow-up.md
+ORCA orchestration send --to "bot:<reviewer>" --chat <child chat id> --type handoff --subject "MERGED <ID>: remove your worktree" --body-file follow-up.md
+ORCA orchestration send --to "bot:<reviewer>" --chat <child chat id> --type handoff --subject "<ID>: behind main, rebase and judge the new head" --body-file follow-up.md
 ORCA orchestration send --to dispatch:<dispatch_id> --subject "MERGED <ID>: remove your worktree" --body-file follow-up.md
 ORCA worktree ps                                       # the builder's and reviewer's worktrees are gone
 ORCA orchestration worker-list                         # follow any `next` it shows
@@ -122,4 +131,5 @@ not remove a worktree. Then send the next wave as in section 3.
 ## 8. A later run
 
 A new run on the same card reads [where it stands](../SKILL.md#where-does-this-run-stand) from the host and goes on
-from the first row that is not done.
+from the first row that is not done. Before it sends anything, it reads its record of
+[child chats](../../bot-orchestration/references/commands.md#the-child-chat).

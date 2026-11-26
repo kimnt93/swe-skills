@@ -6,18 +6,39 @@ installed guide win over this page. Write each body to a file.
 ## Your return address
 
 ```bash
-ORCA bot chats                      # the id on the '(this chat)' line
+ORCA bot chats                      # the '(this chat)' line: your chat's id, and its title, your chat's name
 ORCA bot list                       # the bot names
 ```
 
 ## bot → bot: delegate
 
 ```bash
-ORCA orchestration send --to "bot:<name>" --chat new --type handoff --subject "<ID>: <outcome>" --body-file delegate.md
-ORCA orchestration send --to "bot:<name>" --chat <its chat id> --type handoff --subject "<ID>: changes required" --body-file follow-up.md
+# the first delegation from this chat to this bot: it opens the child chat
+ORCA orchestration send --to "bot:<name>" --chat new --type handoff --subject "<parent chat name>" --body-file delegate.md
+ORCA bot chats --bot "<name>"       # the new chat, '<your bot name>: <parent chat name>': record its id
+
+# every later message from this chat to this bot: the next job, then a follow-up
+ORCA orchestration send --to "bot:<name>" --chat <child chat id> --type handoff --subject "<ID>: <outcome>" --body-file delegate.md
+ORCA orchestration send --to "bot:<name>" --chat <child chat id> --type handoff --subject "<ID>: changes required" --body-file follow-up.md
 ```
 
 A handoff returns nothing by itself: the receiving bot **must** send a status to the return address. Then end your turn.
+
+## The child chat
+
+[The rule](../SKILL.md#one-child-chat-per-parent-chat-and-bot): one per parent chat and receiving bot.
+
+- **Your chat's name** is the title on the `(this chat)` line. When another bot opened your chat, drop its
+  `<sender bot name>: ` prefix: what is left is the subject you pass on.
+- **Record** one line per parent chat and receiving bot, `<parent chat id> <bot> <child chat id>`, in your bot's memory
+  or in a file outside every repository. A resumed run reads it before it sends anything.
+- **Find the new id** with `ORCA bot chats --bot "<name>"`: each row starts with the id, the only thing `--chat` takes.
+  If an older chat has the same title, list the chats before and after the send: the new row is yours.
+- **A recorded id that is no longer listed is gone.** With no record, a matching title does not make a chat yours:
+  open a new one.
+- **Seen working:** `--chat new`, then the same id, kept the receiver's context, and replies came back to the sender's
+  chat. **Not tried:** sending while the child chat is busy, and chains of more than one child chat. If a message seems
+  lost, look (`ORCA bot chats --bot "<name>"`, `ORCA orchestration inbox`) before you send it again.
 
 ## bot → agent: brief and steer
 

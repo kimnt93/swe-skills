@@ -49,9 +49,10 @@ AGENT_NAME="CEO (example)" python3 <work-package skill>/scripts/package_lint.py 
 gh issue create --repo $R --title "RATE-00: Limit requests per API key" \
     --label enhancement --label backend --label medium --body-file card.md
 
+# Each --chat new below is the first message from the CEO's chat to that bot: the CEO records the new chat's id
 # 2 to 5. CEO and architect, as in the plan example
 ORCA orchestration send --to "bot:<architect>" --chat new --type handoff \
-    --subject "PLAN RATE-00: limit requests per API key" --body-file architect-brief.md
+    --subject "<parent chat name>" --body-file architect-brief.md
 gh issue view 60 --repo $R --comments
 gh issue comment 60 --repo $R --body-file plan-acceptance.md
 
@@ -59,9 +60,9 @@ gh issue comment 60 --repo $R --body-file plan-acceptance.md
 python3 <github skill>/scripts/issue_gate.py issue 61 --repo $R            # OK: opened by an account with write access
 python3 <bot-orchestration skill>/scripts/message_lint.py delegate --body-file devops-brief.md
 ORCA orchestration send --to "bot:<developer>" --chat new --type handoff \
-    --subject "BUILD RATE-00a: answer 429 over an API key's limit" --body-file developer-brief.md
+    --subject "<parent chat name>" --body-file developer-brief.md
 ORCA orchestration send --to "bot:<devops>" --chat new --type handoff \
-    --subject "BUILD RATE-00b: set the request limits in the deployment" --body-file devops-brief.md
+    --subject "<parent chat name>" --body-file devops-brief.md
 
 # 8. Developer bot, after its agent's report
 python3 <github skill>/scripts/pr_loop.py can-remove --worktree <path> --pr 64 --repo $R --handover
@@ -69,7 +70,9 @@ ORCA worktree rm --worktree path:<path>
 
 # 10. CEO: no diff, no test run
 ORCA orchestration send --to "bot:<reviewer>" --chat new --type handoff \
-    --subject "REVIEW RATE-00a: PR #64" --body-file reviewer-brief.md
+    --subject "<parent chat name>" --body-file reviewer-brief.md
+
+# a later review, a rebase or MERGED goes to the reviewer's recorded child chat
 
 # 14. CEO
 python3 <github skill>/scripts/pr_loop.py can-merge --pr 64 --repo $R
@@ -82,7 +85,7 @@ gh issue view 61 --repo $R --json state
 
 # 15. CEO: wave 2 from the new main
 ORCA orchestration send --to "bot:<tester>" --chat new --type handoff \
-    --subject "BUILD RATE-00c: load test the request limit" --body-file tester-brief.md
+    --subject "<parent chat name>" --body-file tester-brief.md
 ```
 
 **If round 3 had not been enough:** after three `FAIL` rounds the next failing review is

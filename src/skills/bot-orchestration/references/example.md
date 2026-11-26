@@ -17,9 +17,10 @@ needs something A found, the developer bot reads A's report and writes it into B
 
 ```bash
 # 1. CEO bot
-ORCA bot chats                                   # its own chat id for 'Return to'
+ORCA bot chats                                   # its own chat id for 'Return to', and its chat's name
 python3 <this skill>/scripts/message_lint.py delegate --body-file delegate.md
-ORCA orchestration send --to "bot:<developer bot>" --chat new --type handoff --subject "ORD-02: local order times" --body-file delegate.md
+ORCA orchestration send --to "bot:<developer bot>" --chat new --type handoff --subject "<parent chat name>" --body-file delegate.md
+ORCA bot chats --bot "<developer bot>"           # record the new chat's id: every later message to this bot goes there
 
 # 2. developer bot
 python3 <github skill>/scripts/issue_gate.py issue 52 --repo <owner>/<repo>

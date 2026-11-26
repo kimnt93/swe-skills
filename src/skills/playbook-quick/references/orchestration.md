@@ -9,7 +9,7 @@ message types (`question`, `handoff`, `status`) and the commands for looking at 
 
 ```bash
 ORCA bot list                                # which bot holds the developer role? (or the team's mapping skill)
-ORCA bot chats                               # your own chats; "(this chat)" is the return chat
+ORCA bot chats                               # "(this chat)": your return chat; its title is your chat's name
 ORCA worktree ps --since 2h                  # is somebody already on these files?
 ```
 
@@ -18,10 +18,15 @@ One issue has one developer. If somebody is on it, send to that chat or worker.
 ## 2. Send the issues
 
 **A. The developer bot** (use it whenever it exists). A `handoff` in the
-[delegate](../../bot-orchestration/assets/delegate.template.md) format, a chat of its own for each issue:
+[delegate](../../bot-orchestration/assets/delegate.template.md) format for each issue, all in your
+[one child chat](../../bot-orchestration/SKILL.md#one-child-chat-per-parent-chat-and-bot) on it:
 
 ```bash
+# the first message from this chat to the developer bot; record the new chat's id
 ORCA orchestration send --to "bot:<developer>" --chat new --type handoff \
+    --subject "<parent chat name>" --body-file delegate-<id>.md
+# every later issue
+ORCA orchestration send --to "bot:<developer>" --chat <child chat id> --type handoff \
     --subject "BUILD <ID>: <outcome>" --body-file delegate-<id>.md
 ```
 
@@ -82,12 +87,12 @@ decide` refuses a fourth, and then you stop. To the
 **same** developer, so it keeps its branch, worktree and context; there is no review feedback:
 
 ```bash
-ORCA orchestration send --to "bot:<developer>" --chat <its chat id> --type handoff \
+ORCA orchestration send --to "bot:<developer>" --chat <child chat id> --type handoff \
     --subject "<ID>: PR #<n> checks red, fix and report the new head" --body-file follow-up.md
 ORCA orchestration send --to dispatch:<dispatch_id> --subject "<ID>: PR #<n> behind main, rebase and report" --body-file note.md
 ```
 
-The first is for the developer's bot (its chat id is on the `From:` line of its report): a
+The first is for the developer's bot, in the child chat you recorded (the `From:` line of its report shows it): a
 [follow-up](../../bot-orchestration/assets/follow-up.template.md) ([example](../assets/example/rebase.md)). The second is
 for your own agent; a finished one takes it as a follow-up task. If an agent is lost, its bot follows the
 `/orchestration` recovery reference before starting another on the same branch.
@@ -100,7 +105,7 @@ After the merge is **confirmed**, or after your `Stopped`, send the developer on
 ```bash
 ORCA orchestration send --to dispatch:<dispatch_id> --subject "MERGED <ID>: remove your worktree" --body-file cleanup.md
 ORCA orchestration send --to dispatch:<dispatch_id> --subject "STOPPED <ID>: stop and remove your worktree" --body-file cleanup.md
-ORCA orchestration send --to "bot:<developer>" --chat <id> --type handoff --subject "MERGED <ID>: remove your worktree" --body-file follow-up.md
+ORCA orchestration send --to "bot:<developer>" --chat <child chat id> --type handoff --subject "MERGED <ID>: remove your worktree" --body-file follow-up.md
 ```
 
 The developer checks, reports and removes ([step 7](../SKILL.md#7-developer-remove-the-worktree); a worker sends its

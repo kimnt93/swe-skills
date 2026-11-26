@@ -34,16 +34,16 @@ CEO bot ── issue ──► developer bot ──┬─ brief ─► agent A (
 
 | From → to | Use it to | Orca | Template |
 |---|---|---|---|
-| bot → bot | **delegate** a job | `send --to "bot:<name>" --type handoff` | [delegate](assets/delegate.template.md) |
+| bot → bot | **delegate** a job | `send --to "bot:<name>" --chat new --type handoff` the first time, then `send --to "bot:<name>" --chat <child chat id> --type handoff` | [delegate](assets/delegate.template.md) |
 | bot → its agent | **brief** it, then steer it | `worker-start`, then `send --to dispatch:<id>` | [agent brief](assets/agent-brief.template.md) |
 | agent → its bot | **report** the result, or ask | `worker_done`, `ask`, `escalation` | [agent report](assets/agent-report.template.md) |
-| bot → bot | **status** when done or blocked | `send --to "bot:<name>" --chat <id> --type status` | [bot report](assets/bot-report.template.md) |
-| bot → bot | **follow up** on a delegated job: changes, merged, stopped | `send --to "bot:<name>" --chat <id> --type handoff` | [follow-up](assets/follow-up.template.md) |
+| bot → bot | **status** when done or blocked | `send --to "bot:<name>" --chat <return chat id> --type status` | [bot report](assets/bot-report.template.md) |
+| bot → bot | **follow up** on a delegated job: changes, merged, stopped | `send --to "bot:<name>" --chat <child chat id> --type handoff` | [follow-up](assets/follow-up.template.md) |
 
 A message to **your own** agent after its brief (`send --to dispatch:<id>`) is free text: it comes from its bot.
 An agent is never given a bot's handoff: it gets an agent brief.
 
-A short question between bots, with no job handed over, uses `--type question`. Every other route is **forbidden**:
+A short question between bots, with no job handed over, uses `--type question`, in the child chat. Every other route is **forbidden**:
 agent → agent, agent → another bot, agent → a bot that did not start it, and a bot steering another bot's agent.
 
 Check each message before you send it; the linter reads the template, so editing a template changes the rule:
@@ -53,6 +53,29 @@ python3 <this skill>/scripts/message_lint.py <delegate|agent-brief|agent-report|
 ```
 
 Commands: [commands](references/commands.md). A full run: [example](references/example.md).
+
+## One child chat per parent chat and bot
+
+The **parent chat** is the chat you delegate from. Each bot you delegate to from it has **one child chat** for it.
+
+- **First delegation** from a parent chat to a bot: `--chat new`, with the **parent chat's name as the subject**. Orca
+  titles the new chat `<sender bot name>: <subject>`; the title is fixed then.
+- **Record the child chat's id**, by parent chat and receiving bot, where a resumed run can read it
+  ([how](references/commands.md#the-child-chat)).
+- **Every later message** from that parent chat to that bot (the next job, a follow-up, changes, merged, stopped, a
+  question) uses `--chat` with that id. **Never send delegated work to a bot with no `--chat`:** it lands in the
+  receiver's Home Chat.
+- **A different parent chat gets its own child chat.** A bot that delegates further does the same from its own chat and
+  keeps the same subject (its chat's title without the sender's name), so the chain is easy to follow.
+- **The child chat is gone, unknown, or more than one matches:** open a new one with `--chat new`, record the new id and
+  put the context the receiver needs in that message. **Never guess a chat.**
+- A status still goes to the parent's return address.
+
+**Good:** from its chat `example start`, the CTO bot opens a chat on the developer bot with that subject; it shows as
+`<CTO bot>: example start`. The next issue, the change request and `MERGED` go to its recorded id, and the developer
+bot delegates onward from there with the subject `example start`.
+**Bad:** the CTO bot sends the change request to the developer bot's name alone. It lands in the Home Chat, which knows
+nothing about the job.
 
 ## One agent table
 

@@ -45,9 +45,9 @@ python3 <work-package skill>/scripts/package_lint.py issue --kind package \
 gh issue create --repo <owner>/<repo> --title "ORD-02: Show order times in the local zone" \
     --label bug --label frontend --label simple --body-file issue-web.md
 
-# 2. CTO/CEO, after PR #53 is merged
+# 2. CTO/CEO, after PR #53 is merged. The API issue went first, with --chat new, and opened the developer's child chat
 python3 <github skill>/scripts/issue_gate.py issue 52 --repo <owner>/<repo>    # OK: opened by an account with write access
-ORCA orchestration send --to "bot:<developer>" --chat new --type handoff \
+ORCA orchestration send --to "bot:<developer>" --chat <child chat id> --type handoff \
     --subject "BUILD ORD-02: show order times in the local zone" --body-file developer-brief.md
 
 # 3. Developer
@@ -73,7 +73,7 @@ gh pr view 54 --repo <owner>/<repo> --json state,mergeCommit,closingIssuesRefere
 gh pr comment 54 --repo <owner>/<repo> --body-file merge.md
 
 # 6. CTO/CEO, then the developer in its worktree, then the CTO/CEO
-ORCA orchestration send --to "bot:<developer>" --chat <its chat id> --type handoff \
+ORCA orchestration send --to "bot:<developer>" --chat <child chat id> --type handoff \
     --subject "MERGED ORD-02: remove your worktree" --body-file cleanup-merged.md
 python3 <github skill>/scripts/pr_loop.py can-remove --worktree <path> --pr 54 --repo <owner>/<repo>
 ORCA worktree rm --worktree path:<path>
