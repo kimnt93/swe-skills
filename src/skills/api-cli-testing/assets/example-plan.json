@@ -1,0 +1,22 @@
+{
+  "environment": "staging",
+  "target": "https://shop-api.stg.@DOMAIN@/",
+  "allow_programs": ["shopctl"],
+  "functions": [
+    {"id": "list-orders", "name": "A customer lists their orders", "steps": [
+      {"kind": "http", "method": "GET", "path": "/v1/orders?limit=2",
+       "headers": {"Authorization": "Bearer ${secret:SHOP_TEST_TOKEN}"},
+       "expect": {"status": 200, "json": {"limit": 2}}, "max_ms": 800}
+    ]},
+    {"id": "bad-limit", "name": "A wrong limit is refused with a reason", "steps": [
+      {"kind": "http", "method": "GET", "path": "/v1/orders?limit=0",
+       "headers": {"Authorization": "Bearer ${secret:SHOP_TEST_TOKEN}"},
+       "expect": {"status": 400, "contains": "limit"}}
+    ]},
+    {"id": "export", "name": "An operator exports one order as JSON", "steps": [
+      {"kind": "cli", "argv": ["shopctl", "order", "export", "--id", "1001", "--format", "json"],
+       "env": {"SHOPCTL_TOKEN": "${secret:SHOP_TEST_TOKEN}"},
+       "expect": {"exit": 0, "stdout_json": {"id": 1001}}}
+    ]}
+  ]
+}
