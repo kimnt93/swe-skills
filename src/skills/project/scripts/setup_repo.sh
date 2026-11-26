@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # setup_repo.sh <owner>/<repo> [--check <required check name>] [--approvals N] [--dry-run]
 # --approvals defaults to 0: agents run as your own gh account, and GitHub does not let an account
-# approve its own PR; the review is enforced by `swe-cli merge` instead. Use 1 once agents
+# approve its own PR; the merger checks the verdict on the PR instead. Use 1 once agents
 # run as a separate bot account.
-# Squash-only merges, delete branches on merge, a protected main with the required check, and the
+# Rebase-only merges, delete branches on merge, a protected main with the required check, and the
 # project labels (assets/labels.json). Idempotent. --self-test runs it against a fake gh.
 set -euo pipefail
 
@@ -14,7 +14,7 @@ if [ "${1:-}" = "--self-test" ]; then
   chmod +x "$tmp/gh"
   PATH="$tmp:$PATH" "$0" acme/orders --check verify >/dev/null
   calls="$(cat "$tmp/calls")"
-  grep -q "gh repo edit acme/orders --enable-squash-merge --enable-merge-commit=false --enable-rebase-merge=false --delete-branch-on-merge" <<<"$calls" || { echo "FAIL repo edit"; exit 1; }
+  grep -q "gh repo edit acme/orders --enable-rebase-merge --enable-squash-merge=false --enable-merge-commit=false --delete-branch-on-merge" <<<"$calls" || { echo "FAIL repo edit"; exit 1; }
   grep -q "gh api --method PUT repos/acme/orders/branches/main/protection --input -" <<<"$calls" || { echo "FAIL protection"; exit 1; }
   [ "$(grep -c '^gh label create' <<<"$calls")" = "$(python3 -c "import json;print(len(json.load(open('$here/assets/labels.json'))))")" ] || { echo "FAIL labels"; exit 1; }
   : >"$tmp/calls"; PATH="$tmp:$PATH" "$0" acme/orders --dry-run >/dev/null
@@ -36,7 +36,7 @@ while [ $# -gt 0 ]; do
 done
 run() { if [ "$dry" = yes ]; then echo "would run: $*"; else "$@"; fi; }
 
-run gh repo edit "$repo" --enable-squash-merge --enable-merge-commit=false --enable-rebase-merge=false --delete-branch-on-merge
+run gh repo edit "$repo" --enable-rebase-merge --enable-squash-merge=false --enable-merge-commit=false --delete-branch-on-merge
 
 protection="$(python3 - "$check" "$approvals" <<'PY'
 import json, sys
@@ -61,4 +61,4 @@ python3 -c 'import json,sys; [print(l["name"], l["color"], l["description"], sep
   "$here/assets/labels.json" | while IFS=$'\t' read -r name color description; do
   run gh label create "$name" --repo "$repo" --color "$color" --description "$description" --force
 done
-echo "done: $repo (squash only, protected main requiring '$check', labels)"
+echo "done: $repo (rebase only, protected main requiring '$check', labels)"

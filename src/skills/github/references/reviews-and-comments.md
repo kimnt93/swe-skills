@@ -8,18 +8,20 @@
    `lint-imports`).
 4. Verdict, in a body file whose first line is `Verdict: PASS at <sha>` or `Verdict: FAIL at <sha>`,
    followed by the findings (command, output, expected) or "no verified findings". For a package, use the
-   comment format in the `work-package` skill.
+   comment format in the `write-comment` skill. The body ends with `Created: <agent name>`.
 
 ```bash
 gh pr review <n> --comment --body-file review.md
 ```
 
 Agents run as the same GitHub account that opened the PR, and GitHub refuses `--approve` and
-`--request-changes` on your own PR, so the verdict is a comment review; `swe-cli merge` enforces it
-through the verified SHA. With a separate bot account, use `--approve` / `--request-changes` instead.
+`--request-changes` on your own PR, so the verdict is a comment review; the merger checks it
+against the verified SHA. With a separate bot account, use `--approve` / `--request-changes` instead.
 A verdict is for one SHA; a new push needs a new verdict.
 
 ## Comment
+
+The `write-comment` skill has the formats; sign and lint the file first.
 
 ```bash
 gh pr comment <n> --body-file note.md

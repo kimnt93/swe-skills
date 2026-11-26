@@ -207,24 +207,25 @@ skill path) to Claude Code, oh-my-pi and Codex.
 
 ## Playbooks: three CTO pipelines
 
-Every repository change is one of these. They use the `work-package` issue/PR format; the reviewer/gate merges after a PASS.
+Every repository change is one of these. They use the `write-issue`, `write-comment` and `work-package` formats; the role each playbook names merges.
 There is no fourth playbook.
 
 ### playbook
 
-**What it is.** Dispatcher for the three CTO pipelines. **When.** Choose `plan` for new or unsettled work, `review` when an
-independent PASS/FAIL and fix round is needed, and `quick` for a genuinely simple issue.
+**What it is.** Dispatcher for the three CTO pipelines. **When.** Choose `plan` to plan new or unsettled work, `review` to
+build an accepted plan or risky work with a PASS/FAIL fix round, and `quick` for a genuinely simple issue.
 
 ### playbook-plan
 
-**What it is.** CTO issue → architect plan comment (packages, waves, contracts, verify, risks) → CTO acceptance → delegated
-developer/subagent PRs → reviewer/gate merge. **When.** New features, cross-file changes, hard bugs, or a shape not yet settled.
+**What it is.** CTO/CEO planning card or epic → architect (bot or delegated worker, through orchestration) → one plan
+comment (`write-comment`) → sent back to the CTO/CEO → decision → stop. No code, branch or PR. **When.** New features,
+cross-file changes, hard bugs, or a shape not yet settled.
 
 ### playbook-review
 
-**What it is.** The plan pipeline plus an independent reviewer PASS/FAIL at the head, an author fix round, a re-review at the
-new SHA, and the reviewer/gate merge. **When.** Risky or money-path work, code the author did not write, or work likely to
-have review findings.
+**What it is.** The build pipeline for an accepted plan: child cards and developer PRs, an independent reviewer PASS/FAIL
+at the head, an author fix round, a re-review at the new SHA, and the reviewer/gate merge. **When.** Risky or money-path
+work, code the author did not write, or work likely to have review findings.
 
 ### playbook-quick
 

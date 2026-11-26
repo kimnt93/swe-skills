@@ -15,16 +15,16 @@ when to use it, what to say, what happens, what you get, and its files.
 ## Skills
 
 <!-- skills:start -->
-49 skills in 6 groups. Click a skill for its detail.
+51 skills in 6 groups. Click a skill for its detail.
 
 ### Start here
 
 | Skill | Description |
 |---|---|
 | [playbook](router.md#playbook) | Three playbooks: Plan, Review, Quick; pick by scope and risk |
-| [playbook-plan](router.md#playbook-plan) | Plan pipeline: CTO issue, architect plan comment, CTO approval, delegated PRs, reviewer merge gate |
+| [playbook-plan](router.md#playbook-plan) | Plan only: CTO card, architect analysis comment, back to the CTO to accept, then stop |
 | [playbook-quick](router.md#playbook-quick) | Quick pipeline: CTO issue, developer PR, reviewer merge gate, no planning |
-| [playbook-review](router.md#playbook-review) | Reviewed pipeline: the plan pipeline plus a PASS/FAIL review and fix loop before the merge gate |
+| [playbook-review](router.md#playbook-review) | Build an accepted plan: delegated PRs, PASS/FAIL review and fix loop, then the merge gate |
 | [swe](router.md#router) | Entry point: picks language and playbook, delegates by agent, finishes only when make verify passes |
 
 ### Process and proof
@@ -60,7 +60,9 @@ when to use it, what to say, what happens, what you get, and its files.
 | [verify-create](process.md#verify-create) | Give a project make verify and a verify skill that drives it like a user |
 | [verify-maintain](process.md#verify-maintain) | Keep the verify skill and its feature map true as the app changes |
 | [why](process.md#why) | Find the history and reasons behind code before changing or removing it |
-| [work-package](process.md#work-package) | Issue ID: title, lane/difficulty/area labels, body sections, branch, commit, PR text and a linter |
+| [work-package](process.md#work-package) | Package branch, commits and PR text, and the one linter and label catalog |
+| [write-comment](process.md#write-comment) | Comment on an issue or PR: plan, decision, status, verdict, fix, merge; signed and linted |
+| [write-issue](process.md#write-issue) | Create an issue: kind, catalog labels, priority, difficulty, body sections, signature, lint |
 
 ### Languages
 

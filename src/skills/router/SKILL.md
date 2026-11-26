@@ -48,21 +48,22 @@ Never start a new HTTP API in Python or Rust without a reason written in the PR.
 10. **Respect the architecture.** Read the project's `ARCHITECTURE.md` before a structural change;
     never breach it (`make verify` runs the layering checks). A needed breach is a design change: the
     `architect` skill plus an ADR, in the same PR.
-11. **Git and GitHub the one way:** branch from `main`, small Conventional Commits, a PR linked to
+11. **Git and GitHub the one way:** your agent name on every commit and `Created: <agent name>` on every issue,
+    comment and PR body; branch from `main`, small Conventional Commits, a PR linked to
     its issue, merge only through the gate (the `github` skill).
 
 ## CTO pipelines: exactly three
 
-Every request that changes a repository is one of these. Pick by scope and risk; there is no fourth playbook.
+Every request that plans or changes a repository is one of these. Pick by scope and risk; there is no fourth playbook.
 
 | Pipeline | Use it for | Flow |
 |---|---|---|
-| `playbook-plan` | new feature, cross-file change, hard bug, unsettled shape | CTO issue → architect plan comment → CTO accepts → delegated PRs → reviewer/gate merge |
-| `playbook-review` | the plan pipeline plus an independent review; risky or money-path work, code you did not write | plan flow → reviewer PASS/FAIL → author fixes → re-review → merge |
+| `playbook-plan` | planning a new feature, cross-file change, hard bug, unsettled shape | CTO card → architect plan comment → back to the CTO → accepts → stop, nothing built |
+| `playbook-review` | building an accepted plan; risky or money-path work, code you did not write | accepted plan → PRs → reviewer PASS/FAIL → author fixes → re-review → merge |
 | `playbook-quick` | docs, one-file fix, small test, mechanical change | CTO issue → developer PR → reviewer/gate merge, no plan |
 
-The issue, plan, verdict and comment formats are in `work-package`; the merge is the reviewer/gate's action after a PASS at
-the current SHA. A `quick` card that grows stops and becomes `plan` or `review`.
+Issues are written with `write-issue`, comments with `write-comment`, PRs with `work-package`; only the role the playbook names merges, at the checked
+SHA. A request to plan stops at the accepted plan. A `quick` card that grows stops and becomes `plan` or `review`.
 
 ## Engineering methods
 

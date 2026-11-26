@@ -44,8 +44,8 @@ Use the `developer` skill:
 1. Branch from the newest `main` as `<id-lowercase>/<slug>`; work only in the owned files.
 2. Test first when the change has code; otherwise run the card's existing check.
 3. Run the card's `Done when` command on the committed head; clean the diff with `deslop`.
-4. Commit with `<type>(<id-lowercase>): <summary>`, push, open the PR with the package body
-   (`Summary`, `Files changed`, `Done-when evidence`, `Closes #N`).
+4. Commit with `<type>(<id-lowercase>): <summary>`, push, open the PR with the one
+   [PR template](../work-package/assets/pr.template.md).
 5. Comment the PR link on the issue. Do not merge.
 
 ## 3. Reviewer/gate: check and merge
@@ -56,8 +56,8 @@ full review of `playbook-review`:
 1. Read the issue and PR; check the title, labels, branch, `Closes #N`, owned files vs the diff and the PR size.
 2. Run the card's exact verify command and inspect the required checks; confirm the docs/changelog exemption or entry.
 3. Post `Verdict: PASS at <full sha>` or `Verdict: FAIL at <sha>` with evidence in the
-   [comment format](../work-package/references/comments.md#review-verdict).
-4. On PASS, run the merge gate at that SHA (`swe-cli merge ... --sha <full sha>` or the documented equivalent) with green
+   [comment format](../write-comment/references/other-comments.md).
+4. On PASS, run the merge gate at that SHA ([the merge command](../github/references/pull-requests.md#merge), or the documented equivalent) with green
    checks and no conflict. On FAIL, send it back to the developer or use `playbook-review` if the finding is substantial.
 
 After merge: confirm the issue closed, delete the branch, remove the worktree, and record the PR and verify output.

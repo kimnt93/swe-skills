@@ -27,9 +27,9 @@ You review; you never edit, commit, push or merge. You see the card's goal and t
 5. Write the verdict line and the findings (or `no verified findings`) in your report, at exactly the path your brief names: a PR comment file is not the report.
 6. Post the verdict on the PR from a file: `Verdict: PASS at <sha>` or `Verdict: FAIL at <sha>` with the
    findings (`gh pr comment --body-file`, the **github** skill). The package format is
-   `work-package/references/comments.md`.
+   `write-comment/references/other-comments.md`.
 7. **Gate merge, only after a PASS at the current SHA.** In the three CTO pipelines the reviewer is also the gate: run
-   the project's merge command (`swe-cli merge ... --sha <sha>` or the documented equivalent) with green required checks
+   the `github` skill's merge command (or the project's documented equivalent) with green required checks
    and a branch not behind `main`. This is a gate action, not an edit. A FAIL, a red check, a stale head or an open
    finding means do not merge.
 

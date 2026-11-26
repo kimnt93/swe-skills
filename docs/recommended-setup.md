@@ -10,7 +10,7 @@ What to run, in what order, and what to keep switched off until it has earned tr
 | plugin | built once, installed into every CLI you use: `make claude codex omp` |
 | models | agents in the project's `config.yaml` (cli, model, reasoning): Opus / `gpt-6-sol` high for `developer-senior`, Sonnet / `gpt-6-sol` medium for `developer`, Haiku / Gemini Flash for `documenter`. Default every card to `developer`. |
 | orchestration | one manager per project, any CLI agent started by `swe-cli orchestrate`; a project is a directory with its repo clones, and the manager starts the coding CLIs in worktrees (tmux, or Orca terminals) ([delegation.md](delegation.md), [architecture.md](architecture.md)). Hermes managers on a cheap non-Claude model are optional. |
-| GitHub | `project/scripts/setup_repo.sh` per repo: squash only, protected `main`, required `verify` check, labels, PR and issue templates |
+| GitHub | `project/scripts/setup_repo.sh` per repo: rebase only, protected `main`, required `verify` check, labels, PR and issue templates |
 | proof | `make verify` in every repo (`/swe:verify-create`), required in CI |
 | context | Claude 350k, every other model 245k (about the 272k price step), set once in the project's `config.yaml` and applied with `swe-cli context apply` and `swe-cli sync` ([context.md](context.md)) |
 | logins | log in to each CLI once (`claude auth login`, `codex login`, `omp login`) and `gh auth login` |

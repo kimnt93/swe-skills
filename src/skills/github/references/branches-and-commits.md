@@ -25,7 +25,8 @@ a `swe-cli` run, the card's worktree branch is named the same way (`--branch fea
 
 ```bash
 git add <the files of this unit>        # never `git add -A` blindly: check `git status` first
-git commit -m "feat(orders): add CancelOrder use case" -m "Rejects orders that are already filled."
+python3 <github skill>/scripts/agent_identity.py git --author "<agent name>" -- \
+    commit -m "feat(orders): add CancelOrder use case" -m "Rejects orders that are already filled."
 ```
 
 - **Conventional Commit subject:** `<type>(<scope>): <subject>`: imperative, at most 72 characters,
@@ -37,6 +38,7 @@ git commit -m "feat(orders): add CancelOrder use case" -m "Rejects orders that a
 ## Push
 
 ```bash
+python3 <github skill>/scripts/agent_identity.py check --author "<agent name>"    # 0 problem(s)
 git push -u origin HEAD
 ```
 
@@ -45,7 +47,8 @@ git push -u origin HEAD
 ## Keep up with main
 
 ```bash
-git fetch origin && git rebase origin/main     # your own branch only
+git fetch origin
+python3 <github skill>/scripts/agent_identity.py git --author "<agent name>" -- rebase origin/main   # your own branch only
 git push --force-with-lease                    # only on a branch only you push to
 ```
 

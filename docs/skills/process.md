@@ -161,21 +161,41 @@ review by the other model family, merge through the gate, issue closed, branch d
 exact `gh`/`git` command and a check after. **Submit rules.** One feature function per PR, about 400 changed
 lines at most, the simplest code that works, only the files the card allows, the project's `ARCHITECTURE.md`
 respected, tests with the change, `make verify` green. **Never.** Push to `main`, force-push someone else's
-branch, merge by hand, put issue or comment text into a shell command. **Files.** `scripts/pr_lint.py`
-(`local` mode before opening, `pr <n>` after), five references (branches and commits, pull requests, issues,
-reviews and comments, submit rules).
+branch, merge by hand, put issue or comment text into a shell command. **Identity.** Commits are authored and committed under
+the agent's own name (`scripts/agent_identity.py`), and every issue, comment and PR body ends with
+`Created: <agent name>`. **Files.** `scripts/pr_lint.py` (`local` mode before opening, `pr <n>` after),
+`scripts/agent_identity.py`, references for identity, branches and commits, pull requests, issues, reviews and
+comments, submit rules and forks.
+
+### write-issue
+
+**What it is.** How every agent creates an issue. **Kinds.** `epic` (parent), `planning` (a child or backlog item that
+needs a design), `package` (one PR, ready to build). **Values.** One catalog: one task type, one lane and one difficulty
+label, a `Priority:` line, existing area labels, optional flags. **Signature.** `Created: <agent name>`. **Files.**
+`references/catalog.md`, `references/kinds.md`, `references/templates.md` (every template and how to change it), three
+templates and an epic example.
+
+### write-comment
+
+**What it is.** How every agent writes on an issue or PR. **Kinds.** `plan`, `epic-plan`, `decision`, `status`,
+`verdict`, `fix`, `merge`, `close`, `reply`. **The plan.** Code analysis with file evidence, core design decision with
+stack and rejected approach, planned packages or a wave table, risks and gates. **Signature.** `Created: <agent name>`.
+**On a PR.** One template for the verdict, the CTO decision, the fix and the merge comment. **Files.**
+`references/plan.md`, `references/other-comments.md`, three templates, epic plan, PASS and FAIL examples.
 
 ### work-package
 
-**What it is.** The fixed text and names of one delegable card, so a planner writes it, any agent picks it up, another reviews it and a script checks it. **Issue.** Titled `ID: title` (`API-03: Cancel an open order`), labels = one lane (`backend`, `frontend`, ...), one difficulty (`simple`, `medium`, `hard`) and at least one area; body = `Lane`, `Wave`, `Difficulty` header lines, then Goal, Read first, Owned files, Forbidden, Depends on, Notes, Done when (runnable commands) and Branch and PR. **Branch, commits, PR.** Branch `<id>/<slug>`, commits and PR title `<type>(<id>): <summary>`, PR body with Summary, Files changed, Done-when evidence (commands, commit, output tails) and `Closes #N`; the author never merges. **Files.** `scripts/package_lint.py` (`issue`, `branch`, `commit`, `pr`, `--self-test`), three references (issue, pull request, labels), an issue and a PR template.
+**What it is.** The branch, commits and PR of one package, and the one linter. **Branch, commits, PR.** Branch
+`<id>/<slug>`, commits and PR title `<type>(<id>): <summary>`, the one PR template (the body of every pull request); the author never merges. **Files.** `scripts/package_lint.py` (`issue`,
+`comment`, `branch`, `commit`, `pr`, `catalog`, `--self-test`), `assets/catalog.json`, a PR template, one reference.
 
 ### project
 
 **What it is.** Run one project's documents, repo and backlog. **Use it when** you are a project manager
 profile, or starting or adopting a project. **What it manages.** `README.md`, `ARCHITECTURE.md` (the contract
 agents must not breach; a change needs an ADR in the same PR), `docs/adr/`, `CHANGELOG.md`, `RUNBOOK.md`,
-`AGENTS.md`; GitHub repo setup through `scripts/setup_repo.sh` (squash only, branch deleted on merge,
-protected `main` with the required `verify` check, linear history, no force push, 16 labels; `--approvals N`
+`AGENTS.md`; GitHub repo setup through `scripts/setup_repo.sh` (rebase only, branch deleted on merge,
+protected `main` with the required `verify` check, linear history, no force push, the catalog labels; `--approvals N`
 defaults to 0 because agents share your GitHub account); PR and issue templates; the backlog (one issue per
 card, labels mirroring the card, milestones, triage, blocked); status reports from live state.
 **Files.** `assets/ARCHITECTURE.md`, `assets/adr.md`, `assets/github/`, `assets/labels.json`.

@@ -1,12 +1,13 @@
 # Playbooks
 
-There are **three CTO pipelines**. Every repository change is one of them. They all use the `work-package` issue and PR
-format, the `github` rules and the reviewer/gate merge; none of them lets the author merge.
+There are **three CTO pipelines**. They all use the `work-package` formats and the `github` rules. **Plan** decides how
+and ends at an accepted plan; **Review** and **Quick** end at the reviewer/gate merge. None lets
+the author merge.
 
 | Shortcut | Pipeline | Use it for | Inputs |
 |---|---|---|---|
-| `/swe:playbook-plan` | **Plan** | new feature, cross-file change, hard bug, a shape not yet settled | `issue` or `goal` |
-| `/swe:playbook-review` | **Review** | the plan pipeline plus an independent PASS/FAIL review and fix round; risky or money-path work, code the author did not write | `issue` or `goal` |
+| `/swe:playbook-plan` | **Plan** | new feature, cross-file change, hard bug, a shape not yet settled | a problem or an `issue` |
+| `/swe:playbook-review` | **Review** | building an accepted plan with an independent PASS/FAIL review and fix round; risky or money-path work, code the author did not write | an accepted plan or an `issue` |
 | `/swe:playbook-quick` | **Quick** | docs, one-file fix, small test, mechanical change; **no** new feature or cross-file work | `issue` or `goal` |
 
 `/swe:playbook` lists the three. There is no other playbook.
@@ -14,29 +15,39 @@ format, the `github` rules and the reviewer/gate merge; none of them lets the au
 ## DAGs
 
 ```text
-Plan     CTO issue ─► architect plan comment ─► CTO accepts ─► dev(s)/subagents ─► PR ─► reviewer/gate merge
-Review   Plan ─► reviewer PASS/FAIL at SHA ─► author fixes findings ─► re-review ─► reviewer/gate merge
+Plan     problem ─► CTO/CEO card ─► architect (bot or worker) ─► plan comment ─► back to CTO/CEO ─► accept ─► STOP
+Review   accepted plan ─► child cards ─► dev(s) ─► PR ─► reviewer PASS/FAIL ─► fixes ─► re-review ─► merge
 Quick    CTO issue ─► dev ─► PR ─► reviewer/gate merge
 ```
+
+The Plan messages travel through Orca orchestration. The
+[commands](../src/skills/playbook-plan/references/orchestration.md) and a
+[complete example](../src/skills/playbook-plan/references/example.md) (card, brief, plan comment, return, acceptance)
+ship with the skill.
 
 ## The gates
 
 | Gate | Owner | Passes when |
 |---|---|---|
-| Issue ready | CTO | `ID: title`, lane + difficulty + area labels, closed file list, runnable `Done when` |
-| Plan accepted | CTO | architect's one plan comment has packages/waves/contracts/verify/risks; CTO accepts in one comment |
+| Card ready (Plan) | CTO/CEO | a `planning` or `epic` issue that passes `package_lint.py issue` |
+| Plan returned | architect | one plan comment per version, sent back to the CTO/CEO with its URL |
+| Issue ready (build) | CTO | `ID: title`, type + lane + difficulty labels, priority, closed file list, runnable `Done when` |
+| Plan accepted | CTO/CEO | the `plan` or `epic-plan` comment passes the linter, every open question is answered, and the decision comment is posted. **Plan ends here** |
 | PR ready | developer | owned files only, test first, `Closes #N`, evidence from the card's verify command on the committed head |
-| Review | reviewer (different family) | `Verdict: PASS at <full sha>` and no open finding; a new push needs a new verdict |
-| Merge | reviewer/gate | PASS at the current SHA, green required checks, branch not behind `main`; merges through `swe-cli merge` or the documented gate |
+| Review (`review`) | reviewer (different family) | `Verdict: PASS at <full sha>` and no open finding; a new push needs a new verdict |
+| Merge | reviewer/gate | the checked SHA is the head, green required checks, branch not behind `main`; `gh pr merge --match-head-commit` or the project's documented gate |
 
-The exact issue, plan, verdict, fix and close comments are in
-[`work-package/references/comments.md`](../src/skills/work-package/references/comments.md).
+Issues are written with [`write-issue`](../src/skills/write-issue/SKILL.md) (kinds and the
+[catalog](../src/skills/write-issue/references/catalog.md)); plan, decision, verdict, fix and close comments with
+[`write-comment`](../src/skills/write-comment/SKILL.md). Each ends with `Created: <agent name>`, and commits are authored
+by that name ([identity](../src/skills/github/references/identity.md)).
+
+All templates, and how to change their style: [templates](../src/skills/write-issue/references/templates.md).
 
 ## Rules
 
-- One package, one issue, one worktree, one branch, one PR; one owner.
-- The CTO does not code; the developer does not merge; the reviewer does not edit during review.
-- In `review`, the default fixer is the author; if the CTO assigns the reviewer as fixer, a different reviewer or the CTO
+- A build is one package, one issue, one worktree, one branch, one PR, one owner.
+- The CTO does not code; the developer does not merge; the reviewer does not edit during review. - In `review`, the default fixer is the author; if the CTO assigns the reviewer as fixer, a different reviewer or the CTO
   posts the PASS for the new SHA. Never self-approve.
 - A `quick` card that grows to a new feature, a shared file or a contract change stops and becomes `plan` or `review`.
 - Plans and verdicts are comments, not new issues. A plan that creates packages also creates their issues and links them.

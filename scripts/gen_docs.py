@@ -3,7 +3,7 @@
 docs/harnesses.md (every supported harness, from the installer's table), and check that docs/skills/*.md
 has a section for every skill, router playbook and principle (and none for anything that is gone).
 
-    python3 scripts/gen_docs.py            write both files
+    python3 scripts/gen_docs.py            write them, and the .github copies of the issue and PR templates
     python3 scripts/gen_docs.py --check    exit 1 when either is out of date (make test runs it)
 
 The text is the default plugin name's (plugin.env); replace `swe` with your PLUGIN_NAME.
@@ -258,6 +258,18 @@ def render_harnesses() -> str:
     return "\n".join(out) + "\n"
 
 
+def github_templates() -> dict[Path, str]:
+    """The .github templates the project skill installs: copies of the one PR and planning templates."""
+    base = SKILLS / "project" / "assets" / "github"
+    pr = (SKILLS / "work-package" / "assets" / "pr.template.md").read_text(encoding="utf-8")
+    card = (SKILLS / "write-issue" / "assets" / "planning.template.md").read_text(encoding="utf-8")
+    out = {base / "pull_request_template.md": pr}
+    for name, title, about, label in (("bug", "Bug", "Something behaves wrongly", "bug"),
+                                      ("feature", "Feature", "A behaviour a user or caller can observe", "enhancement")):
+        out[base / "ISSUE_TEMPLATE" / f"{name}.md"] = f'---\nname: {title}\nabout: {about}\nlabels: ["{label}"]\n---\n\n{card}'
+    return out
+
+
 def main() -> int:
     problems = detail_problems()
     for problem in problems:
@@ -269,6 +281,7 @@ def main() -> int:
         OUT_HARNESS: render_harnesses(),
         DETAIL / "README.md": inject(DETAIL / "README.md", group_tables(detail_link(""), level=3)),
     }
+    outputs.update(github_templates())
     if "--check" in sys.argv[1:]:
         stale = [path for path, text in outputs.items() if not path.exists() or path.read_text(encoding="utf-8") != text]
         for path in stale:
