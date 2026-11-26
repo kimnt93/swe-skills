@@ -1,0 +1,28 @@
+{
+  "environment": "staging",
+  "target": "https://shop.stg.@DOMAIN@/",
+  "allow_hosts": ["shop-api.stg.@DOMAIN@:443"],
+  "functions": [
+    {
+      "id": "sign-in",
+      "name": "A customer signs in",
+      "steps": [
+        {"action": "goto", "url": "/sign-in", "expect": {"text": "Sign in"}},
+        {"action": "type", "on": {"label": "Email"}, "env": "SHOP_TEST_USER"},
+        {"action": "type", "on": {"label": "Password"}, "secret": "SHOP_TEST_PASSWORD"},
+        {"action": "click", "on": {"role": "button", "name": "Sign in"}, "effect": "write",
+         "expected": "The account page opens", "expect": {"url_contains": "/account", "text": "Your orders"}}
+      ]
+    },
+    {
+      "id": "quote",
+      "name": "A customer asks the price of three items",
+      "steps": [
+        {"action": "goto", "url": "/products/42", "expect": {"text": "Quantity"}},
+        {"action": "type", "on": {"label": "Quantity"}, "value": "3"},
+        {"action": "click", "on": {"role": "button", "name": "Get quote"}, "max_ms": 1500,
+         "expect": {"text": "Total: 29.97", "in": "#quote", "status": 200, "request": "/quote"}}
+      ]
+    }
+  ]
+}
