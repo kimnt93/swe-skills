@@ -1,0 +1,23 @@
+<headline: Verdict: PASS at <sha> | Verdict: FAIL at <sha> | Accepted by CTO (<name>). PR #<n> at <sha>. | Changes required by CTO (<name>). PR #<n> at <sha>. Round <k> of 3. | Stopped by CTO (<name>). PR #<n> at <sha>. | Fixed in <sha>: | Merged by <who> at <sha> after PASS.>
+
+<1 or 2 sentences: what was checked (PR, branch, issue) and the result>
+
+## Blocking — <finding title> <!-- on fail, needs code -->
+<what is wrong, with the file and line, the command and what it showed, and what the issue requires>
+
+**Smallest fix:** <the smallest change that resolves it>
+
+## Verified <!-- on pass, needs code -->
+1. **Scope & Diff:** `git diff origin/main...HEAD --stat` <the files touched; only owned files>
+2. **<area: code, UI, security, tests, docs>:** <what was checked and what showed it>
+
+## Gate <!-- needs fence -->
+```text
+<command, run on the head above>
+  <the tail of its output>
+```
+
+## Residual
+- <non-blocking note or open follow-up, or: none>
+
+Created: <author>

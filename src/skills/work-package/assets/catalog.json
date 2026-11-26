@@ -1,0 +1,35 @@
+{
+  "types": {
+    "enhancement": {"commit": ["feat"], "color": "a2eeef", "description": "A new or improved behaviour"},
+    "bug": {"commit": ["fix"], "color": "d73a4a", "description": "Something is wrong"},
+    "refactor": {"commit": ["refactor"], "color": "c5def5", "description": "Structure only, same behaviour"},
+    "performance": {"commit": ["perf"], "color": "fbca04", "description": "Faster or smaller"},
+    "testing": {"commit": ["test"], "color": "bfd4f2", "description": "Tests only"},
+    "documentation": {"commit": ["docs"], "color": "0075ca", "description": "Documents only"},
+    "chore": {"commit": ["chore", "ci", "build"], "color": "ededed", "description": "Tooling, CI, build and upkeep"}
+  },
+  "lanes": {
+    "backend": {"color": "1d76db", "description": "Server, services, libraries, CLI"},
+    "frontend": {"color": "5319e7", "description": "Web, desktop and mobile UI"},
+    "data": {"color": "006b75", "description": "Pipelines, schemas, datasets"},
+    "ops": {"color": "0e8a16", "description": "Deployment, CI, infrastructure"},
+    "docs": {"color": "c2e0c6", "description": "Documentation work"},
+    "test": {"color": "d4c5f9", "description": "Test and verification work"},
+    "research": {"color": "f9d0c4", "description": "Investigation with a written answer"}
+  },
+  "difficulties": {
+    "simple": {"color": "c2e0c6", "description": "Clear, small, no design choice"},
+    "medium": {"color": "fbca04", "description": "Several files, a complete rule list"},
+    "hard": {"color": "b60205", "description": "Open design, concurrency, money, security, cross-repo"}
+  },
+  "flags": {
+    "risk:low": {"color": "c2e0c6", "description": "Nobody notices if it is wrong for a day"},
+    "risk:standard": {"color": "fef2c0", "description": "Normal review"},
+    "risk:money-path": {"color": "b60205", "description": "Orders, fills, positions, balances, risk, P&L: never auto-merged"},
+    "size:large": {"color": "000000", "description": "Over the PR size limit, with a reason in the PR"},
+    "blocked": {"color": "b60205", "description": "Waiting on something outside the card"}
+  },
+  "priorities": ["low", "medium", "high", "urgent"],
+  "issue_kinds": ["epic", "planning", "package"],
+  "comment_kinds": ["plan", "epic-plan", "decision", "status", "verdict", "fix", "merge", "close", "reply"]
+}

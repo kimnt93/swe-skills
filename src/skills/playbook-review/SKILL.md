@@ -1,30 +1,42 @@
 ---
 name: playbook-review
-description: "The CTO pipeline with a real review round: CTO issue, architect plan comment, CTO acceptance, delegated PRs, then a reviewer PASS/FAIL at the head with findings, the author fixes each finding on the same branch, the reviewer re-reviews the new SHA, and the reviewer/gate merges after PASS. Use when errors are likely, the change is risky, or the CTO wants independent review before merge."
+description: "The CTO build pipeline with a real review round: it takes a plan accepted through playbook-plan, creates the child cards and delegates the PRs, then a reviewer gives PASS/FAIL at the head with findings, the author fixes each finding on the same branch, the reviewer re-reviews the new SHA, and the reviewer/gate merges after PASS. Use to build an accepted plan, when errors are likely, the change is risky, or the CTO wants independent review before merge."
 metadata:
   group: start
-  summary: "Reviewed pipeline: the plan pipeline plus a PASS/FAIL review and fix loop before the merge gate"
+  summary: "Build an accepted plan: delegated PRs, PASS/FAIL review and fix loop, then the merge gate"
 ---
 
 # Playbook: Review
 
-This is `playbook-plan` **plus** an independent review and a fix round. Use it for a risky change, a money-path change,
-code the human did not write, or any work where a merge after only a format check is not enough. The developer never merges;
-the reviewer never approves its own fix.
+The **build** pipeline for planned work: it takes a plan accepted through `playbook-plan`, builds it, and merges only
+after an independent review and fix round. Use it for a risky change, a money-path change, code the human did not write,
+or any work where a merge after only a format check is not enough. The developer never merges; the reviewer never
+approves its own fix.
 
 ```text
-CTO issue ─► architect plan (comment) ─► CTO accepts ─► developer(+subagents) ─► PR
+accepted plan ─► child cards ─► developer(+subagents) ─► PR
     ─► reviewer PASS/FAIL at SHA ─► author fixes findings ─► re-review ─► reviewer/gate merge
 ```
 
-## 1. Make the package and the plan
+## 1. Start from an accepted plan, then delegate
 
-Follow `playbook-plan` sections 1–3 exactly: work-package issue, architect plan comment, CTO acceptance, delegated worktree,
-developer test-first, one PR per package. Do not start a review before the developer has pushed a head and the PR body has the
-card's evidence.
+No accepted plan yet? Run `playbook-plan` first; it stops at the acceptance, and this playbook starts only when the
+request includes building. A changed file list or a new package needs a new plan version and acceptance.
 
-The plan's verify command and owned files are the review contract. Add the reviewer's agent/model tier from the project's
-model table; never name a model in the issue.
+For each package being built:
+
+1. Create its child issue from the plan's package list with the `write-issue` skill (kind `package`), linked to the card.
+2. Create one worktree from the newest `main`; one package, one branch, one PR.
+3. Delegate with the `delegate` skill or the Orca `/orchestration` skill. Take the agent and model from the project's
+   agent table. One owner owns the package.
+4. Give the developer the child issue and the plan comment, the owned files, the verify command and the banner: **do not
+   merge, do not touch files outside the list, commit early and push**.
+5. The developer follows the `developer` skill: test first, the smallest change, the PR in the project's format,
+   `Closes #N`, evidence from the card's command on the committed head. It comments the PR link on the issue.
+6. Waves start from the newest `main` after the previous wave merges. Do not run two packages that own the same file.
+
+Do not start a review before the developer has pushed a head and the PR body has the card's evidence. The card's verify
+command and owned files are the review contract.
 
 ## 2. Reviewer: PASS/FAIL at the head
 
@@ -36,7 +48,7 @@ edit the branch during review.
 3. Run the card's exact verify command and the project's required checks; inspect the tests (not tautologies), docs and
    changelog; check the architecture and money-path rules if they apply.
 4. Post **one** comment in the
-   [verdict format](../work-package/references/comments.md#review-verdict): `Verdict: PASS at <full sha>` or
+   [verdict format](../write-comment/references/other-comments.md#verdict-reviewer-on-the-pr): `Verdict: PASS at <full sha>` or
    `Verdict: FAIL at <full sha>`, with each finding's command, actual output and required output.
 5. A finding is real only when a command showed it. A comment without evidence is not a finding; a PASS with an open
    finding is a failed review.
@@ -66,8 +78,8 @@ Rules:
 
 ## 4. Merge gate
 
-After a PASS at the current head, the reviewer/gate runs the project's merge command (`swe-cli merge ... --sha <full sha>` or
-the documented equivalent) with green required checks and a branch not behind `main`. Then confirm the issue is closed, the
+After a PASS at the current head, the reviewer/gate runs the [merge command](../github/references/pull-requests.md#merge)
+(or the project's documented equivalent) with green required checks and a branch not behind `main`. Then confirm the issue is closed, the
 branch is deleted, the worktree is removed, and the merge is recorded in the run report. On FAIL, do not merge; return to
 step 3 or stop with the findings.
 

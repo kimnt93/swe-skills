@@ -35,20 +35,25 @@ make cli
 
 ### 1. Playbooks (`/swe:playbook-<name>`)
 
-Exactly three CTO pipelines. Every repository change is one of them; all end at the reviewer/gate merge.
+Exactly three CTO pipelines. `plan` ends at an accepted plan on the issue; `review` and `quick` end at the reviewer/gate merge.
 
 ```text
-/swe:playbook-plan add a new API endpoint and its UI, with an architect plan first
+/swe:playbook-plan users cannot export the orders they filtered; plan it
 /swe:playbook-review harden the order retry path; review every finding before merge
 /swe:playbook-quick fix the typo in docs/README.md and merge it
 ```
 
 | Playbook | Purpose |
 |---|---|
-| `/swe:playbook-plan` | CTO issue → architect plan comment → CTO accepts → delegated PRs → reviewer/gate merge |
-| `/swe:playbook-review` | The plan pipeline plus a reviewer PASS/FAIL and fix round, then merge |
+| `/swe:playbook-plan` | CTO card → architect plan comment → back to the CTO → accepts → stop ([example](src/skills/playbook-plan/references/example.md)) |
+| `/swe:playbook-review` | Build an accepted plan: PRs → reviewer PASS/FAIL and fix round → merge |
 | `/swe:playbook-quick` | CTO issue → developer PR → reviewer/gate merge; docs, small fixes, no planning |
 | `/swe:playbook` | Dispatcher and the three-pipeline choice |
+
+### Templates: one style, yours to change
+
+Issues, plans, pull request bodies and PR comments each follow a Markdown template that the linters read. Edit the file
+to change the style: [the list and how](src/skills/write-issue/references/templates.md).
 
 ### 2. Multi-Agent Delegation (`/swe:delegate`)
 

@@ -1,33 +1,88 @@
 [
   {
-    "name": "type:feat",
-    "color": "1d76db",
-    "description": "A new behaviour"
+    "name": "enhancement",
+    "color": "a2eeef",
+    "description": "A new or improved behaviour"
   },
   {
-    "name": "type:fix",
+    "name": "bug",
     "color": "d73a4a",
-    "description": "A defect"
+    "description": "Something is wrong"
   },
   {
-    "name": "type:refactor",
+    "name": "refactor",
     "color": "c5def5",
-    "description": "Structure only"
+    "description": "Structure only, same behaviour"
   },
   {
-    "name": "type:perf",
+    "name": "performance",
     "color": "fbca04",
     "description": "Faster or smaller"
   },
   {
-    "name": "type:docs",
-    "color": "0075ca",
-    "description": "Documents"
+    "name": "testing",
+    "color": "bfd4f2",
+    "description": "Tests only"
   },
   {
-    "name": "type:chore",
+    "name": "documentation",
+    "color": "0075ca",
+    "description": "Documents only"
+  },
+  {
+    "name": "chore",
     "color": "ededed",
-    "description": "Tooling and upkeep"
+    "description": "Tooling, CI, build and upkeep"
+  },
+  {
+    "name": "backend",
+    "color": "1d76db",
+    "description": "Server, services, libraries, CLI"
+  },
+  {
+    "name": "frontend",
+    "color": "5319e7",
+    "description": "Web, desktop and mobile UI"
+  },
+  {
+    "name": "data",
+    "color": "006b75",
+    "description": "Pipelines, schemas, datasets"
+  },
+  {
+    "name": "ops",
+    "color": "0e8a16",
+    "description": "Deployment, CI, infrastructure"
+  },
+  {
+    "name": "docs",
+    "color": "c2e0c6",
+    "description": "Documentation work"
+  },
+  {
+    "name": "test",
+    "color": "d4c5f9",
+    "description": "Test and verification work"
+  },
+  {
+    "name": "research",
+    "color": "f9d0c4",
+    "description": "Investigation with a written answer"
+  },
+  {
+    "name": "simple",
+    "color": "c2e0c6",
+    "description": "Clear, small, no design choice"
+  },
+  {
+    "name": "medium",
+    "color": "fbca04",
+    "description": "Several files, a complete rule list"
+  },
+  {
+    "name": "hard",
+    "color": "b60205",
+    "description": "Open design, concurrency, money, security, cross-repo"
   },
   {
     "name": "risk:low",
@@ -43,31 +98,6 @@
     "name": "risk:money-path",
     "color": "b60205",
     "description": "Orders, fills, positions, balances, risk, P&L: never auto-merged"
-  },
-  {
-    "name": "cli:claude",
-    "color": "5319e7",
-    "description": "Worked with Claude Code"
-  },
-  {
-    "name": "cli:omp",
-    "color": "0e8a16",
-    "description": "Worked with oh-my-pi"
-  },
-  {
-    "name": "agent:documenter",
-    "color": "f9d0c4",
-    "description": "Mechanical: the documenter agent"
-  },
-  {
-    "name": "agent:developer-junior",
-    "color": "f7c6c7",
-    "description": "Default"
-  },
-  {
-    "name": "agent:developer-senior",
-    "color": "e99695",
-    "description": "Hard or money-path"
   },
   {
     "name": "size:large",

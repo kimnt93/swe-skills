@@ -15,6 +15,6 @@
    a second identical failure is real.
 5. Batch every fix into one push. Re-check after each push.
 6. Stop at merge-ready: required checks green, threads resolved, approvals present. Merging is the
-   human's call, or `swe-cli merge`.
+   human's call, or the call of the role the playbook names.
 
 **Reply:** the PR, its state, what you fixed, what waits on a human.

@@ -1,6 +1,6 @@
 ---
 name: project
-description: "Run one project: keep its documents (README, ARCHITECTURE.md as the contract agents must not breach, ADRs, CHANGELOG (the changelog skill), RUNBOOK), set up its GitHub repo (labels, templates, squash-only merges, protected main with the required verify check), keep the backlog of issues in step with the workflow cards, and report status. Use when you are a project's manager profile, when starting or adopting a project, or when asked for project status."
+description: "Run one project: keep its documents (README, ARCHITECTURE.md as the contract agents must not breach, ADRs, CHANGELOG (the changelog skill), RUNBOOK), set up its GitHub repo (labels, templates, rebase-only merges, protected main with the required verify check), keep the backlog of issues in step with the workflow cards, and report status. Use when you are a project's manager profile, when starting or adopting a project, or when asked for project status."
 metadata:
   group: process
   summary: "Run a project's docs, GitHub repo setup, backlog and status"

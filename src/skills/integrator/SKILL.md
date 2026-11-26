@@ -1,6 +1,6 @@
 ---
 name: integrator
-description: "How an agent brings an open pull request up to date with main and resolves its merge conflicts safely: rebase, resolve only inside files its own card owns, re-run make verify, get a fresh review of the resolution, and stop and hand over when a conflict touches another card's files or a hotspot. Use whenever a card's branch is behind or in conflict with main, `sync-branch` reported conflicts, or `swe-cli merge` refused a branch that is behind."
+description: "How an agent brings an open pull request up to date with main and resolves its merge conflicts safely: rebase, resolve only inside files its own card owns, re-run make verify, get a fresh review of the resolution, and stop and hand over when a conflict touches another card's files or a hotspot. Use whenever a card's branch is behind or in conflict with main, `sync-branch` reported conflicts, or a merge was refused because the branch is behind."
 metadata:
   group: process
   summary: "Integrator: rebase a PR on main, resolve conflicts only in its own files, re-verify, re-review"

@@ -4,31 +4,16 @@ An issue is the unit of work everyone can see. One workflow card ↔ one issue.
 
 ## Create
 
-Body file (`issue.md`):
+Use the `write-issue` skill: the kind (epic, planning card, package), the catalog values, the body and the lint run.
+The body ends with `Created: <agent name>`.
 
-```markdown
-## Goal
-<the outcome a user or caller can observe>
-
-## Acceptance
-- [ ] <a command and its expected output: the done-predicate>
-
-## Notes
-<context, links, decisions already made>
-```
-
-```bash
-gh issue create --title "Cancel an open order" --body-file issue.md \
-  --label "type:feat" --label "risk:standard" [--milestone "<m>"] [--assignee @me]
-```
-
-**Check after create:** `gh issue view <n> --json number,title,labels,milestone,url`.
+**Check after create:** `gh issue view <n> --json number,title,labels,url`.
 
 ## Work on it
 
 - Reference it from the branch (`feat/<n>-...`), the card body (`issue: #<n>`) and the PR (`Closes #<n>`).
 - Progress or a blocker: a comment (`gh issue comment <n> --body-file note.md`), never an edit of the
-  original goal. A package uses the comment format in the `work-package` skill.
+  original goal. Comments use the `write-comment` skill.
 
 ## Close
 
@@ -38,7 +23,6 @@ Reopen when a merged fix turns out not to meet the acceptance: `gh issue reopen 
 
 **Check after close:** `gh issue view <n> --json state,stateReason`.
 
-## Labels (set up by the `project` skill)
+## Labels
 
-`type:feat|fix|refactor|perf|docs|chore`, `risk:low|standard|money-path`, `cli:claude|omp`,
-`agent:<name>`, `size:large` (lifts the PR size limit; needs a reason in the PR).
+Only the values in the `write-issue` catalog, plus the project's existing area labels (`gh label list`).

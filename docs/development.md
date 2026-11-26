@@ -26,7 +26,7 @@ Build settings live in `plugin.env`. Put private values (your real domain, owner
 | TypeScript: strict, no `any`, no `console` | the `ts-code` templates' `tsconfig.json` and ESLint config |
 | architecture: layers and imports | Go `archcheck`, Python `lint-imports` (both in `make verify`) |
 | a good submit: branch, title, body, issue, size, scope | `github/scripts/pr_lint.py` |
-| repo: squash only, protected `main`, labels | `project/scripts/setup_repo.sh` |
+| repo: rebase only, protected `main`, labels | `project/scripts/setup_repo.sh` |
 | "done" means proven | `verify-create/assets/verify.mk` + the `verify` CI job in `deployment-setup` |
 
 ## Make targets

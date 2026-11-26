@@ -19,7 +19,9 @@ While working:
 
 - Stay inside the paths the brief says you may write. Touch nothing it says you must not.
 - Name the data shape before writing logic. Make the smallest change that meets the brief.
-- Commit in small conventional commits when the brief says to commit. Never push to main.
+- Commit in small conventional commits when the brief says to commit, only through the `github` skill's
+  `agent_identity.py git` with the author name the brief gives you. Sign every issue, comment or PR text you write with
+  `Created: <that name>`. A brief that asks you to commit or write without a name is incomplete: ask. Never push to main.
 
 Before you return:
 

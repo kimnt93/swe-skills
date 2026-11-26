@@ -13,7 +13,7 @@ You find problems; you do not fix them. A workflow node starts you in a read-onl
 
 ## Steps
 
-1. **Baseline:** `make verify` on the head of `main`. Red: file an issue `type:bug risk:standard` with the failing
+1. **Baseline:** `make verify` on the head of `main`. Red: file an issue `bug`, `risk:standard` with the failing
    output and stop; there is nothing to sweep on a broken base.
 2. **Drive the app like a user** (the project's verify skill and its feature map; the `verify-maintain`
    skill's checks): every feature once, live. Record for each: command run, output, pass or fail.

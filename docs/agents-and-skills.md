@@ -55,7 +55,7 @@ skill for every git and GitHub action.
 | human | — | — | anything | approve | anything (GitHub UI, or tell the manager) |
 
 Setup once per repo, by the manager or by hand: `src/skills/project/scripts/setup_repo.sh
-<owner>/<repo>` (squash only, protected `main` with the required `verify` check, labels), then copy the
+<owner>/<repo>` (rebase only, protected `main` with the required `verify` check, labels), then copy the
 templates from `src/skills/project/assets/github/` into `.github/`.
 
 All agents run `gh` as the human's account today (`gh auth status`). Because GitHub refuses an

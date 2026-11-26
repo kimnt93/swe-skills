@@ -202,8 +202,8 @@ def cmd_delegate(argv: List[str]) -> int:
 
 def cmd_playbooks() -> int:
     playbooks = [
-        ("playbook-plan", "CTO issue, architect plan comment, CTO accept, delegated PRs, reviewer/gate merge"),
-        ("playbook-review", "Plan pipeline plus reviewer PASS/FAIL, author fixes, re-review, merge"),
+        ("playbook-plan", "CTO card, architect plan comment, sent back to CTO, accept, stop (nothing built)"),
+        ("playbook-review", "Build an accepted plan: PRs, reviewer PASS/FAIL, author fixes, re-review, merge"),
         ("playbook-quick", "CTO issue, developer PR, reviewer/gate merge; docs and small fixes, no plan"),
         ("playbook", "Dispatcher for the three CTO pipelines"),
     ]

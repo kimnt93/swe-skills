@@ -2,6 +2,9 @@
 
 Use these templates when formulating self-contained briefs for delegated CLI agents.
 
+A delegate that commits or writes on an issue or PR also needs `Your author name: <agent name>` in its brief: it commits
+under that name and signs with `Created: <agent name>` (the `github` skill).
+
 ---
 
 ## 1. Feature Implementation

@@ -17,7 +17,8 @@ Decide per message, before anything else:
 | The message is | You do |
 |---|---|
 | A question: how something works, why it is so, what changed, what is running (`how`, `why`, `ketchup`, `interrogate`) | Answer directly with read-only skills. No edits, no delegations. |
-| Work that changes code | Run the chosen playbook: `plan`, `review` or `quick`; coordinate with `delegate`. |
+| A problem to plan or design | Run `playbook-plan`; it stops at the accepted plan. |
+| Work that changes code | Run the chosen playbook: `review` or `quick`; coordinate with `delegate`. |
 | Request to change agents or engines | Update `config.json` (`swe-cli config`). |
 
 A question never starts a run, and work never starts without an acceptance done-predicate.
@@ -67,8 +68,8 @@ swe-cli models show
 
 | Request | Playbook | Execution / Delegation |
 |---|---|---|
-| New feature, cross-file change, hard bug, unsettled shape | `playbook-plan` | Issue → architect plan comment → CTO acceptance → delegated PRs → reviewer/gate merge |
-| The same plus an independent review and fix round; risky or money-path work | `playbook-review` | Plan pipeline → reviewer PASS/FAIL → author fixes → re-review → merge |
+| Plan a new feature, cross-file change, hard bug, unsettled shape | `playbook-plan` | Card → architect plan comment → back to the CTO → acceptance → stop |
+| Build an accepted plan; risky or money-path work | `playbook-review` | Accepted plan → PRs → reviewer PASS/FAIL → author fixes → re-review → merge |
 | Docs, one-file fix, small test, mechanical change | `playbook-quick` | Issue → developer PR → reviewer/gate merge, no plan |
 | A question: how/why/what changed | `how`, `why`, `ketchup`, `interrogate` | Answer read-only; no run |
 
@@ -89,8 +90,8 @@ When executing a playbook with multiple cards or subtasks:
      --verify "make verify" \
      --json
    ```
-4. Review diffs and test results through the reviewer/gate; the author never merges.
-5. Merge through the gate after PASS; clean the worktree and branch.
+4. Check diffs and test results as the playbook says; the author never merges.
+5. The role the playbook names merges the checked SHA; clean the worktree and branch.
 
 ---
 

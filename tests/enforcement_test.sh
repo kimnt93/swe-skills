@@ -90,7 +90,7 @@ for f in sorted((root / "src/skills").glob("playbook*/SKILL.md")):
         bad.append(f"{f.parent.name}: must have non-empty summary")
 checks = {
     "playbook-review": ["different model family", "PASS", "FAIL", "fix"],
-    "playbook-plan": ["architect", "plan comment", "CTO", "reviewer/gate"],
+    "playbook-plan": ["architect", "plan comment", "CTO", "send it back", "**Stop here.**", "/orchestration"],
     "playbook-quick": ["No architect", "simple", "reviewer/gate"],
     "playbook": ["playbook-plan", "playbook-review", "playbook-quick"],
 }
@@ -99,10 +99,70 @@ for name, needles in checks.items():
     for needle in needles:
         if needle not in text:
             bad.append(f"{name}: missing {needle!r}")
-comments = (root / "src/skills/work-package/references/comments.md").read_text(encoding="utf-8")
-for needle in ("Architect plan", "Review verdict", "Verdict: PASS at", "Verdict: FAIL at"):
-    if needle not in comments:
-        bad.append(f"work-package comments: missing {needle!r}")
+# one catalog: the page and the repo labels equal the machine copy the linter reads
+import json, subprocess
+skills = root / "src/skills"
+catalog = json.loads((skills / "work-package/assets/catalog.json").read_text(encoding="utf-8"))
+page = (skills / "write-issue/references/catalog.md").read_text(encoding="utf-8")
+def table(heading):
+    section = page.split(f"## {heading}")[1].split("\n## ")[0]
+    return re.findall(r"^\| `([^`]+)` \|", section, re.M)
+for key, heading in (("types", "Task type"), ("lanes", "Lane"), ("difficulties", "Difficulty"), ("flags", "Flags"),
+                     ("priorities", "Priority"), ("issue_kinds", "Issue kinds"), ("comment_kinds", "Comment kinds")):
+    if table(heading) != list(catalog[key]):
+        bad.append(f"catalog.md '{heading}' lists {table(heading)}, catalog.json has {list(catalog[key])}")
+labels = [x["name"] for x in json.loads((skills / "project/assets/labels.json").read_text(encoding="utf-8"))]
+want = [n for g in ("types", "lanes", "difficulties", "flags") for n in catalog[g]]
+if labels != want:
+    bad.append(f"project/assets/labels.json differs from the catalog: {sorted(set(labels) ^ set(want))}")
+# every filled example passes the linter; every template has the sections the linter asks for
+sys.path.insert(0, str(skills / "work-package/scripts"))
+import package_lint as L
+lint = [sys.executable, str(skills / "work-package/scripts/package_lint.py")]
+plan = skills / "playbook-plan"
+def issue(kind, title, difficulty, path):
+    return ["issue", "--kind", kind, "--title", title, "--label", "enhancement", "--label", "backend",
+            "--label", difficulty, "--body-file", str(path)]
+for args in (
+    issue("planning", "EXPORT-00: Export the filtered order list as CSV", "medium", plan / "assets/example/card.md"),
+    issue("epic", "BULK-00: Epic — Export any list", "hard", skills / "write-issue/assets/example/epic.md"),
+    ["comment", "--kind", "plan", "--body-file", str(plan / "assets/example/plan-comment.md")],
+    ["comment", "--kind", "epic-plan", "--body-file", str(skills / "write-comment/assets/example/epic-plan.md")],
+    ["comment", "--kind", "decision", "--body-file", str(plan / "assets/example/acceptance.md")],
+):
+    run = subprocess.run(lint + args, capture_output=True, text=True, env={k: v for k, v in __import__("os").environ.items() if k != "AGENT_NAME"})
+    if run.returncode:
+        bad.append(f"{args[-1]}: {run.stdout.strip() or run.stderr.strip()}")
+for name in L.TEMPLATES:
+    _, _, sections = L.read_template(name)
+    text = L.template_path(name).read_text(encoding="utf-8")
+    if not sections or text.rstrip().splitlines()[-1] != "Created: <author>" or L.GENERATED_RE.search(text):
+        bad.append(f"{name} template: needs sections, 'Created: <author>' as its last line and no tool footer")
+for name, kind in (("verdict-pass.md", "verdict"), ("verdict-fail.md", "verdict")):
+    bad += [f"{name}: {x}" for x in L.lint_comment(kind, (skills / "write-comment/assets/example" / name).read_text(encoding="utf-8"))]
+run = subprocess.run([sys.executable, str(root / "scripts/gen_docs.py"), "--check"], capture_output=True, text=True)
+if run.returncode:
+    bad.append(f"generated files are stale (make docs): {run.stdout.strip()}")
+# no skill tells an agent to commit without its name
+for doc in sorted(skills.rglob("*.md")):
+    for line in doc.read_text(encoding="utf-8").splitlines():
+        if re.match(r"\s*git commit\b", line):
+            bad.append(f"{doc.relative_to(skills)}: plain 'git commit'; use agent_identity.py git -- commit")
+import os
+os.environ.pop("AGENT_NAME", None)
+# a squash or merge commit is authored by the account, not the agent: every documented merge is a rebase
+for doc in sorted(skills.rglob("*.md")):
+    for line in doc.read_text(encoding="utf-8").replace("\\\n", " ").splitlines():
+        if re.match(r"\s*gh pr merge\b", line) and ("--rebase" not in line or re.search(r"--(squash|merge)\b", line)):
+            bad.append(f"{doc.relative_to(skills)}: merge with --rebase so commits keep the agent's name: {line.strip()}")
+for doc in sorted(skills.rglob("*")):
+    if doc.is_file() and doc.suffix in (".md", ".sh", ".py") and "-cli merge" in doc.read_text(encoding="utf-8"):
+        bad.append(f"{doc.relative_to(skills)}: names a CLI merge command that does not exist")
+plan = skills / "playbook-plan"
+commands = (plan / "references/orchestration.md").read_text(encoding="utf-8").replace("\\\n", " ")
+for line in commands.splitlines():
+    if "orchestration gate-create --" in line and ("--question" not in line or re.search(r"--(run|reason)\b", line)):
+        bad.append(f"gate-create takes --task and --question, not --run or --reason: {line.strip()}")
 if bad:
     raise SystemExit("; ".join(bad))
 PY

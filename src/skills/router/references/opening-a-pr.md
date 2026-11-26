@@ -9,15 +9,12 @@
    then the **deslop** skill over the diff.
 4. **Verify:** `make verify` on the committed head. `docs/` already describes the change (the **docs-sync** skill); the body says
    "docs: updated" or "docs: no change".
-5. **Body** (a one-minute briefing, under about 40 lines):
-   - `## Why`: the problem, in 1–3 sentences;
-   - `## What changed`: 1–3 bullets;
-   - `## Scope`: what it covers and leaves out;
-   - `## Blast radius`: who or what it touches and why that is safe (the **blast-radius** skill for risky ones);
-   - `## Verification`: the commands run and their result; for perf, one number `before → after`.
+5. **Body** (a one-minute briefing, under about 40 lines): copy the one
+   [PR template](../../work-package/assets/pr.template.md) and follow its sections. Use the **blast-radius** skill for a
+   risky change; for performance, give one number `before → after`. No "Generated with" footer.
 6. **Lint, then open it ready (not draft):** `pr_lint.py local --body pr.md --allow '<scope>'` with
    0 problems, then `gh pr create --base main --title ... --body-file pr.md` and `pr_lint.py pr <n>`
-   (the `github` skill's pull-requests reference). The body ends with `Closes #<issue>`.
+   (the `github` skill's pull-requests reference). The body ends with `Created: <author>`.
    Prefer five narrow PRs to one large one (the `github` skill's submit rules).
 7. Post the URL and keep building. Don't babysit each PR; see [babysit](babysit.md) when asked.
 
