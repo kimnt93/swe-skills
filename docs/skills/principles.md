@@ -97,9 +97,11 @@ Keep summaries in the main thread and bulk in subagents or files: send log readi
 searches to a subagent and take back the finding with `file:line`; brief subagents with paths, not pasted content.
 
 ### never-block-on-the-human
-Proceed on reversible work and let the human correct after the fact. Ask only for irreversible actions
-(production data, deploys, force-pushes to shared branches, money-path merges) and for product calls no
-experiment can settle.
+The one [rule for asking](../../src/skills/principles/references/never-block-on-the-human.md), for every role and
+playbook. The request covers the normal steps to finish it; a missing detail is looked up first; a reversible choice
+takes the recommended option, is recorded with its reason, and work continues; extra work is not offered as a question.
+It still asks before real money, anything irreversible, production, money-path merges and the rest of its *Still ask*
+list, in one short batch with a recommendation each; no reply is never approval. It weakens no gate or playbook stop.
 
 ### encode-lessons-in-structure
 Turn a repeated lesson into something that fails: a type, then a lint or checker (`.golangci.yml`, ruff,

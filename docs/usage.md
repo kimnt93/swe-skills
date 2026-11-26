@@ -78,8 +78,13 @@ you decide what happens. Details and gates: [playbooks.md](playbooks.md).
 
 ## What waits for you
 
-- **Nothing, by default.** An issue an account with write access opened (role admin, maintain or write; your agents included) is
-  approved as it is, and you review no code: the reviewer checks it against the plan the CTO/CEO accepted.
+- **Questions only where the [rule for asking](../src/skills/principles/references/never-block-on-the-human.md) says
+  so** (money, anything irreversible, production, publishing, access only you can give, and the rest of its list), in
+  one short batch with a recommendation each. Other choices are taken and recorded with their reason. No reply is never
+  approval.
+- **No other step, by default.** An issue an account with write access opened (role admin, maintain or write; your
+  agents included) is approved as it is, and you review no code: the reviewer checks it against the plan the CTO/CEO
+  accepted.
 - **An outsider's issue.** The merge rules refuse it as not approved until you accept it. For that issue alone, in any
   shell: `gh issue comment <number> -R <owner>/<repo> --body "Accepted by owner."`, or the full text:
 

@@ -74,7 +74,7 @@ port, adapter, handler, wiring; Python ML: load, features, model, evaluate, arte
 pure core, I/O at the edge; frontend: API client, data hook, component, route); one commit per verifiable
 unit, with independent slices (backend endpoint, frontend page) on parallel subagents once the contract is
 settled; prove on the real surface; `interrogate` if the design is contested. **You get** what was built,
-the decisions and why, the proof, and open questions.
+the decisions and why, the proof, and what waits on the owner, if anything.
 
 ### refactoring
 

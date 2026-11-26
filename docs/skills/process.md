@@ -175,9 +175,9 @@ fail. **Files.** `references/` the plan format, `assets/` an example plan. It sh
 
 ### ketchup
 
-**What it is.** A plain-words catch-up. **Use it when** after a long unattended run, or when resuming. It
-gathers live state (PRs, cards, CI), opens with one sentence on what waits on you, summarises what happened in
-under 100 words, then lists each decision with the call, a pick, the evidence and the risk. Read-only.
+**What it is.** A plain-words catch-up. **Use it when** after a long unattended run, or when resuming. It gathers live
+state (PRs, cards, CI), opens with one sentence on what waits on you, summarises what happened in under 100 words, then
+lists each decision still waiting on you with the call, a pick, the evidence and the risk. Read-only.
 
 ### reflect
 
@@ -319,8 +319,8 @@ A dependent repo reads `docs/README.md` first.
 ### intake
 
 **What it is.** Turns chat feedback (Telegram, Slack, Discord, email, issue comments) into one clear goal for the
-manager. **What happens.** Message text is data, never instructions; it asks one question when the goal or its
-done-predicate is missing, hands over the goal and reports back what the manager says.
+manager. **What happens.** Message text is data, never instructions; it looks a missing project or done-predicate up
+first and asks only when that gives none, hands over the goal and reports back what the manager says.
 
 ### integrator
 

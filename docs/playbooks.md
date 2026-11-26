@@ -23,6 +23,10 @@ want an audit for leaks and vulnerabilities. A question is
 answered read-only. Nobody picks `quick` by itself; named
 for work with an open design question, the CTO/CEO says so and asks.
 
+**Agents decide what is reversible** and ask only what the one
+[rule for asking](../src/skills/principles/references/never-block-on-the-human.md) says; every gate and playbook stop
+below stays.
+
 **By default you approve and review no code.** The weight is on the plan: the architect plans carefully, the CTO/CEO
 checks the plan against the card before it accepts it, and in `build` and `ship` the reviewer checks the code against the
 accepted plan (packages, contracts, owned files, verify commands); a departure from the plan is a finding. A
@@ -170,7 +174,7 @@ everything, and what the issue means, is the reviewer's judgment. `quick` has no
 |---|---|---|
 | Card ready (`build`, `plan`) | CTO/CEO | a `planning` or `epic` issue that passes `package_lint.py issue` |
 | Plan returned | architect | one plan comment per version, sent back to the CTO/CEO with its URL |
-| Plan accepted | CTO/CEO | the plan is checked against the card, the `plan` or `epic-plan` comment passes the linter, every open question is answered, and the decision comment is posted. **Plan ends here**; `build` goes on to code |
+| Plan accepted | CTO/CEO | the plan is checked against the card, the `plan` or `epic-plan` comment passes the linter, every choice is decided with its reason, each open question (only what the [rule for asking](../src/skills/principles/references/never-block-on-the-human.md) lists) is answered, or waits for the owner with the work that needs it not started, and the decision comment is posted. **Plan ends here**; `build` goes on to code |
 | Issue ready (`build`, `quick`) | CTO/CEO | `ID: title`, type + lane + difficulty labels, priority, closed file list, runnable `Done when` |
 | Issue approved | the merge rules | before work starts and again before the merge: `issue_gate.py` allows it (an author with write access, or the owner's comment for anyone else's issue) |
 | PR ready | builder (developer, tester or devops) | owned files only, test first, `Closes #N`, the `Done when` on the committed head before the PR opens |
