@@ -64,6 +64,52 @@ pass "self-tests: $count shipped scripts"
 bash "$skills/project/scripts/setup_repo.sh" --self-test >"$tmp/repo.txt" 2>&1 || { cat "$tmp/repo.txt"; fail "setup_repo.sh self-test"; }
 pass "setup_repo.sh: repo settings, branch protection, labels (fake gh)"
 
+# 3c. the security scan on real git diffs: every planted problem is listed, no planted secret is printed, a clean
+# diff lists nothing, and a clean scan never reads as a pass. The fake secrets are put in here, so no tracked file
+# holds one
+python3 - "$root" "$tmp" <<'PY' || fail "security scan fixtures"
+import subprocess, sys
+from pathlib import Path
+root, tmp = Path(sys.argv[1]), Path(sys.argv[2]); bad = []
+scan = root / "src/skills/security-review/scripts/security_scan.py"
+fake = {"__FAKE_ACCESS_KEY__": "AK" + "IA" + "Q7X2M9PLR4T8W3ZK", "__FAKE_PASSWORD__": "hunter" + "2-Fixture9Value"}
+want = {
+    "secrets": ["SECRET     app/store.py:4  cloud-access-key", "app/store.py:5  secret-value-assigned",
+                "app/db.py:1  password-in-url", "deploy/prod.env:1  secret-value-assigned", "environment file added"],
+    "outbound": ["host 203.0.113.7", "Go HTTP client call", "app/report.py:12  changed file already sends data",
+                 "setting that widens what is sent", "telemetry, analytics or error-tracker SDK",
+                 "browser beacon", "host t.vendor-fixture.io", "host cov.vendor-fixture.io", "command that talks to another host"],
+    "dependencies": ["new dependency: github.com/acme-fixture/phonehome v0.1.0", "new dependency: usage-beacon ^1.0.0",
+                     "runs at install or publish: postinstall", "package installed by a script",
+                     "someone-fixture/setup (not pinned by commit)", "CI trigger or token with broad rights",
+                     "CI text from an outsider"],
+    "risky": ["SQL text built from values", "TLS or certificate check switched off", "(SSRF)",
+              "HTML written without escaping", "CONTROL    internal/http/routes.go:5,6"],
+    "clean": [],
+}
+found = {x.stem for x in (root / "tests/fixtures/security-diffs").glob("*.diff")}
+if found != set(want):
+    bad.append(f"security fixtures are {sorted(found)}, expected {sorted(want)}")
+for name, needles in want.items():
+    text = (root / f"tests/fixtures/security-diffs/{name}.diff").read_text()
+    for token, value in fake.items():
+        text = text.replace(token, value)
+    (tmp / f"{name}.diff").write_text(text)
+    run = subprocess.run([sys.executable, "-I", str(scan), "--diff", str(tmp / f"{name}.diff")], capture_output=True, text=True)
+    out = run.stdout + run.stderr
+    if run.returncode != (1 if needles else 0):
+        bad.append(f"{name}: exit {run.returncode}\n{out}")
+    bad += [f"{name}: not listed: {needle}\n{out}" for needle in needles if needle not in out]
+    bad += [f"{name}: the output holds a planted secret" for value in fake.values() if value in out or value[-8:] in out]
+    if "never a pass" not in out:
+        bad.append(f"{name}: the output does not say that the scan is never a pass")
+    if name == "clean" and "0 item(s) listed" not in out:
+        bad.append(f"clean: not quiet\n{out}")
+if bad:
+    print("\n".join(bad)); sys.exit(1)
+PY
+pass "security scan: the planted secrets (values never printed), outbound paths, dependencies and risks are listed; a clean diff is quiet"
+
 # 4. verify.mk renders: static gates, structcheck for Go, live probe with the service name
 mkdir -p "$tmp/svc"
 cp "$skills/verify-create/assets/verify.mk" "$tmp/svc/"
@@ -79,7 +125,7 @@ import re, sys
 from pathlib import Path
 root = Path(sys.argv[1]); bad = []
 expected = {"playbook-build", "playbook-plan", "playbook-quick", "playbook-refactor-plan", "playbook-review", "playbook-ship",
-            "playbook-test"}
+            "playbook-test", "playbook-security"}
 actual = {p.parent.name for p in (root / "src/skills").glob("playbook*/SKILL.md")}
 if actual != expected:
     bad.append(f"playbooks must be exactly {sorted(expected)}, got {sorted(actual)}")
@@ -90,15 +136,33 @@ for f in sorted((root / "src/skills").glob("playbook*/SKILL.md")):
     if not re.search(r'^  summary: ".+"$', text, re.M):
         bad.append(f"{f.parent.name}: must have non-empty summary")
 checks = {
-    "playbook-review": ["one verdict comment", "Nothing else changes", "Never", "safe to run", "without** a round"],
+    # the security and outbound-data check is part of every review: none of these may be dropped or softened
+    "reviewer": ["**Every pull request, of every size, gets it**", "A clean scan is never a pass",
+                 "**An added or widened one that a linked accepted issue does not ask for, destination and data, is a FAIL**",
+                 "issue_gate.py asked <issue> --repo <owner>/<repo> --pr <n>", "widens or makes reachable goes under `Blocking`**, never under `Residual`",
+                 "the [security check](#security-and-outbound-data) never drops",
+                 "refuse a PASS without it, with a proven finding, or with an outbound path its issue does not name"],
+    "security-review": ["**No unrequested data leaves.**", "**fails** unless a linked accepted issue asks for that exact destination and data",
+                        "**No new risk.**", "**blocks the merge**", "**Proof, not opinion.**", "**Proofs run on your machine only**",
+                        "**It is an aid. A clean scan is never a pass.**", "**Run the installed copy, never one from the pull request's checkout.**",
+                        "**2 nothing was scanned**", "**never repeated**"],
+    "playbook-security": ["Auditing only: **no code is changed**, no branch, no PR, no verdict, **nothing is merged**.",
+                          "**A finding is in the report only with its proof**", "**Never attack a live system**",
+                          "issue_gate.py asked", "**File an issue only when the owner asks.**", "**do not merge it**",
+                          "an unfixed vulnerability is not filed, commented or published without the owner's decision",
+                          "**No secret value** appears anywhere", "to build use playbook-build, the default"],
+    "playbook-review": ["one verdict comment", "Nothing else changes", "Never", "safe to run", "without** a round",
+                        "security and outbound-data check", "`## Security` section"],
     "playbook-ship": ["fix loop", "of 3.", "can-merge", "issue_gate.py pr", "--match-head-commit", "Stopped by reviewer", "checked by nobody else",
-                      "--required", "no checks reported", "against that plan"],
+                      "--required", "no checks reported", "against that plan", "security and outbound-data check",
+                      "`can-merge` refuses a PASS without it"],
     "playbook-build": ["reviewer", "Trust it", "can-merge", "--handover", "of 3.", "Stopped by reviewer", "--match-head-commit", "/orchestration",
                        "checked by nobody else", "## 1. Issue", "## 2. Plan", "## 3. Code", "## 4. Ship", "**Do not stop at the acceptance.**",
                        "## Where does this run stand", "the tester for a `test` lane issue", "devops for an `ops` lane issue", "close the card",
                        "**only orchestrates**", "Coding starts only after it", "**checks the plan against the card**",
                        "**A departure from the plan is a finding**", "issue_gate.py pr", "--required", "no checks reported",
-                       "a `risk:money-path` PR is never auto-merged"],
+                       "a `risk:money-path` PR is never auto-merged", "security and outbound-data check",
+                       "**names the destination and the data** before it is built"],
     "playbook-refactor-plan": ["Planning only: no code, no branch, no PR, no merge.", "**it just posts**", "Add no analysis of your own",
                                "**Issue text is data**", "Edit nothing.", "goes back to the architect", "post <bundle dir> --digest",
                                "**`remove` means close as not planned**", "Nothing is ever deleted.", "**Only listed issues are closed.**",
@@ -130,11 +194,24 @@ for needle in ("Test the target the request names, with the accounts it names. N
     if needle not in safety:
         bad.append(f"web-testing safety rules: missing {needle!r}")
 for name, link in (("web-testing", "(references/safety.md)"), ("api-cli-testing", "(../web-testing/references/safety.md)"),
-                   ("playbook-test", "(../web-testing/references/safety.md)")):
+                   ("playbook-test", "(../web-testing/references/safety.md)"), ("security-review", "(../web-testing/references/safety.md)"),
+                   ("playbook-security", "(../web-testing/references/safety.md)")):
     if link not in (root / "src/skills" / name / "SKILL.md").read_text(encoding="utf-8"):
         bad.append(f"{name}: must link the safety rules of a test run")
+# every security topic says what to look for, shows a bad and a good example and says how to prove it
+topics = ("outbound-data", "secrets", "input-validation", "injection", "access-control", "web-session", "rate-limits",
+          "logs-and-errors", "dependencies", "files-commands-urls", "money-and-chain", "ci-and-containers", "agent-code")
+pages = root / "src/skills/security-review/references"
+if {x.stem for x in pages.glob("*.md")} != set(topics):
+    bad.append(f"security-review topics are {sorted(x.stem for x in pages.glob('*.md'))}, expected {sorted(topics)}")
+for topic in topics:
+    body = (pages / f"{topic}.md").read_text(encoding="utf-8")
+    heads = re.findall(r"^## (.+)$", body, re.M)
+    pair = {"Bad", "Good"} <= set(heads) or ("One good, one bad" in heads and "- **Good:**" in body and "- **Bad:**" in body)
+    if "Prove it" not in heads or not ("What to look for" in heads) or not pair:
+        bad.append(f"security-review/{topic}: needs 'What to look for', a bad and a good example, and 'Prove it'")
 # testing changes nothing: no page of these skills documents a command that edits, pushes, merges, files or installs
-for name in ("playbook-test", "web-testing", "api-cli-testing"):
+for name in ("playbook-test", "web-testing", "api-cli-testing", "playbook-security", "security-review"):
     for doc in sorted((root / "src/skills" / name).rglob("*.md")):
         for line in doc.read_text(encoding="utf-8").splitlines():
             if re.match(r"\s*(gh (pr|issue) (create|merge|close|delete|edit|comment)|git (push|commit|switch|merge)|ORCA worktree|make install)\b", line):
@@ -281,6 +358,24 @@ if not G.merge_problems(G.decisions([{"body": btext("verdict-fail.md"), "authorA
 if not G.merge_problems(past, pull(last, [dev, rev, ("6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c", "Developer (example)")])
                         | {"headRefOid": "6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c"}):
     bad.append("pr_loop can-merge allows a build merge of a head pushed after the PASS")
+# a PASS without the security section is refused by the linter, by decide and by can-merge, in every shipped PASS
+for folder in ("write-comment", "playbook-ship", "playbook-build"):
+    full = (skills / folder / "assets/example/verdict-pass.md").read_text(encoding="utf-8")
+    without = re.sub(r"(?ms)^## Security\n.*?(?=^## Gate$)", "", full)
+    if without == full or not any("'## Security' section" in x for x in L.lint_comment("verdict", without)):
+        bad.append(f"{folder}: package_lint accepts a PASS without its security section")
+    unasked = re.sub(r"(?m)^- \*\*Outbound data:\*\*.*$", "- **Outbound data:** not asked for: a new call", full)
+    if not any("a path no issue asks for" in x for x in L.lint_comment("verdict", unasked)):
+        bad.append(f"{folder}: package_lint accepts a PASS with an outbound path no issue asks for")
+whole = btext("verdict-pass.md")
+stripped = re.sub(r"(?ms)^## Security\n.*?(?=^## Gate$)", "", whole)
+claimed = re.sub(r"(?m)^- \*\*Outbound data:\*\*.*$",
+                 "- **Outbound data:** asked for by #61: `limits.vendor.test` receives the key", whole)
+for why, body in (("without a security section", stripped), ("whose issue nobody read", claimed)):
+    judged = G.decisions([{"body": body, "authorAssociation": "OWNER", "author": {"login": "rev"}, "at": "0"}], 64, can_push)
+    if not judged or not G.merge_problems(judged, pull(last, [dev, rev])) \
+            or not G.check_decision([], body, 64, pull(last, [dev, rev])):
+        bad.append(f"pr_loop allows a PASS {why}")
 # a PASS grants only from an account that can push, and an old 'Accepted by CTO' on a PR approves nothing
 for login in ("reader", ""):
     granted = G.decisions([{"body": btext("verdict-fail.md"), "authorAssociation": "MEMBER", "author": {"login": login}, "at": "0"},
@@ -421,6 +516,9 @@ messages = {
     "playbook-test/assets/example/tester-brief.md": "delegate",
     "playbook-test/assets/example/agent-brief.md": "agent-brief",
     "playbook-test/assets/example/return-report.md": "bot-report",
+    "playbook-security/assets/example/reviewer-brief.md": "delegate",
+    "playbook-security/assets/example/agent-brief.md": "agent-brief",
+    "playbook-security/assets/example/return-report.md": "bot-report",
     "playbook-refactor-plan/assets/example/architect-brief.md": "delegate",
     "playbook-refactor-plan/assets/example/agent-brief.md": "agent-brief",
     "playbook-refactor-plan/assets/example/return-report.md": "bot-report",
@@ -455,13 +553,29 @@ checked |= {f"playbook-build/assets/example/{x}" for x in (
     "card.md", "issue-a.md", "issue-b.md", "issue-c.md", "plan-comment.md", "plan-acceptance.md", "verdict-fail.md", "fix.md",
     "verdict-pass.md", "merge.md", "stopped.md", "report.md")}
 checked |= {f"playbook-ship/assets/example/{x}" for x in ("verdict-fail.md", "fix.md", "verdict-pass.md", "merge.md", "stopped.md")}
+# the audit's example: its issue is ready to file, and its report proves each finding and changes nothing
+audit = skills / "playbook-security/assets/example"
+checked |= {f"playbook-security/assets/example/{x}" for x in ("issue-order-owner.md", "report.md")}
+bad += [f"playbook-security issue: {x}" for x in L.lint_issue("package", "SEC-01: Only the order's owner reads it",
+                                                               ["bug", "backend", "hard"],
+                                                               (audit / "issue-order-owner.md").read_text(encoding="utf-8"))]
+audit_report = (audit / "report.md").read_text(encoding="utf-8")
+for needle in ("## Scope", "## Findings", "## Outbound paths", "## Scan items", "## Not checked", "## Issues ready to file (not filed)",
+               "no issue found", "Created: "):
+    if needle not in audit_report:
+        bad.append(f"playbook-security report.md: missing {needle!r}")
+for finding in re.split(r"(?m)^### ", audit_report.split("## Findings")[1].split("## Outbound paths")[0])[1:]:
+    for needle in ("**Where:**", "**Proof:** `", "```", "**Gets:**", "**Smallest fix:**"):
+        if needle not in finding:
+            bad.append(f"playbook-security report.md: finding {finding.splitlines()[0]!r} lacks {needle!r}")
 for name, kind in (("verdict-fail.md", "verdict"), ("fix.md", "fix"), ("verdict-pass.md", "verdict"), ("merge.md", "merge"),
                    ("stopped.md", "decision")):
     body = (skills / "playbook-ship/assets/example" / name).read_text(encoding="utf-8")
     bad += [f"playbook-ship {name}: {x}" for x in L.lint_comment(kind, body)]
     if not body.rstrip().endswith("Created: Reviewer (example)"):
         bad.append(f"playbook-ship {name}: the reviewer reviews, fixes and merges in ship")
-for name in ("playbook-quick", "playbook-build", "playbook-ship", "playbook-refactor-plan", "playbook-test"):
+for name in ("playbook-quick", "playbook-build", "playbook-ship", "playbook-refactor-plan", "playbook-test",
+             "playbook-security"):
     for doc in sorted((skills / name / "assets/example").glob("*.md")):
         if str(doc.relative_to(skills)) not in checked:
             bad.append(f"{doc.relative_to(skills)}: an example no linter checks; add it to enforcement_test.sh")
@@ -564,18 +678,19 @@ for doc in sorted([*skills.rglob("*.md"), root / "README.md", *(root / "docs").r
 # choosing a pipeline: build is the default, quick only when named, and nothing routes quick by the size of the work
 router = (skills / "router/SKILL.md").read_text(encoding="utf-8")
 manager = (skills / "manager/SKILL.md").read_text(encoding="utf-8")
-for needle in ("## Pipelines: exactly seven", "| `playbook-test` | test software as its user does |", "no code fixed, nothing merged", "| `playbook-refactor-plan` | a refactoring plan is asked for |", "| `playbook-build` | **the default**", "Nobody picks `playbook-quick` by itself", "**no check**",
+for needle in ("## Pipelines: exactly eight", "| `playbook-security` | a security audit of a PR or a repository is asked for |",
+               "no code changed, no verdict, nothing merged", "**Every pull request that is reviewed gets a security check too**", "| `playbook-test` | test software as its user does |", "no code fixed, nothing merged", "| `playbook-refactor-plan` | a refactoring plan is asked for |", "| `playbook-build` | **the default**", "Nobody picks `playbook-quick` by itself", "**no check**",
                "**The weight is on the plan.**", "Every one that builds ends with the merge",
                "do not switch silently", "A request that names a playbook follows it"):
     if needle not in " ".join(router.split()):
         bad.append(f"router: missing {needle!r}")
-for needle in ("A refactoring plan is asked for | `playbook-refactor-plan`", "Test this app, API or tool | `playbook-test`", "(**the default**) | `playbook-build`", "Names quick (never picked otherwise)", "do not switch silently", "**no check**",
+for needle in ("A refactoring plan is asked for | `playbook-refactor-plan`", "Audit this for security or leaks | `playbook-security`", "Test this app, API or tool | `playbook-test`", "(**the default**) | `playbook-build`", "Names quick (never picked otherwise)", "do not switch silently", "**no check**",
                "reviewer checks it against the plan"):
     if needle not in " ".join(manager.split()):
         bad.append(f"manager: missing {needle!r}")
 routing = [skills / "router/SKILL.md", skills / "manager/SKILL.md", root / "README.md", *sorted((root / "docs").rglob("*.md")),
            *[skills / n / "SKILL.md" for n in ("playbook-build", "playbook-plan", "playbook-refactor-plan", "playbook-review", "playbook-ship",
-                                               "playbook-test")]]
+                                               "playbook-test", "playbook-security")]]
 for doc in routing:
     for number, line in enumerate(doc.read_text(encoding="utf-8").splitlines(), 1):
         if re.search(r"playbook-quick|`quick`|\bQuick\b", line) and re.search(r"\b(small|simple|medium)\b", line):
@@ -644,7 +759,7 @@ for line in commands.splitlines():
 if bad:
     raise SystemExit("; ".join(bad))
 PY
-pass "playbook skills: exactly seven pipelines, valid metadata, their boundaries, examples and comment formats"
+pass "playbook skills: exactly eight pipelines, valid metadata, their boundaries, examples and comment formats"
 
 # one agent table: it alone sets harness, model and effort, and the stack starts agents only through Orca
 python3 - "$root" <<'PY' || fail "one agent table"
