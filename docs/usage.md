@@ -63,9 +63,9 @@ day, then with duplicated and redelivered events) and, for state machines and ra
 
 | You have | Say | You get |
 |---|---|---|
-| a problem whose design is open | `/swe:playbook-plan <problem>` | an accepted plan on the issue; nothing built |
-| small or medium work | `/swe:playbook-quick <problem>` | merged pull requests checked by the CTO/CEO |
-| features or hard work | `/swe:playbook-complete <problem or plan>` | pull requests a separate reviewer reviewed, fixed and passed, then merged |
+| work to build (the default, also with no playbook named) | `/swe:playbook-build <problem or plan>` | an accepted plan, then pull requests a separate reviewer checked against it, fixed and passed, then merged |
+| a request for quick, by name | `/swe:playbook-quick <problem>` | no plan and no check: pull requests merged when the merge rules, the required checks and the reported head allow it |
+| a problem you want only planned | `/swe:playbook-plan <problem>` | an accepted plan on the issue; nothing built |
 | a pull request to judge | `/swe:playbook-review review PR <n>` | one verdict comment; nothing changed |
 | a pull request to land | `/swe:playbook-ship ship PR <n>` | merged with its issue closed, or stopped with the reasons |
 
@@ -74,8 +74,10 @@ you decide what happens. Details and gates: [playbooks.md](playbooks.md).
 
 ## What waits for you
 
-- **Approving an issue.** One an agent created is not approved by that. Comment on it; only this comment approves
-  (an issue your account created and a board status `Todo` or `In Progress` are off while agents share your account):
+- **Nothing, by default.** An issue an account with write access opened (role admin, maintain or write; your agents included) is
+  approved as it is, and you review no code: the reviewer checks it against the plan the CTO/CEO accepted.
+- **An outsider's issue.** The merge rules refuse it as not approved until you accept it. For that issue alone, in any
+  shell: `gh issue comment <number> -R <owner>/<repo> --body "Accepted by owner."`, or the full text:
 
   ```text
   Accepted by owner.
@@ -85,6 +87,7 @@ you decide what happens. Details and gates: [playbooks.md](playbooks.md).
 
 - **A money path.** A pull request labelled `risk:money-path` is never auto-merged.
 - **A stopped pull request**, and any pull request from a fork or an outside contributor.
+- **A pull request `quick` stopped**: it stays open. Ask for `ship` to land it, or `review` for a comment.
 
 ## Git and GitHub, the one way
 

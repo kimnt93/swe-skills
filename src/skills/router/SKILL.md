@@ -32,8 +32,8 @@ Never start a new HTTP API in Python or Rust without a reason written in the PR.
 1. **In your own words first.** Before any edit, state the goal, the smallest change you expect to
    meet it, and the **done-predicate**: a command and its expected output. Don't wait for
    confirmation. If the evidence rules out the requested change, show it and stop.
-2. **Pick one pipeline** (`plan`, `quick`, `complete`, `review` or `ship`) from the table below. Open a todo list whose first items are
-   its steps.
+2. **Pick one pipeline** (`build`, `plan`, `quick`, `review` or `ship`) from the table below: the one the request
+   names, else `build`. Open a todo list whose first items are its steps.
 3. **Load the domain skill** before you write code. It carries the code standard and tested templates.
 4. **Principles.** Read the `principles` index; open each one whose "applies" line matches; name in
    your reply each one that changed a decision. `money-path` always applies to orders, fills,
@@ -54,20 +54,33 @@ Never start a new HTTP API in Python or Rust without a reason written in the PR.
 
 ## Pipelines: exactly five
 
-Every request that plans, builds or judges a change is one of these. Pick by what comes in; there is no sixth.
+Every request that plans, builds or judges a change is one of these; there is no sixth. Every one that builds ends with
+the merge.
 
 | Pipeline | Use it for | Flow |
 |---|---|---|
-| `playbook-plan` | planning a new feature, cross-file change, hard bug, unsettled shape | CTO card → architect plan comment → back to the CTO → accepts → stop, nothing built |
-| `playbook-quick` | ready to build, `simple` or `medium`; one problem may be several issues | CTO/CEO issues → a PR each → the CTO/CEO checks, ≤3 feedback rounds → merges or stops |
-| `playbook-complete` | features, `hard` work, an accepted plan; a reviewer judges | CTO/CEO issues → a PR each → reviewer reviews and fixes, ≤3 rounds → CTO/CEO trusts it and merges |
-| `playbook-review` | comment on one existing PR | read → one PASS or FAIL comment → stop, nothing changed |
+| `playbook-build` | **the default**: any request to build that names no playbook | issue → architect plan → CTO/CEO checks it against the card and accepts → code → a PR each → the reviewer checks it against the plan and fixes, ≤3 rounds → CTO/CEO trusts the PASS and merges |
+| `playbook-quick` | **only when the request names it**; no plan, **no check** | CTO/CEO issues → code → a PR each → CTO/CEO merges on mechanical conditions only (merge rules, required checks, the reported head, not behind, not a money path) |
+| `playbook-plan` | only a plan is wanted | issue → architect plan comment → back to the CTO/CEO → accepts → stop, nothing built |
+| `playbook-review` | comment on one existing PR | read → one PASS or FAIL comment → stop, nothing changed or merged |
 | `playbook-ship` | take one existing PR to `main` | reviewer reviews and fixes, ≤3 rounds → merges and closes the issue, or stops |
 
-Issues are written with `write-issue`, comments with `write-comment`, PRs with `work-package`. Anything built or merged
-passes the [merge rules](../github/references/pull-requests.md#merge-rules); only the role the playbook names merges, at
-the judged SHA. A request to plan stops at the accepted plan; a request to review changes nothing. A `quick` issue that
-grows stops and becomes `plan` or `complete`.
+**Choosing.** A request that names a playbook follows it. A CTO/CEO told none uses `playbook-build`; `ship` or `review`
+for an existing PR; `plan` when only a plan is wanted. A question is answered read-only, with no pipeline. Nobody picks
+`playbook-quick` by itself. Quick named for work with an open design question, or not safe for it (hard, security, a
+money path): say so and ask; do not switch silently.
+
+**The weight is on the plan.** By default the owner approves and reviews no code: the architect plans carefully, the
+CTO/CEO checks the plan against the card before accepting it, and in `build` and `ship` the reviewer checks the code
+against the accepted plan; a departure from it is a finding. A `risk:money-path` change is never merged automatically,
+and a project's own approval rules still apply.
+
+The CTO/CEO only orchestrates: it never plans, codes, tests, deploys or reviews code, in any pipeline; each of those jobs
+goes to the role that holds it ([bot-orchestration](../bot-orchestration/SKILL.md)). Issues are written with
+`write-issue`, comments with `write-comment`, PRs with `work-package`. Anything built or merged passes the
+[merge rules](../github/references/pull-requests.md#merge-rules): as shipped, an issue opened by an account with write access
+(role admin, maintain or write) or the owner's comment approves it. Only the role the playbook names merges, at the SHA it
+checked. A request to plan stops at the accepted plan; a request to review changes nothing.
 
 ## Engineering methods
 

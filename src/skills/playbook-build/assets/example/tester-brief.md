@@ -1,0 +1,9 @@
+Job: RATE-00c: load test the request limit
+Issue: https://github.com/<owner>/<repo>/issues/63
+Difficulty: simple
+Playbook: playbook-build, stage 3 (wave 2: RATE-00a is merged; build from the newest main, open the PR, hand it over)
+Done when: the PR is open with green required checks, `make load-test` passes on its head, and the handover check allows removing the worktree
+Limits: only the issue's owned files; never merge; after the handover report, remove your worktree
+Use only your own agents, if you need any; report only what you verified
+When done or blocked, send an orchestration status to the return address: a first line such as DONE, BLOCKED, PR READY or REVIEW PASSED with the job ID, then the lines Ask, Did, Result, Caveats, Needs and From (your bot name and chat id)
+Return to: bot:CEO (example), chat 5d4c3b2a-1111-2222-3333-444455556666

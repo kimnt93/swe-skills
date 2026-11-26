@@ -2,6 +2,7 @@ Lane: backend
 Wave: 1
 Difficulty: simple (one serializer and its test)
 Priority: medium
+Pipeline: quick
 
 ## Goal
 The order API returns `created_at` as RFC 3339 in UTC, for example `2026-03-01T09:30:00Z`.

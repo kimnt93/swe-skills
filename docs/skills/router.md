@@ -208,28 +208,39 @@ skill path) to Claude Code, oh-my-pi and Codex.
 ## Playbooks: five pipelines
 
 They use the `write-issue`, `write-comment` and `work-package` formats; the role each playbook names merges, under the
-merge rules. There is no sixth playbook.
+merge rules. There is no sixth playbook, and every one that builds ends with the merge. A request that names one follows
+it; with none named, the CTO/CEO uses `playbook-build`. Nobody picks `playbook-quick` by itself. The CTO/CEO only
+orchestrates: it never plans, codes, tests, deploys or reviews code. By default the owner approves and reviews no code:
+the weight is on the plan, and the reviewer checks the code against it.
+
+### playbook-build
+
+**What it is.** The default, in four stages: issue → plan → code → ship. (1) The CTO/CEO's card; (2) the architect plans
+it carefully, and the CTO/CEO checks the plan against the card before it accepts it; (3) one package issue per PR, which
+the merge rules approve when an account with write access opened it, each built by its lane's role (developer, tester for `test`,
+devops for `ops`) in its own worktree, which opens the PR, hands it over and removes the worktree; (4) a reviewer checks
+the code against the issue and the accepted plan (a departure is a finding), fixes its findings, at most 3 rounds → the
+CTO/CEO trusts the PASS, checks it mechanically (`can-merge`, the merge rules, the required checks) and merges, then
+closes the card when every child is merged, or reports the stop. The reviewer's own fixes are checked by nobody else,
+and the PASS names them; a money path is never auto-merged. **When.** Any request to build that names no playbook.
+**Files.** The orchestration commands, an example with a plan departure, a blocked package and a second wave, and its
+messages.
 
 ### playbook-plan
 
 **What it is.** CTO/CEO planning card or epic → architect (bot or delegated worker, through orchestration) → one plan
-comment (`write-comment`) → sent back to the CTO/CEO → decision → stop. No code, branch or PR. **When.** New features,
-cross-file changes, hard bugs, or a shape not yet settled.
+comment (`write-comment`) → sent back to the CTO/CEO → decision → stop. No code, branch or PR. **When.** Only a plan
+is wanted. Inside `build` the same steps are stage 2, and the run goes on.
 
 ### playbook-quick
 
-**What it is.** CTO/CEO issues (a parent when there is more than one) → each developer in its own worktree opens one
-PR and sends it back → at most 3 feedback rounds → the CTO/CEO merges the accepted SHA and confirms, or stops it with
-final feedback (PR and branch stay on GitHub) → the developer removes the worktree. No architect plan and no separate
-reviewer. **When.** Every issue can be written now with no design question, each `simple` or `medium`. **Files.** The
-orchestration commands and an example.
-
-### playbook-complete
-
-**What it is.** CTO/CEO issues → each developer opens one PR, hands the branch over and removes its worktree → a
-reviewer (another agent) reviews and fixes, at most 3 rounds → the CTO/CEO trusts the PASS, checks it mechanically and
-merges, or reports the stop. The reviewer's own fixes are checked by nobody else, and the PASS names them. **When.**
-Features, hard work, or building an accepted plan. **Files.** The orchestration commands, an example and its messages.
+**What it is.** Issue → code → PR → merge, with **no check**: no plan, no reviewer, no verdict, no rounds. CTO/CEO issues, each
+marked `Pipeline: quick` (a parent when there is more than one) → each developer in its own worktree runs the issue's `Done when`, opens one PR,
+keeps the required checks green and sends it back with its head SHA → the CTO/CEO, without reading the diff, merges only
+when the merge rules allow it, the required checks passed, the branch is not behind, the head is the reported one and it
+is no money path (`can-merge --unreviewed --head`), and confirms; otherwise it returns it to the same developer, at most 3 times (each return
+a comment on the PR; a clean rebase after another quick PR merged is free), or stops it (PR and branch stay on GitHub) → the developer removes the worktree. **When.** Only when the request names it. **Files.** The
+orchestration commands, an example and its messages.
 
 ### playbook-review
 
@@ -240,4 +251,5 @@ Features, hard work, or building an accepted plan. **Files.** The orchestration 
 
 **What it is.** One existing PR: the reviewer reviews it, fixes its findings, reviews again for at most 3 rounds, then
 merges it and confirms its issue closed, or stops it with the PR left open. It needs an issue the merge rules approve,
-and a reviewer who did not write the PR. **When.** Ship, finish or land a PR. **Files.** An example.
+and a reviewer who did not write the PR; when the issue comes from an accepted plan, the review checks the code against
+it. **When.** Ship, finish or land a PR. **Files.** An example.

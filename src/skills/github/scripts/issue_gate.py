@@ -11,11 +11,20 @@ issue passes. An issue passes when nothing refuses it and one approval holds.
   Refused, whatever else says yes: the issue is closed (done, not planned or duplicate), it carries a refusing
   label, or its board status is a refusing one.
   Approvals: the 'approvals' list in assets/merge-rules.json says which count, any one of them:
-    owner_comment  the repository owner commented the acceptance (assets/owner-acceptance.template.md)
-    owner_author   the owner created the issue
-    board_status   its board status is an approving one
-  Shipped: owner_comment only. Agents share the owner's account, so an issue the owner's account created and a board
-  status an agent may have set are off. A missing, empty or unknown value refuses everything.
+    trusted_author  the issue was opened by an account with write access or higher to the repository:
+                    gh api repos/<repo>/collaborators/<login>/permission answers role_name admin, maintain or
+                    write with the base permission GitHub maps it to (admin, write, write) and push true. Read,
+                    triage, custom roles, bots, a failed lookup or any odd answer approve nothing. The author
+                    association (MEMBER, COLLABORATOR) is never used: it says nothing about write access
+    owner_comment   the repository owner commented the acceptance (assets/owner-acceptance.template.md), and the
+                    issue's body and title were not changed at or after it: GraphQL lastEditedAt and the newest
+                    RenamedTitleEvent. Edits that cannot be read approve nothing; the owner accepts again after one
+    owner_author    the owner created the issue, and no agent signed it
+    board_status    its board status is an approving one
+  Shipped: trusted_author and owner_comment. An issue opened by an account that can push (agents on such an account
+  included) needs no further approval; anyone else's issue (an outsider, an organization member with the default
+  read access, a triage collaborator) still needs the owner's comment, so a stranger cannot have work built and
+  merged. The gh login must be able to read the repository's collaborator permissions (give it write access). A missing, empty or unknown value refuses everything.
   The board: when GitHub answers that the gh login lacks the scope to read it (INSUFFICIENT_SCOPES), the check
   goes on without it and says so. No board status refuses or approves then, so a Done or Not planned on an issue
   that is still open is not seen. Any other failure to read the board refuses.
@@ -32,6 +41,7 @@ import json
 import re
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Callable
 from unittest import mock
@@ -39,10 +49,18 @@ from unittest import mock
 ASSETS = Path(__file__).resolve().parents[1] / "assets"
 REFS_RE = re.compile(r"^Refs #(\d+)\b", re.M)
 CREATED_RE = re.compile(r"^Created: (.+?)\s*$", re.M)
-APPROVALS = ("owner_comment", "owner_author", "board_status")
+APPROVALS = ("trusted_author", "owner_comment", "owner_author", "board_status")
+# role_name -> the base permission GitHub reports with it (maintain is reported as write); nothing else grants
+WRITE_ROLES = {"admin": "admin", "maintain": "write", "write": "write"}
+LOGIN_RE = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})")  # a user account; an app or bot login never matches
 CLOSED_AS = {"COMPLETED": "done", "NOT_PLANNED": "not planned", "DUPLICATE": "duplicate"}
 NO_SCOPE = "no scope"  # the board answer when GitHub says the login lacks the scope to read it
 NOT_READ = "the board was not read: the gh login lacks the scope, so no board status was checked"
+# when the issue's body was last edited and its title last renamed: an owner's acceptance covers the text it saw
+EDIT_QUERY = (
+    "query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){lastEditedAt "
+    "timelineItems(itemTypes:[RENAMED_TITLE_EVENT],last:1){nodes{... on RenamedTitleEvent{createdAt}}}}}}"
+)
 BOARD_QUERY = (
     "query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){projectItems(first:50){"
     'nodes{isArchived fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name}}}}}}}'
@@ -81,7 +99,7 @@ def approval_setting(config: dict) -> tuple[list[str], str]:
             return value, ""
         problem = "'approvals' has the unknown value " + ", ".join(json.dumps(x) for x in unknown)
     return [], (f"merge-rules.json {problem}, so nothing approves it. List one or more of "
-                f"{', '.join(APPROVALS)}; the shipped setting is [\"owner_comment\"]")
+                f"{', '.join(APPROVALS)}; the shipped setting is [\"trusted_author\", \"owner_comment\"]")
 
 
 def refusals(issue: dict, board: list[str] | None, config: dict) -> list[str]:
@@ -100,15 +118,90 @@ def refusals(issue: dict, board: list[str] | None, config: dict) -> list[str]:
     return found
 
 
-def approvals(issue: dict, board: list[str] | None, config: dict, phrase: str,
-              is_owner: Callable[[str], bool]) -> list[str]:
-    on = approval_setting(config)[0]
+def author_write(issue: dict) -> tuple[bool, str]:
+    """What the permission lookup found: (True, role) only for a well-formed yes; anything else is a no."""
+    value = issue.get("author_write")
+    if isinstance(value, tuple) and len(value) == 2 and isinstance(value[1], str):
+        return value[0] is True, value[1] or "its author's permission was not read"
+    return False, "its author's permission was not read"
+
+
+def parse_time(value: object) -> datetime | None:
+    """A GitHub timestamp ('2026-01-05T09:30:00Z') as an aware datetime, or None for anything else."""
+    if not isinstance(value, str):
+        return None
+    try:
+        when = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return when if when.tzinfo else None
+
+
+def parse_edits(returncode: int, output: str) -> dict | None:
+    """GitHub's answer to EDIT_QUERY: {body, title}, each the time of the last body edit or title rename, or None
+    when there was none. None for a failed call or any odd answer."""
+    if returncode:
+        return None
+    try:
+        issue = json.loads(output)["data"]["repository"]["issue"]
+        edited, nodes = issue["lastEditedAt"], issue["timelineItems"]["nodes"]
+        if not isinstance(nodes, list) or len(nodes) > 1:
+            return None
+        renamed = nodes[0]["createdAt"] if nodes else None
+    except (ValueError, KeyError, TypeError, IndexError):
+        return None
+    found = {"body": parse_time(edited), "title": parse_time(renamed)}
+    if (edited is not None and found["body"] is None) or (renamed is not None and found["title"] is None):
+        return None
+    return found
+
+
+def read_edits(number: int, repo: str) -> dict | None:
+    """When the issue's body was last edited and its title last renamed (see parse_edits)."""
+    owner, name = repo.split("/", 1)
+    done = subprocess.run(["gh", "api", "graphql", "-f", f"query={EDIT_QUERY}", "-f", f"o={owner}",
+                           "-f", f"r={name}", "-F", f"n={number}"], capture_output=True, text=True)
+    return parse_edits(done.returncode, done.stdout)
+
+
+def changed_since(issue: dict, comment: dict) -> str:
+    """'' when the issue's body and title are as they were when the comment was made; otherwise why the comment
+    does not approve. An unreadable time, or no answer about the edits, is a no."""
+    at = parse_time(comment.get("createdAt"))
+    if at is None:
+        return "the time of the owner's acceptance cannot be read"
+    edits = issue.get("edits")
+    if not (isinstance(edits, dict) and set(edits) == {"body", "title"}
+            and all(x is None or isinstance(x, datetime) for x in edits.values())):
+        return "whether the issue was edited after the owner's acceptance cannot be read"
+    for what, verb in (("body", "edited"), ("title", "renamed")):
+        if edits[what] is not None and edits[what] >= at:
+            return (f"its {what} was {verb} at {edits[what]:%Y-%m-%dT%H:%M:%SZ}, after the owner accepted it at "
+                    f"{at:%Y-%m-%dT%H:%M:%SZ}")
+    return ""
+
+
+def owner_acceptances(issue: dict, phrase: str, is_owner: Callable[[str], bool]) -> list[tuple[dict, str]]:
+    """Each acceptance comment the owner made, with why it does not approve ('' when it does)."""
     found = []
-    for comment in issue.get("comments", []) if "owner_comment" in on else []:
+    for comment in issue.get("comments", []):
         login = (comment.get("author") or {}).get("login", "")
         body = (comment.get("body") or "").lstrip()
         if (body.startswith(phrase) and not comment.get("isMinimized") and login and is_owner(login)
                 and not by_agent(body, login)):
+            found.append((comment, changed_since(issue, comment)))
+    return found
+
+
+def approvals(issue: dict, board: list[str] | None, config: dict, phrase: str,
+              is_owner: Callable[[str], bool]) -> list[str]:
+    on = approval_setting(config)[0]
+    found = []
+    can_push, role = author_write(issue)
+    if "trusted_author" in on and can_push:
+        found.append(f"opened by an account with write access (its role is {role})")
+    for comment, why in owner_acceptances(issue, phrase, is_owner) if "owner_comment" in on else []:
+        if not why:
             found.append(f"the owner accepted it: {comment.get('url', '')}".rstrip(": "))
     author = (issue.get("author") or {}).get("login", "")
     if "owner_author" in on and author and is_owner(author) and not by_agent(issue.get("body") or "", author):
@@ -118,26 +211,42 @@ def approvals(issue: dict, board: list[str] | None, config: dict, phrase: str,
     return found
 
 
-def not_approved(number: int, config: dict, phrase: str, unread: bool) -> str:
+def repo_of(issue: dict) -> str:
+    match = re.search(r"github\.com/([^/]+/[^/]+)/issues/", issue.get("url", "")) or re.search(
+        r"//[^/]+/([^/]+/[^/]+)/issues/", issue.get("url", ""))
+    return match.group(1) if match else "<owner>/<repo>"
+
+
+def not_approved(issue: dict, config: dict, phrase: str, unread: bool,
+                 is_owner: Callable[[str], bool] = lambda _: False) -> str:
     """What the owner can do, and which approvals merge-rules.json has switched off."""
+    number = issue["number"]
     on = approval_setting(config)[0]
     statuses = " or ".join(config["approve_statuses"])
-    ways = {"owner_comment": f"the repository owner comments '{phrase}' on it (assets/owner-acceptance.template.md)",
+    command = f'gh issue comment {number} -R {repo_of(issue)} --body "{phrase}"'
+    ways = {"trusted_author": "",
+            "owner_comment": f"the repository owner comments '{phrase}' on it, in any shell: {command}",
             "owner_author": "the repository owner creates it",
             "board_status": "" if unread else f"the owner sets its board status to {statuses}"}
-    offered = [ways[x] for x in APPROVALS if x in on and ways[x]]
-    off = {"owner_comment": f"the owner's comment '{phrase}'", "owner_author": "an issue the owner created",
-           "board_status": f"a board status of {statuses}"}
+    off = {"trusted_author": "an issue an account with write access opened", "owner_comment": f"the owner's comment '{phrase}'",
+           "owner_author": "an issue the owner created", "board_status": f"a board status of {statuses}"}
     text = f"#{number} is not approved. "
-    if set(on) == {"owner_comment"}:
-        text += f"Only the repository owner's comment '{phrase}' approves it (assets/owner-acceptance.template.md). "
-    elif offered:
+    if "trusted_author" in on:
+        why = author_write(issue)[1]
+        text += f"It is not known to come from an account with write access: {why}. "
+    if "owner_comment" in on:
+        for comment, why in owner_acceptances(issue, phrase, is_owner):
+            where = f" ({comment['url']})" if comment.get("url") else ""
+            then = ("run the check again" if "cannot be read" in why
+                    else "the owner reads the issue again and accepts it again")
+            text += f"The owner's acceptance{where} does not approve it: {why}; {then}. "
+    offered = [ways[x] for x in APPROVALS if x in on and ways[x]]
+    if offered:
         text += "It needs one of: " + "; or ".join(offered) + ". "
     skipped = [off[x] for x in APPROVALS if x not in on]
     if skipped:
         joined = " and ".join(skipped)
-        why = "switched off" if "owner_comment" not in on else "off while agents share the owner's account"
-        text += f"{joined[0].upper()}{joined[1:]} approve{'' if len(skipped) > 1 else 's'} nothing: {why} "
+        text += f"{joined[0].upper()}{joined[1:]} approve{'' if len(skipped) > 1 else 's'} nothing: switched off "
         text += "(the 'approvals' list in assets/merge-rules.json). "
     return text + "An agent never approves for the owner"
 
@@ -157,20 +266,32 @@ def judge(issue: dict, board: list[str] | str | None, config: dict, phrase: str,
     yes = approvals(issue, statuses, config, phrase, is_owner)
     if yes:
         return True, f"#{number}: " + "; ".join(yes) + note
-    return False, not_approved(number, config, phrase, unread) + note
+    return False, not_approved(issue, config, phrase, unread, is_owner) + note
+
+
+def issue_refs(pr: dict, repo: str) -> tuple[list[int], list[str]]:
+    """The issue numbers a pull request links in its own repository, and what is wrong with the links: a closing
+    reference to another repository, or one whose repository cannot be read, is never read as a number here."""
+    numbers, problems = [], []
+    for ref in pr.get("closingIssuesReferences", []):
+        try:
+            home = f"{ref['repository']['owner']['login']}/{ref['repository']['name']}"
+            number = int(ref["number"])
+        except (KeyError, TypeError, ValueError):
+            problems.append(f"a closing reference ({json.dumps(ref)[:80]}) does not say its repository and number: "
+                            f"link an issue of {repo}")
+            continue
+        if home.lower() == repo.lower():
+            numbers.append(number)
+        else:
+            problems.append(f"{home}#{number} is in another repository: link an issue of {repo}")
+    numbers += [int(x) for x in REFS_RE.findall(pr.get("body") or "")]
+    return list(dict.fromkeys(numbers)), problems
 
 
 def linked_issues(pr: dict, repo: str) -> tuple[list[int], list[str]]:
-    """The issue numbers a pull request links in its own repository, and what is wrong with the links."""
-    numbers, problems = [], []
-    for ref in pr.get("closingIssuesReferences", []):
-        home = f"{ref['repository']['owner']['login']}/{ref['repository']['name']}"
-        if home.lower() == repo.lower():
-            numbers.append(ref["number"])
-        else:
-            problems.append(f"{home}#{ref['number']} is in another repository: link an issue of {repo}")
-    numbers += [int(x) for x in REFS_RE.findall(pr.get("body") or "")]
-    numbers = list(dict.fromkeys(numbers))
+    """issue_refs, and a pull request that links no issue is refused."""
+    numbers, problems = issue_refs(pr, repo)
     if not numbers and not problems:
         problems.append("it links no issue: add 'Closes #N' (or 'Refs #N' for partial work) to its body")
     return numbers, problems
@@ -224,18 +345,66 @@ def read_board(number: int, repo: str) -> list[str] | str | None:
     return parse_board(done.returncode, done.stdout)
 
 
+def write_access(answer: object) -> str:
+    """'' when a collaborators/<login>/permission answer shows write access or higher; otherwise why not.
+    Anything odd is a no: an unknown or custom role, a role whose base permission is not the one GitHub maps it to,
+    or a user whose permissions say it cannot push."""
+    if not isinstance(answer, dict):
+        return "the permission answer is not an object"
+    role, base = answer.get("role_name"), answer.get("permission")
+    if role not in WRITE_ROLES:
+        return f"its role is {role!r}, not admin, maintain or write"
+    if base != WRITE_ROLES[role]:
+        return f"its role {role!r} comes with the base permission {base!r}, not {WRITE_ROLES[role]!r}"
+    user = answer.get("user")
+    if not isinstance(user, dict) or not isinstance(user.get("permissions"), dict) \
+            or user["permissions"].get("push") is not True:
+        return "the permission answer does not say it can push"
+    return ""
+
+
+def read_write_access(repo: str, login: str) -> tuple[bool, str]:
+    """(True, role) when the account can push to the repository; (False, why) for anything else, a failed lookup
+    included. gh api repos/<repo>/collaborators/<login>/permission needs a gh login that can read the repository's
+    collaborators: give it write access."""
+    if not LOGIN_RE.fullmatch(login or ""):
+        return False, f"its author {login!r} is not a user account that can hold a role on the repository"
+    done = subprocess.run(["gh", "api", f"repos/{repo}/collaborators/{login}/permission"],
+                          capture_output=True, text=True)
+    if done.returncode:
+        reason = (done.stderr.strip().splitlines() or ["no answer"])[0]
+        return False, f"the permission of {login} could not be read ({reason})"
+    try:
+        answer = json.loads(done.stdout)
+    except ValueError:
+        return False, f"the permission answer for {login} is not JSON"
+    why = write_access(answer)
+    return (False, f"{login}: {why}") if why else (True, answer["role_name"])
+
+
 def check_issue(number: int, repo: str, is_owner: Callable[[str], bool], config: dict) -> tuple[bool, str]:
     issue = json.loads(gh("issue", "view", str(number), "--repo", repo, "--json",
                           "number,url,state,stateReason,author,body,labels,comments"))
+    issue.pop("edits", None)  # set below from GitHub's edit history, never from the issue's own answer
     needs_board = issue["state"] == "OPEN" and "/pull/" not in issue["url"]
     board = read_board(number, repo) if needs_board else []
-    return judge(issue, board, config, acceptance_phrase(), is_owner)
+    on = approval_setting(config)[0]
+    if needs_board and "trusted_author" in on:
+        issue["author_write"] = read_write_access(repo, (issue.get("author") or {}).get("login", ""))
+    phrase = acceptance_phrase()
+    if needs_board and "owner_comment" in on and not ("trusted_author" in on and author_write(issue)[0]) and any(
+            (x.get("body") or "").lstrip().startswith(phrase) for x in issue.get("comments", [])):
+        issue["edits"] = read_edits(number, repo)  # only an owner's acceptance needs it; a writer's issue does not
+    return judge(issue, board, config, phrase, is_owner)
 
 
 def self_test() -> int:
     shipped, phrase = rules(), acceptance_phrase()
     assert phrase == "Accepted by owner."
-    assert shipped["approvals"] == ["owner_comment"], "shipped: only the owner's comment approves"
+    assert shipped["approvals"] == ["trusted_author", "owner_comment"], \
+        "shipped: an issue an account with write access opened, or the owner's comment"
+    shipped_now = shipped
+    shipped = {**shipped, "approvals": ["owner_comment"]}  # sections 1 to 7: the owner's comment alone
     every = {**shipped, "approvals": list(APPROVALS)}
     author_on = {**shipped, "approvals": ["owner_comment", "owner_author"]}
     board_on = {**shipped, "approvals": ["owner_comment", "board_status"]}
@@ -243,11 +412,16 @@ def self_test() -> int:
 
     def issue(**change) -> dict:
         base = {"number": 7, "url": "https://h/o/r/issues/7", "state": "OPEN", "stateReason": "",
-                "author": {"login": "someone"}, "body": "text", "labels": [], "comments": []}
+                "author": {"login": "someone"}, "body": "text", "labels": [], "comments": [],
+                "edits": {"body": None, "title": None}}
         return {**base, **change}
 
     def comment(body: str, login: str = "boss", **extra) -> dict:
-        return {"author": {"login": login}, "body": body, "url": "u", **extra}
+        return {"author": {"login": login}, "body": body, "url": "u", "createdAt": "2026-01-05T00:00:00Z", **extra}
+
+    def edits_of(body: str | None = None, title: str | None = None) -> str:
+        nodes = [{"createdAt": title}] if title else []
+        return json.dumps({"data": {"repository": {"issue": {"lastEditedAt": body, "timelineItems": {"nodes": nodes}}}}})
 
     def verdict(item: dict, board: list[str] | None = (), config: dict = shipped) -> tuple[bool, str]:
         return judge(item, None if board is None else list(board), config, phrase, boss)
@@ -272,7 +446,8 @@ def self_test() -> int:
                         (issue(), ["in-progress"]), (owned, ["Todo"])):
         allowed, why = verdict(item, board)
         assert not allowed, ("off in the shipped rules", item["author"], board)
-        assert "Only the repository owner's comment" in why and "off while agents share the owner's account" in why, why
+        assert "the repository owner comments 'Accepted by owner.'" in why and "switched off" in why, why
+        assert 'gh issue comment 7 -R o/r --body "Accepted by owner."' in why, why
         assert "board status to" not in why and "creates it" not in why, why
 
     # 2. the other two approvals, switched on, work as before; the comment counts only when listed
@@ -285,7 +460,7 @@ def self_test() -> int:
     assert ok(owned, config=every) and ok(issue(), ["Todo"], every) and ok(accepted, config=every)
     assert not ok(accepted, config={**shipped, "approvals": ["owner_author"]}), "the comment is off when not listed"
     assert "creates it" in verdict(issue(), [], every)[1] and "board status to" in verdict(issue(), [], every)[1]
-    assert "off while" not in verdict(issue(), [], every)[1]
+    assert "switched off" not in verdict(issue(), [], every)[1]
 
     # 3. a missing, empty or unknown setting refuses everything
     missing = {k: v for k, v in shipped.items() if k != "approvals"}
@@ -313,6 +488,8 @@ def self_test() -> int:
     def asked(item: dict, code: int, answer: str, config: dict = shipped) -> tuple[bool, str]:
         """check_issue with gh stood in: the issue view returns item, the board query exits code with answer."""
         def run(command: list[str], **_) -> subprocess.CompletedProcess:
+            if any("lastEditedAt" in x for x in command):
+                return subprocess.CompletedProcess(command, 0, edits_of(), "")
             view = command[1] == "issue"
             return subprocess.CompletedProcess(command, 0 if view else code, json.dumps(item) if view else answer, "")
 
@@ -366,14 +543,143 @@ def self_test() -> int:
             allowed, why = asked(item, code, answer, config)
             assert not allowed and "cannot be read" in why, (code, answer, why)
 
+    # 8. the shipped rules: an issue opened by an account with write access is approved, signed by an agent or not;
+    #    anyone else's issue still needs the owner's comment; a failed or odd lookup approves nothing; refusals win
+    trusted = {**shipped_now}
+    for role in WRITE_ROLES:
+        assert ok(issue(author_write=(True, role)), config=trusted), role
+        assert ok(issue(author_write=(True, role), body="x\n\nCreated: Bot (CTO)"), config=trusted), "agent-signed"
+    for why in ("someone: its role is 'read', not admin, maintain or write", "could not be read", ""):
+        allowed, text = verdict(issue(author_write=(False, why)), [], trusted)
+        assert not allowed, why
+        assert 'gh issue comment 7 -R o/r --body "Accepted by owner."' in text, text
+    for odd in ((True,), ("yes", "write"), (1, "write"), None, ()):
+        assert not ok(issue(author_write=odd), config=trusted), odd
+    assert not ok(issue(), config=trusted), "no permission read: nothing approves"
+    assert ok(issue(author_write=(False, "x"), comments=[comment("Accepted by owner.")]), config=trusted)
+    assert not ok(issue(author_write=(False, "x"), comments=[comment("Accepted by owner.", login="someone")]),
+                  config=trusted), "an outsider cannot accept their own issue"
+    assert not ok(issue(author_write=(True, "admin")), config=shipped), "trusted_author counts only when listed"
+    mine = issue(author_write=(True, "admin"))
+    for status in ("Done", "Not planned", "Duplicate", "Canceled"):
+        assert not ok(mine, [status], trusted), status
+    for reason in CLOSED_AS:
+        assert not ok({**mine, "state": "CLOSED", "stateReason": reason}, config=trusted), reason
+    for name in ("wontfix", "duplicate"):
+        assert not ok({**mine, "labels": [{"name": name}]}, config=trusted), name
+    assert not ok(mine, None, trusted), "an unreadable board refuses a writer's issue too"
+    for bad in ({**trusted, "approvals": []}, {**trusted, "approvals": ["trusted_authr"]}):
+        assert not ok(mine, config=bad), bad
+
+    # what GitHub answers: write or higher only, with the base permission it maps the role to and push true
+    def answer(role: object, base: object, push: object = True) -> dict:
+        return {"permission": base, "role_name": role, "user": {"login": "x", "permissions": {"push": push}}}
+
+    for role, base in (("admin", "admin"), ("maintain", "write"), ("write", "write")):
+        assert write_access(answer(role, base)) == "", role
+    for item in (answer("read", "read"), answer("triage", "read"), answer("none", "none"), answer("Security", "write"),
+                 answer("write", "read"), answer("maintain", "maintain"), answer("admin", "write"),
+                 answer("write", "write", push=False), answer("write", "write", push=None),
+                 {"permission": "write", "role_name": "write"}, {"permission": "admin"}, [], "write", None, {}):
+        assert write_access(item), item
+
+    def looked_up(code: int, reply: str, config: dict = trusted, item: dict | None = None,
+                  login: str = "someone", edits: tuple[int, str] = (0, edits_of())) -> tuple[bool, str]:
+        """check_issue with gh stood in: the permission lookup exits code with reply; the board is empty; the edit
+        history query exits and answers as edits says."""
+        item = item or issue(author={"login": login})
+        calls.clear()
+
+        def run(command: list[str], **_) -> subprocess.CompletedProcess:
+            calls.append(command)
+            if command[1] == "issue":
+                return subprocess.CompletedProcess(command, 0, json.dumps(item), "")
+            if any("lastEditedAt" in x for x in command):
+                return subprocess.CompletedProcess(command, edits[0], edits[1], "HTTP 502" if edits[0] else "")
+            if command[2] == "graphql":
+                return subprocess.CompletedProcess(command, 0, board_of(), "")
+            assert command[2] == f"repos/o/r/collaborators/{login}/permission", command
+            return subprocess.CompletedProcess(command, code, reply, "HTTP 404" if code else "")
+
+        with mock.patch.object(subprocess, "run", run):
+            return check_issue(7, "o/r", boss, config)
+
+    calls: list[list[str]] = []
+    for role, base in (("admin", "admin"), ("maintain", "write"), ("write", "write")):
+        allowed, why = looked_up(0, json.dumps(answer(role, base)))
+        assert allowed and "write access" in why, (role, why)
+    # a read-only and a triage account, whatever its association: an organization MEMBER with the default read
+    # access, or an invited COLLABORATOR with read or triage
+    for association in ("MEMBER", "COLLABORATOR"):
+        for role in ("read", "triage"):
+            item = issue(author={"login": "someone"}, author_association=association)
+            allowed, why = looked_up(0, json.dumps(answer(role, "read", push=False)), item=item)
+            assert not allowed and f"its role is '{role}'" in why, (association, role, why)
+    for code, reply in ((1, ""), (1, json.dumps(answer("admin", "admin"))), (0, "<html>502</html>"), (0, ""),
+                        (0, "null"), (0, json.dumps(answer("Security", "write")))):
+        allowed, why = looked_up(code, reply)
+        assert not allowed, (code, reply, why)
+    assert "could not be read" in looked_up(1, "")[1]
+    for login in ("app/ci", "ci[bot]", "", "a/b", "-x"):
+        allowed, why = looked_up(0, json.dumps(answer("admin", "admin")), login=login)
+        assert not allowed and "not a user account" in why, (login, why)
+    assert looked_up(1, "", item=issue(comments=[comment("Accepted by owner.")]))[0], "the comment still approves"
+
+    # 9. the owner's acceptance covers the text the owner saw: an edit of the body or a rename of the title at or
+    #    after it, or edits that cannot be read, and it approves nothing until the owner accepts again
+    outsider = lambda: issue(author={"login": "someone"}, comments=[comment("Accepted by owner.")])  # noqa: E731
+    reader = json.dumps(answer("read", "read", push=False))
+    for when in ("2026-01-04T23:59:59Z", None):
+        assert looked_up(0, reader, item=outsider(), edits=(0, edits_of(when, when)))[0], when
+    for body, title, word in (("2026-01-06T00:00:00Z", None, "body was edited"),
+                              ("2026-01-05T00:00:00Z", None, "body was edited"),
+                              (None, "2026-01-06T00:00:00Z", "title was renamed"),
+                              ("2026-01-01T00:00:00Z", "2026-01-07T00:00:00Z", "title was renamed")):
+        allowed, why = looked_up(0, reader, item=outsider(), edits=(0, edits_of(body, title)))
+        assert not allowed and word in why and "accepts it again" in why, (body, title, why)
+        assert 'gh issue comment 7 -R o/r --body "Accepted by owner."' in why, why
+    for code, reply in ((1, ""), (0, ""), (0, "null"), (0, '{"data":{"repository":{"issue":null}}}'),
+                        (0, edits_of("yesterday")), (0, edits_of(None, "soon")), (0, edits_of("2026-01-01T00:00:00")),
+                        (0, json.dumps({"data": {"repository": {"issue": {"lastEditedAt": None}}}})),
+                        (0, json.dumps({"data": {"repository": {"issue": {"lastEditedAt": None, "timelineItems": {
+                            "nodes": [{"createdAt": "2026-01-01T00:00:00Z"}] * 2}}}}}))):
+        allowed, why = looked_up(0, reader, item=outsider(), edits=(code, reply))
+        assert not allowed and "cannot be read" in why and "run the check again" in why, (code, reply, why)
+    for at in (None, "", "5 January", 7):
+        item = issue(author={"login": "someone"}, comments=[comment("Accepted by owner.", createdAt=at)])
+        allowed, why = looked_up(0, reader, item=item)
+        assert not allowed and "time of the owner's acceptance cannot be read" in why, (at, why)
+    later = [comment("Accepted by owner.", url="u1"), comment("Accepted by owner.", url="u2", createdAt="2026-01-08T00:00:00Z")]
+    assert looked_up(0, reader, item=issue(author={"login": "someone"}, comments=later),
+                     edits=(0, edits_of("2026-01-06T00:00:00Z")))[0], "accepted again after the edit"
+    assert not ok(issue(comments=[comment("Accepted by owner.")], edits=None)), "no edit answer: no approval"
+    assert not ok(issue(comments=[comment("Accepted by owner.")], edits={"body": "2026", "title": None}))
+    # a writer's issue needs no owner step: its edits are not even read, and an edit or a failed lookup is no matter
+    writer = issue(author={"login": "someone"}, comments=[comment("Accepted by owner.")])
+    for edits in ((0, edits_of("2026-01-09T00:00:00Z")), (1, "")):
+        allowed, why = looked_up(0, json.dumps(answer("write", "write")), item=writer, edits=edits)
+        assert allowed and "write access" in why, why
+        assert not any("lastEditedAt" in x for c in calls for x in c), "a writer's issue: no edit lookup"
+    looked_up(0, reader, item=issue(author={"login": "someone"}))
+    assert not any("lastEditedAt" in x for c in calls for x in c), "no acceptance: no edit lookup"
+    assert looked_up(0, reader, item={**outsider(), "edits": {"body": None, "title": None}},
+                     edits=(1, ""))[0] is False, "the issue's own answer never stands in for the edit history"
+
     here = {"number": 4, "repository": {"name": "r", "owner": {"login": "o"}}}
     away = {"number": 1, "repository": {"name": "r", "owner": {"login": "stranger"}}}
     assert linked_issues({"closingIssuesReferences": [here], "body": "Closes #4"}, "o/r") == ([4], [])
     assert linked_issues({"closingIssuesReferences": [], "body": "Refs #9\n"}, "o/r") == ([9], [])
     assert "links no issue" in linked_issues({"closingIssuesReferences": [], "body": "see #4"}, "o/r")[1][0]
     assert "another repository" in linked_issues({"closingIssuesReferences": [away], "body": ""}, "o/r")[1][0]
-    print("self-test passed: a linked issue, only the owner's comment approves as shipped, the other two approvals "
-          "when switched on, a bad setting refuses, refusals win, agents cannot approve, a board that is readable, "
+    assert linked_issues({"closingIssuesReferences": [away, here], "body": ""}, "o/r")[0] == [4], "never the other's #1"
+    for bad in ({"number": 1}, {"number": 1, "repository": None}, {"repository": here["repository"]},
+                {"number": "x", "repository": here["repository"]}, "#1"):
+        numbers, problems = linked_issues({"closingIssuesReferences": [bad], "body": ""}, "o/r")
+        assert numbers == [] and "does not say its repository" in problems[0], (bad, problems)
+    assert issue_refs({"closingIssuesReferences": [], "body": ""}, "o/r") == ([], []), "no link is the caller's call"
+    print("self-test passed: a linked issue, an author with write access or the owner's comment approves as shipped "
+          "(a read-only or triage member's or collaborator's issue needs the comment, a failed or odd lookup "
+          "approves nothing; an edit of the body or title after the comment, or edits that cannot be read, void it), the other approvals when switched on, a bad setting refuses, refusals win, agents cannot approve, a board that is readable, "
           "out of scope or unreadable")
     return 0
 

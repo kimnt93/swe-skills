@@ -202,9 +202,9 @@ def cmd_delegate(argv: List[str]) -> int:
 
 def cmd_playbooks() -> int:
     playbooks = [
+        ("playbook-build", "DEFAULT. Issue, architect plan, PRs, reviewer checks them against the plan and fixes, CTO merges"),
+        ("playbook-quick", "Only when named. Issues, PRs, CTO merges on mechanical checks only; no review"),
         ("playbook-plan", "CTO card, architect plan comment, sent back to CTO, accept, stop (nothing built)"),
-        ("playbook-quick", "CTO issue(s), a PR each, CTO checks with 3 feedback rounds, merge or stop"),
-        ("playbook-complete", "CTO issue(s), a PR each, reviewer reviews and fixes, CTO trusts it and merges"),
         ("playbook-review", "Review one PR and post one verdict comment; changes nothing"),
         ("playbook-ship", "One PR: review and fix (3 rounds), merge and close its issue, or stop"),
     ]
@@ -215,6 +215,7 @@ def cmd_playbooks() -> int:
     for pb_name, desc in playbooks:
         cmd_str = f"/{name}:{pb_name}"
         print(f"{pb_name:<22} | {cmd_str:<24} | {desc}")
+    print("A request that names a playbook follows it; with none named, playbook-build runs.")
     return 0
 
 def cmd_config(argv: List[str]) -> int:

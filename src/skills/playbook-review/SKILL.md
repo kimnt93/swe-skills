@@ -1,6 +1,6 @@
 ---
 name: playbook-review
-description: "Review one existing pull request and only comment: read the PR, its linked issue and diff, run its checks in a throwaway checkout when the code is safe to run, and post one PASS or FAIL verdict at the head SHA. No code change, no commit, no push, no merge, no close. Use when asked to review a PR. To also fix and merge it use playbook-ship; to build from a problem use playbook-complete."
+description: "Review one existing pull request and only comment: read the PR, its linked issue and diff, run its checks in a throwaway checkout when the code is safe to run, and post one PASS or FAIL verdict at the head SHA. No code change, no commit, no push, no merge, no close. Use when asked to review a PR. To also fix and merge it use playbook-ship; to build from a problem use playbook-build (the default)."
 metadata:
   group: start
   summary: "Review: read a PR and post one verdict comment; nothing is changed or merged"

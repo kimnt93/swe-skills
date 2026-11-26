@@ -1,20 +1,19 @@
-Stopped by CTO (example). PR #54 at 7c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d.
+Stopped by CTO (example). PR #54 at 4f2c9a1d8b7e6c5a4f3e2d1c0b9a8f7e6d5c4b3a.
 
-Checked PR #54 after round 3 of 3: one case still does not meet the issue, so the loop ends here.
+Not merged: the merge rules refuse it. Nobody judged the code; this stop is about the issue, not the change.
 
-## Blocking — the zone name is wrong across a daylight saving change
-With `TZ=Australia/Lord_Howe` the page test shows the summer offset for a winter date; the issue requires the zone in
-force at the order's time.
+## Blocking — issue #52 was closed as not planned while it was built
+`issue_gate.py pr 54` refuses it: `#52 is refused: it is closed (not planned)`.
 
-**Smallest fix:** take the zone name from `created_at`, not from the current date, with a test on both sides of the change.
+**Smallest fix:** none here; a person decides whether the work is wanted under a new issue.
 
 ## Gate
 ```text
-cd web && npm run check
-  1 failed, 43 tests passed
+python3 issue_gate.py pr 54 --repo <owner>/<repo>
+  merge rules: NOT allowed
 ```
 
 ## Residual
-- A person decides: continue under a new plan, or replace the issue. This PR stays open and its branch stays on GitHub.
+- A person decides: reopen #52, replace it, or leave the PR. This PR stays open and its branch stays on GitHub.
 
 Created: CTO (example)

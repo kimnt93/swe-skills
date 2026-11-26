@@ -14,8 +14,8 @@ Only the headline and which sections apply differ:
 
 ## verdict (reviewer, on the PR)
 
-`Verdict: PASS at <40-character sha>` or `Verdict: FAIL at <40-character sha>`; in a fix loop (`playbook-ship`,
-`playbook-complete`) a FAIL ends `. Round <k> of 3.`, and the loop's end is `Stopped by reviewer (<name>). PR #<n> at
+`Verdict: PASS at <40-character sha>` or `Verdict: FAIL at <40-character sha>`; in a fix loop (`playbook-build`,
+`playbook-ship`) a FAIL ends `. Round <k> of 3.`, and the loop's end is `Stopped by reviewer (<name>). PR #<n> at
 <sha>.` PASS: Verified, Gate, Residual. FAIL:
 one Blocking section per finding, Gate, Residual (Verified for what did pass). There is no `CHANGES` verdict. A finding
 without a command and its output is dropped. A verdict is never carried to a new SHA or posted by the author on their
@@ -23,11 +23,19 @@ own work.
 
 ## decision (CTO/CEO)
 
-On a PR it covers one head SHA and names it, and uses the template like a verdict:
+On a PR it covers one head SHA and names it, and uses the template like a verdict. No playbook asks the CTO/CEO to judge a PR
+(`playbook-quick` merges on mechanical checks only, and stops with `Stopped by CTO` for a mechanical reason). **An
+`Accepted by` on a PR approves no merge:** only a reviewer's `Verdict: PASS` from an account that can push does.
+`pr_loop.py` still reads an old `Accepted by CTO (<name>). PR #<n> at <sha>.` for the state, and `decide` and the linter
+refuse a new one. The other forms:
 
-- `Accepted by CTO (<name>). PR #<n> at <40-character sha>.` (as PASS)
-- `Changes required by CTO (<name>). PR #<n> at <40-character sha>. Round <k> of 3.` (as FAIL)
-- `Stopped by CTO (<name>). PR #<n> at <40-character sha>.` (as FAIL): the feedback limit is reached; the final feedback
+- `Changes required by CTO (<name>). PR #<n> at <40-character sha>. Round <k> of 3.` (as FAIL; read on older PRs)
+- `Returned by CTO (<name>). PR #<n> at <40-character sha>. Return <k> of 3.` (as FAIL): in `playbook-quick`, the PR goes
+  back to its builder for a mechanical reason under `Blocking`; it judges nothing, and a fourth is refused. A clean
+  rebase after another quick PR merged is `... Rebase after #<m>.` instead, free once per such PR that merged after this
+  PR's latest report or return
+- `Stopped by CTO (<name>). PR #<n> at <40-character sha>.` (as FAIL): in `playbook-quick`, a merge condition
+  cannot hold (the gate refuses, a money path, `PR BLOCKED`); the reason goes under `Blocking`, and it judges no code
 
 On a plan (an issue) it is short, and covers one plan version:
 
@@ -48,7 +56,7 @@ edits the branch only where the playbook names it as fixer (the
 
 ## merge (whoever the playbook names)
 
-`Merged by <who> at <sha> after PASS.` (`playbook-quick`: `after acceptance.`), what happened after (issue closed, branch
+`Merged by <who> at <sha> after PASS.` (`playbook-quick`, which judges nothing: `after checks.`; an older run: `after acceptance.`), what happened after (issue closed, branch
 deleted, changelog), then Gate (the required checks and their state) and Residual.
 
 ## Comments on an issue

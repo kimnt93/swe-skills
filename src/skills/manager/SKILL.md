@@ -1,9 +1,9 @@
 ---
 name: manager
-description: "How a project's manager handles requests: pick one of the five playbooks (plan, quick, complete, review, ship), coordinate the architect plan and delegated cards via Orca/T3/CLI, watch verification, and report."
+description: "How a project's manager handles requests: pick one of the five playbooks (build by default, quick only when named, plan, review, ship), orchestrate only (each plan, code, test, deploy or review job goes to the role that holds it), coordinate the architect plan and delegated cards via Orca/T3/CLI, watch verification, and report."
 metadata:
   group: process
-  summary: "Manager: pick the playbook for a request, coordinate delegation, verify, and report"
+  summary: "Manager: pick the playbook (build by default), orchestrate only, delegate by role, verify, report"
 ---
 
 # Manager
@@ -17,10 +17,11 @@ Decide per message, before anything else:
 | The message is | You do |
 |---|---|
 | A question: how something works, why it is so, what changed, what is running (`how`, `why`, `ketchup`, `interrogate`) | Answer directly with read-only skills. No edits, no delegations. |
-| A problem to plan or design | Run `playbook-plan`; it stops at the accepted plan. |
-| Work that changes code | Run the chosen playbook: `quick`, `complete` or `ship`; hand each job to the bot that holds its role, else coordinate your own agents with `delegate`. |
-| A pull request to look at | Run `playbook-review`; it only comments. |
-| A job another bot's role owns | Delegate it to that bot ([bot-orchestration](../bot-orchestration/SKILL.md)); do not start its agents yourself. |
+| A request that names a playbook | Run that playbook. Named `playbook-quick` for work with an open design question, or not safe for it: say so and ask; do not switch silently. |
+| Work that changes code, no playbook named | Run `playbook-build`: issue, plan you check against the card, code, a PR each, the reviewer checks it against the plan and fixes, you merge the PASS. |
+| Only a plan | Run `playbook-plan`; it stops at the accepted plan. |
+| A pull request to look at, or to land | `playbook-review` (it only comments) or `playbook-ship`. |
+| A job another bot's role owns (plan, code, tests, deployment, review) | Delegate it to that bot ([bot-orchestration](../bot-orchestration/SKILL.md)); do not start its agents yourself, and never do it yourself. |
 | Request to change agents or engines | Update `config.json` (`swe-cli config`). |
 
 A question never starts a run, and work never starts without an acceptance done-predicate.
@@ -40,9 +41,9 @@ Agent models, roles, and delegation engines are configured in `config.json` in t
     "yolo": true
   },
   "agents": {
-    "developer-junior": { "cli": "codex", "model": "o3-mini", "reasoning": "medium" },
-    "developer-senior": { "cli": "claude", "model": "claude-3-7-sonnet", "reasoning": "high" },
-    "reviewer": { "cli": "claude", "model": "claude-3-7-sonnet", "reasoning": "high" }
+    "developer-junior": { "cli": "codex", "model": "<model>", "reasoning": "medium" },
+    "developer-senior": { "cli": "claude", "model": "<model>", "reasoning": "high" },
+    "reviewer": { "cli": "claude", "model": "<model>", "reasoning": "high" }
   }
 }
 ```
@@ -70,21 +71,21 @@ swe-cli models show
 
 | Request | Playbook | Execution / Delegation |
 |---|---|---|
-| Plan a new feature, cross-file change, hard bug, unsettled shape | `playbook-plan` | Card → architect plan comment → back to the CTO → acceptance → stop |
-| Ready to build, `simple` or `medium`, checked by the CTO | `playbook-quick` | Issues → a PR each → ≤3 feedback rounds → CTO merges or stops |
-| Features, hard work, an accepted plan, with a separate reviewer | `playbook-complete` | Issues → a PR each → reviewer reviews and fixes → CTO trusts the PASS and merges |
+| Build, no playbook named (**the default**) | `playbook-build` | Card → architect plan → checked against the card and accepted → package issues → a PR each by its lane's role → reviewer checks it against the plan and fixes, ≤3 rounds → CTO trusts the PASS and merges |
+| Names quick (never picked otherwise) | `playbook-quick` | Issues, no plan → a PR each → **no check**: CTO merges on mechanical conditions only (merge rules, required checks, reported head, not behind, not a money path) |
+| Only a plan | `playbook-plan` | Card → architect plan comment → back to the CTO → acceptance → stop |
 | Review this PR | `playbook-review` | One verdict comment; nothing changes |
 | Ship, finish or land this PR | `playbook-ship` | Reviewer reviews and fixes → merges and closes the issue, or stops |
 | A question: how/why/what changed | `how`, `why`, `ketchup`, `interrogate` | Answer read-only; no run |
 
-There is no other playbook. An open design question goes to `plan` first.
+There is no other playbook. A request that names one follows it.
 
 ---
 
 ## Delegating Cards via the `delegate` Skill
 
-**First:** when a bot holds the role (developer, reviewer, architect), delegate the job to that bot
-([bot-orchestration](../bot-orchestration/SKILL.md)) and start none of its agents. The steps below are for your own
+**First:** when a bot holds the role (architect, developer, tester, devops, reviewer), delegate the job to that bot
+([bot-orchestration](../bot-orchestration/SKILL.md); which bot holds which role is your team's own mapping skill) and start none of its agents. The steps below are for your own
 agents, when no bot has the role.
 
 When executing a playbook with multiple cards or subtasks:
@@ -98,7 +99,8 @@ When executing a playbook with multiple cards or subtasks:
      --verify "make verify" \
      --json
    ```
-4. Judge the diff as the playbook says (`quick`: the CTO/CEO; `complete` and `ship`: the reviewer); the author never merges.
+4. The diff is judged by the reviewer (`build`, `ship`), never by you or the author; `quick` has no check at all, only its
+   mechanical merge conditions.
 5. The role the playbook names merges the checked SHA; clean the worktree and branch.
 
 ---

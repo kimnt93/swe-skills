@@ -36,26 +36,32 @@ make cli
 
 ### 1. Playbooks (`/swe:playbook-<name>`)
 
-Exactly five. Pick by what you have and who should judge the code.
+Exactly five. A request that names one follows it; with none named, the CTO/CEO uses **`build`**. Every one that
+builds ends with the merge.
 
 | You have | Playbook | What happens | Ends |
 |---|---|---|---|
-| a problem whose design is open | [`plan`](src/skills/playbook-plan/SKILL.md) ([example](src/skills/playbook-plan/references/example.md)) | CTO/CEO card → architect comments the plan → back to the CTO/CEO | at the accepted plan; nothing built |
-| small or medium work | [`quick`](src/skills/playbook-quick/SKILL.md) ([example](src/skills/playbook-quick/references/example.md)) | CTO/CEO issues → one worktree and PR each → the CTO/CEO checks, at most 3 feedback rounds | merged or stopped |
-| features, hard work, an accepted plan | [`complete`](src/skills/playbook-complete/SKILL.md) ([example](src/skills/playbook-complete/references/example.md)) | CTO/CEO issues → a PR each → a **reviewer** reviews and fixes → the CTO/CEO trusts the PASS | merged or stopped |
+| work to build (**the default**) | [`build`](src/skills/playbook-build/SKILL.md) ([example](src/skills/playbook-build/references/example.md)) | CTO/CEO card → the architect plans it carefully → the CTO/CEO checks the plan against the card and accepts → the developer, tester or devops opens a PR each → a **reviewer** checks it against the plan and fixes, at most 3 rounds → the CTO/CEO trusts the PASS | merged or stopped |
+| a request that names `quick` | [`quick`](src/skills/playbook-quick/SKILL.md) ([example](src/skills/playbook-quick/references/example.md)) | CTO/CEO issues, no plan → one worktree and PR each → the CTO/CEO merges on mechanical conditions only: **no check** of the code | merged or stopped |
+| a problem you want only planned | [`plan`](src/skills/playbook-plan/SKILL.md) ([example](src/skills/playbook-plan/references/example.md)) | CTO/CEO card → architect comments the plan → back to the CTO/CEO | at the accepted plan; nothing built |
 | a PR you want judged | [`review`](src/skills/playbook-review/SKILL.md) | read it, run it when safe, post one `PASS` or `FAIL` comment | at the comment; nothing changed |
 | a PR you want on `main` | [`ship`](src/skills/playbook-ship/SKILL.md) ([example](src/skills/playbook-ship/references/example.md)) | one reviewer reviews, fixes and re-reviews, at most 3 rounds, then merges | merged and issue closed, or stopped |
 
 ```text
-/swe:playbook-plan users cannot export the orders they filtered; plan it
+/swe:playbook-build limit requests per API key
 /swe:playbook-quick users misread order times; fix it
-/swe:playbook-complete build the accepted export plan
+/swe:playbook-plan users cannot export the orders they filtered; plan it
 /swe:playbook-review review PR 54
 /swe:playbook-ship ship PR 54
 ```
 
-In `complete` and `ship`, nobody else checks the reviewer's own fixes before `main`. The final `PASS` names those
-commits, and a `risk:money-path` pull request is never auto-merged ([fix loop](src/skills/reviewer/references/fix-loop.md)).
+**By default you approve and review no code.** The weight is on the plan: the architect plans carefully, the CTO/CEO
+checks it against the card, and the reviewer checks the code against the accepted plan. The CEO or CTO only
+orchestrates: it writes the issues and runs the playbook, and never plans, codes, tests, deploys or reviews code itself.
+In `build` and `ship`, nobody else checks the reviewer's own fixes before `main`. The final `PASS` names those commits,
+and a `risk:money-path` pull request is never auto-merged ([fix loop](src/skills/reviewer/references/fix-loop.md)).
+`quick`, which runs only when you name it, has no check at all: the issue's `Done when` and the required checks are all
+there is.
 
 ### Bots and agents
 
@@ -74,11 +80,15 @@ work and opens the pull request. Rules, message templates and a linter:
 ### Merge rules: only approved work
 
 Nothing is built or merged unless the pull request links an issue of the same repository and **every linked issue is
-approved**. As shipped, only the repository owner's comment on the issue approves it
-([template](src/skills/github/assets/owner-acceptance.template.md)). An issue the owner's account created and a project
-board status of `Todo` or `In Progress` approve nothing: they are off while agents share the owner's account. The
-`approvals` list in [merge-rules.json](src/skills/github/assets/merge-rules.json) switches them on again
-(`owner_comment`, `owner_author`, `board_status`); a missing, empty or unknown value refuses everything.
+approved**. As shipped (`"approvals": ["trusted_author", "owner_comment"]` in
+[merge-rules.json](src/skills/github/assets/merge-rules.json)), **an issue opened by an account with write access needs
+no approval**: its role on the repository is `admin`, `maintain` or `write`, so the issues your team and its agents open
+go ahead without you. A `MEMBER` or `COLLABORATOR` with only read or triage access is not enough, and a failed lookup
+approves nothing. Only such an issue, or an outsider's, waits for your comment
+([template](src/skills/github/assets/owner-acceptance.template.md)); for that issue, from your own account, in any shell:
+`gh issue comment <number> -R <owner>/<repo> --body "Accepted by owner."`. An issue the owner's account created
+(`owner_author`) and a project board status of `Todo` or `In Progress` (`board_status`) approve nothing by themselves:
+they are off while agents share the owner's account. A missing, empty or unknown `approvals` value refuses everything.
 
 ```text
 Accepted by owner.

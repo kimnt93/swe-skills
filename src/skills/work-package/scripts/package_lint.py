@@ -59,13 +59,13 @@ TEMPLATES = {"epic": "write-issue", "planning": "write-issue", "package": "write
 PLAN_KINDS = ("plan", "epic-plan")
 # kind -> (what the first line must match, the shape to show, lines the body must have)
 FIRST_LINE = {
-    "decision": (r"((Accepted|Changes required|Stopped) by (CTO|CEO)|Stopped by reviewer) \(.+?\)[.:]",
-                 "Accepted | Changes required | Stopped by CTO (<name>). ... (a reviewer posts only Stopped)", ()),
+    "decision": (r"((Accepted|Changes required|Stopped|Returned) by (CTO|CEO)|Stopped by reviewer) \(.+?\)[.:]",
+                 "Accepted | Changes required | Stopped | Returned by CTO (<name>). ... (a reviewer posts only Stopped)", ()),
     "status": (r"Status: (started|blocked|done)$", "Status: started|blocked|done", ("Card:", "Evidence:", "Next:")),
     "verdict": (r"Verdict: (PASS at [0-9a-f]{40}|FAIL at [0-9a-f]{40}(\. Round [1-3] of 3\.)?)$",
                 "Verdict: PASS|FAIL at <40-character sha> (a FAIL in a fix loop adds '. Round K of 3.')", ()),
     "fix": (r"Fixed in [0-9a-f]{7,40}:$", "Fixed in <sha>:", ("New head:",)),
-    "merge": (r"Merged by .+ at [0-9a-f]{7,40} after (PASS|acceptance)\.$", "Merged by <who> at <sha> after PASS|acceptance.", ()),
+    "merge": (r"Merged by .+ at [0-9a-f]{7,40} after (PASS|acceptance|checks)\.$", "Merged by <who> at <sha> after PASS|acceptance|checks.", ()),
     "close": (r"(Closed: \S|Replaced by #\d+)", "Closed: <outcome and proof> | Replaced by #N", ()),
     "reply": (r"\S", "any text", ()),
 }
@@ -74,7 +74,50 @@ GENERATED_RE = re.compile(r"(?im)^\W*generated (?:with|by) (?:\[|claude\b|chatgp
 MARKERS = ("optional", "on pass", "on fail", "needs code", "needs fence")
 PR_HEAD_RE = re.compile(r"PR #\d+ at [0-9a-f]{40}")
 OWNER_ONLY_RE = re.compile(r"Accepted by owner\b", re.I)
+QUICK_MARK = "Pipeline: quick"  # a header line on each issue playbook-quick creates; can-merge --unreviewed needs it
+# a header value is plain text GitHub shows as it is: no HTML, comment, entity, code span or escape can start in it
+HEADER_VALUE = r"[^\s<>&`\\][^<>&`\\]*"
+
+
+def header_keys() -> list[str]:
+    """The keys of the header lines the issue templates write (Lane, Wave, ...), and the quick line's key."""
+    keys = [key for kind in ISSUE_KINDS for key in re.findall(r"^([A-Z][\w-]*): ", read_template(kind)[1], re.M)]
+    return list(dict.fromkeys(keys + [QUICK_MARK.split(":")[0]]))
+
+
+def header_problem(body: str) -> str:
+    """'' when the issue has a header GitHub shows as written: every line before the first '## ' heading is blank or
+    a plain '<key>: <value>' line with a key of the templates. Otherwise why it has none: any other line there (HTML,
+    a comment opener or closer, a fence, a quote, an indented or unknown line) may hide or change what follows."""
+    keys = header_keys()
+    plain = re.compile(rf"(?:{'|'.join(map(re.escape, keys))}): {HEADER_VALUE}")
+    for number, line in enumerate((body or "").splitlines(), 1):
+        if line.startswith("## "):
+            return ""
+        if line.strip() and not plain.fullmatch(line.rstrip()):
+            return (f"line {number} {line.strip()[:60]!r} is not blank or a plain header line ({', '.join(keys)}: "
+                    "plain text), so the issue has no header")
+    return "it has no '## ' heading, so it has no header"
+
+
+def header_lines(body: str) -> list[str] | None:
+    """An issue's header: its lines before the first '## ' heading, where the template puts Lane, Priority and the
+    quick line. None when header_problem finds any: then no header line counts."""
+    if header_problem(body):
+        return None
+    lines = (body or "").splitlines()
+    return lines[:next(n for n, line in enumerate(lines) if line.startswith("## "))]
+
+
+def quick_marked(body: str) -> bool:
+    """Whether the issue says 'Pipeline: quick' in a header GitHub shows: never below a heading, quoted, indented, in
+    code, in HTML or a comment, or beside any line the templates do not write."""
+    return any(x.rstrip() == QUICK_MARK for x in header_lines(body) or [])
+
+
+MAX_RETURNS = 3  # times playbook-quick sends one PR back to its builder; a free rebase after another merged PR aside
 MAX_ROUNDS = 3  # change requests on one PR in a build playbook: a CTO/CEO decision or a reviewer's FAIL
+RETURN_RE = re.compile(rf"PR #\d+ at [0-9a-f]{{40}}\. (Return [1-{MAX_RETURNS}] of {MAX_RETURNS}|Rebase after #\d+)\.\s*$")
 ROUND_RE = re.compile(rf"PR #\d+ at [0-9a-f]{{40}}\. Round [1-{MAX_ROUNDS}] of {MAX_ROUNDS}\.\s*$")
 CREATED_RE = re.compile(r"^Created: (\S.*?)\s*$", re.M)
 SECRET_RE = re.compile(
@@ -275,6 +318,19 @@ def lint_issue(kind: str, title: str, labels: list[str], body: str) -> list[str]
             problems.append(f"body Lane is {found.group(1)!r} but the lane label is {lanes[0]!r}")
         elif key == "Difficulty" and diffs and found.group(1) != diffs[0]:
             problems.append(f"body Difficulty is {found.group(1)!r} but the difficulty label is {diffs[0]!r}")
+    marks = [x for x in header_lines(body) or [] if x.startswith("Pipeline:")]
+    unseen = header_problem(body)
+    if unseen and "Pipeline:" in body:
+        problems.append(f"the header is not recognised, so a 'Pipeline:' line in it never counts: {unseen}")
+    elif len(re.findall(r"^Pipeline:", body, re.M)) > len(marks):
+        problems.append(f"a 'Pipeline:' line counts only in the header, before the first '## ' heading and outside "
+                        "code blocks: move it there, or indent or quote an example of it")
+    if any(x.rstrip() != QUICK_MARK for x in marks):
+        problems.append(f"the only pipeline line is '{QUICK_MARK}', which playbook-quick alone writes")
+    elif len(marks) > 1:
+        problems.append(f"write one '{QUICK_MARK}' line, not {len(marks)}")
+    if marks and kind == "planning":
+        problems.append(f"a planning card is never built by playbook-quick: no '{QUICK_MARK}' line")
     return problems + lint_sections(kind, body) + lint_signature(body)
 
 
@@ -311,6 +367,14 @@ def lint_comment(kind: str, body: str) -> list[str]:
     for line in lines:
         if not re.search(rf"^{re.escape(line)} \S", body, re.M):
             problems.append(f"a {kind} comment needs a '{line} ...' line")
+    if kind == "decision" and first.startswith("Accepted") and PR_HEAD_RE.search(first):
+        problems.append("'Accepted by' on a pull request no longer approves a merge: the reviewer posts 'Verdict: PASS'; "
+                        "an 'Accepted by' decision is for a plan, on its issue")
+    if kind == "decision" and first.startswith("Returned") and not PR_HEAD_RE.search(first):
+        problems.append("'Returned by' is a decision on a pull request: name 'PR #<n> at <40-character sha>.'")
+    elif kind == "decision" and first.startswith("Returned") and not RETURN_RE.search(first):
+        problems.append(f"a return ends its first line with 'Return K of {MAX_RETURNS}.' (K from 1 to {MAX_RETURNS}) or "
+                        "'Rebase after #<m>.'")
     if kind == "decision" and first.startswith("Stopped") and not PR_HEAD_RE.search(first):
         problems.append("'Stopped by' is a decision on a pull request: name 'PR #<n> at <40-character sha>.'")
     if kind == "decision" and first.startswith("Changes required") and PR_HEAD_RE.search(first) and not ROUND_RE.search(first):
@@ -541,6 +605,49 @@ def run_cases(folder: Path) -> int:
     expect("flag label", package(labels=good + ["risk:money-path"]))
     expect("lane mismatch", package(labels=["enhancement", "frontend", "medium"]), "Lane is")
     expect("no priority", package(body=GOOD_ISSUE.replace("Priority: medium\n", "")), "'Priority:")
+    quick = GOOD_ISSUE.replace("Priority: medium\n", "Priority: medium\nPipeline: quick\n")
+    expect("a quick issue says so", package(body=quick))
+    expect("only quick is a pipeline line", package(body=quick.replace("Pipeline: quick", "Pipeline: build")),
+           "'Pipeline: quick'")
+    expect("one pipeline line", package(body=quick.replace("Pipeline: quick", "Pipeline: quick\nPipeline: quick")),
+           "one 'Pipeline: quick'")
+    below = GOOD_ISSUE.replace(SIGN, "Pipeline: quick\n" + SIGN)
+    expect("the quick line below a heading", package(body=below), "before the first '## '")
+    fenced = GOOD_ISSUE.replace(SIGN, "```text\nPriority: medium\nPipeline: quick\n```\n" + SIGN)
+    expect("the quick line in a code block", package(body=fenced), "before the first '## '")
+    expect("an indented example is text", package(body=GOOD_ISSUE.replace(SIGN, "    Pipeline: quick\n" + SIGN)))
+    assert quick_marked(quick) and not quick_marked(below) and not quick_marked(fenced)
+    for body in ("Pipeline: quick\n", "```\nPipeline: quick\n```\n## Goal\n", "> Pipeline: quick\n## Goal\n",
+                 " Pipeline: quick\n## Goal\n", "Lane: x\n\n## Goal\nPipeline: quick\n", "", None,
+                 "Pipeline: quickly\n## Goal\n", "pipeline: quick\n## Goal\n"):
+        assert not quick_marked(body), body
+    assert quick_marked("Lane: x\r\nPipeline: quick \r\n\r\n## Goal\r\n")
+    # N4: the header is recognised only when every line before the first '## ' heading is blank or a plain header
+    # line of the templates; anything else (HTML, a comment opener or closer, an unknown line) means there is none
+    hidden = ("Priority: medium\n<!--\nPipeline: quick\n-->\n## Goal\nx",
+              "Priority: medium\n<details>\n\nPipeline: quick\n\n</details>\n## Goal\nx",
+              "Priority: medium\n<!--\nPipeline: quick\n## Goal\nx",
+              "Lane: backend\n<!--\nPipeline: quick\n\n## Goal\nx\n-->\n",
+              "Priority: medium <!--\nPipeline: quick\n-->\n## Goal\nx",
+              "<!-- note -->\nLane: backend\nPipeline: quick\n\n## Goal\nx",
+              "<div hidden>\nPipeline: quick\n</div>\n\n## Goal\nx",
+              "Lane: <span hidden>x</span>\nPipeline: quick\n\n## Goal\nx",
+              "Owner: someone\nPipeline: quick\n\n## Goal\nx",
+              "Pipeline: quick\n===\n\n## Goal\nx",
+              "Lane: backend\n\tPriority: medium\nPipeline: quick\n\n## Goal\nx")
+    for body in hidden:
+        assert not quick_marked(body) and header_problem(body), body
+        expect(f"hidden: {body[:30]!r}", package(body=GOOD_ISSUE.replace("Priority: medium\n", body.split("## Goal")[0], 1)),
+               "not recognised")
+    for kind in ISSUE_KINDS:  # every issue the templates produce keeps a recognised header
+        assert header_problem(template_path(kind).read_text(encoding="utf-8")) == "", kind
+    for body in (GOOD_ISSUE, GOOD_PLANNING, GOOD_EPIC, quick, "Lane: x\nPriority: medium\nPipeline: quick\n\n## Goal\n"):
+        assert header_problem(body) == "", body
+    assert "no '## ' heading" in header_problem("Lane: x\nPipeline: quick\n")
+    assert "line 2 '<!--'" in header_problem(hidden[0])
+    expect("a planning card is never quick",
+           lint_issue("planning", "API-04: Cancel orders", ["enhancement", "backend", "medium"],
+                      GOOD_PLANNING.replace("Priority: low\n", "Priority: low\nPipeline: quick\n", 1)), "planning card")
     expect("missing section", package(body=GOOD_ISSUE.replace("## Forbidden\n- every file not listed above\n\n", "")), "no '## Forbidden'")
     expect("unrunnable done", package(body=GOOD_ISSUE.replace("`pytest -q tests/test_cancel.py`", "it works")), "'Done when' needs")
     shuffled = GOOD_ISSUE.replace("## Goal\nCancel an open order.\n\n", "").replace(SIGN, "\n## Goal\nlate\n" + SIGN)
@@ -587,15 +694,25 @@ def run_cases(folder: Path) -> int:
     expect("pass needs verified", lint_comment("verdict", f"Verdict: PASS at {SHA}" + GATE + SIGN), "no '## Verified'")
     expect("gate needs output", plan("```text\nmake verify\n  12 passed\n```", "it passed", "verdict"), "fenced block")
     expect("residual", plan("\n\n## Residual\n- none", "", "merge"), "no '## Residual'")
+    for after in ("PASS", "acceptance", "checks"):
+        expect(f"merge after {after}", lint_comment("merge", GOOD_COMMENTS["merge"].replace("after PASS.", f"after {after}.")))
+    expect("merge after nothing", lint_comment("merge", GOOD_COMMENTS["merge"].replace("after PASS.", "after a look.")), "Merged by")
     expect("a heading in a fence is not a section", plan("  12 passed", "## Residual\n  12 passed", "merge"))
     expect("long names match", plan("## Verified\n", "## Verified on `a1b2c3d4`\n", "verdict"))
     accepted = f"Accepted by CTO (Boss (CTO)). PR #3 at {SHA}."
-    expect("acceptance on a PR", lint_comment("decision", accepted + VERIFIED + GATE + SIGN))
-    expect("acceptance on a PR needs the template", lint_comment("decision", accepted + SIGN), "no '## Gate'")
+    expect("no acceptance on a PR: the reviewer's PASS approves", lint_comment("decision", accepted + VERIFIED + GATE + SIGN),
+           "no longer approves")
     changes = f"Changes required by CTO (Boss). PR #3 at {SHA}."
     expect("changes on a PR", lint_comment("decision", changes + " Round 2 of 3." + BLOCKING + GATE + SIGN))
     expect("changes need a round", lint_comment("decision", changes + BLOCKING + GATE + SIGN), "Round K of 3")
     expect("no fourth round", lint_comment("decision", changes + " Round 4 of 3." + BLOCKING + GATE + SIGN), "Round K of 3")
+    sent = f"Returned by CTO (Boss). PR #3 at {SHA}."
+    expect("a return", lint_comment("decision", sent + " Return 1 of 3." + BLOCKING + GATE + SIGN))
+    expect("a free rebase", lint_comment("decision", sent + " Rebase after #2." + BLOCKING + GATE + SIGN))
+    expect("a return says why", lint_comment("decision", sent + " Return 1 of 3." + GATE + SIGN), "no '## Blocking'")
+    expect("a return is counted", lint_comment("decision", sent + BLOCKING + GATE + SIGN), "Return K of 3")
+    expect("no fourth return", lint_comment("decision", sent + " Return 4 of 3." + BLOCKING + GATE + SIGN), "Return K of 3")
+    expect("a return names the PR", lint_comment("decision", "Returned by CTO (Boss). Plan v1." + SIGN), "name 'PR #")
     halt = f"Stopped by CTO (Boss). PR #3 at {SHA}."
     expect("stopped", lint_comment("decision", halt + BLOCKING + GATE + SIGN))
     expect("stopped gives feedback", lint_comment("decision", halt + GATE + SIGN), "no '## Blocking'")

@@ -1,6 +1,6 @@
 # The review and fix loop
 
-For `playbook-ship` and `playbook-complete`: **the reviewer reviews, fixes what it found, and passes the result.**
+For `playbook-build` and `playbook-ship`: **the reviewer reviews, fixes what it found, and passes the result.**
 Nobody else checks the reviewer's own fixes before they reach `main`. That is why the limits here are strict and the PASS
 names every commit the reviewer pushed.
 

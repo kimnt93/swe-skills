@@ -8,7 +8,7 @@ message types (`question`, `handoff`, `status`) and the commands for looking at 
 ## 1. Look before you send
 
 ```bash
-ORCA bot list                                # is there a developer bot for this project?
+ORCA bot list                                # which bot holds the developer role? (or the team's mapping skill)
 ORCA bot chats                               # your own chats; "(this chat)" is the return chat
 ORCA worktree ps --since 2h                  # is somebody already on these files?
 ```
@@ -71,26 +71,28 @@ ORCA orchestration send --to "bot:<cto>" --chat <return chat id> --type status \
 
 An agent that needs an answer in the middle uses `ORCA orchestration ask`, as its preamble says, and ends its turn.
 
-## 4. Send feedback
+## 4. Send it back to the developer
 
-To the **same** developer, so it keeps its branch and context. The body is the decision comment and its URL:
+Only for a mechanical reason: a red required check, a branch behind `main` or in conflict, or a head other than the
+reported one. First post the [return](../SKILL.md#returns-at-most-3) on the PR (`Return <k> of 3.`, or
+`Rebase after #<m>.` once per other quick PR that merged after this PR's latest report or return); `pr_loop.py
+decide` refuses a fourth, and then you stop. To the
+**same** developer, so it keeps its branch, worktree and context; there is no review feedback:
 
 ```bash
 ORCA orchestration send --to "bot:<developer>" --chat <its chat id> --type handoff \
-    --subject "<ID>: changes required on PR #<n>" --body-file follow-up.md
-ORCA orchestration send --to dispatch:<dispatch_id> --subject "<ID>: changes required on PR #<n>" --body-file changes.md
+    --subject "<ID>: PR #<n> checks red, fix and report the new head" --body-file follow-up.md
+ORCA orchestration send --to dispatch:<dispatch_id> --subject "<ID>: PR #<n> behind main, rebase and report" --body-file note.md
 ```
 
-The first is for the developer bot (its chat id is on the `From:` line of its report): a
-[follow-up](../../bot-orchestration/assets/follow-up.template.md) that links the decision comment. It passes the findings
-to its agent. The second is for your own agent; a finished one takes it as a follow-up task. Send at most 3 rounds of feedback;
-check with `pr_loop.py decide` before each decision. A rebase request after another merge goes the same way and is not a
-round. If an agent is lost, its bot follows the `/orchestration` recovery reference before starting another on the same
-branch.
+The first is for the developer's bot (its chat id is on the `From:` line of its report): a
+[follow-up](../../bot-orchestration/assets/follow-up.template.md) ([example](../assets/example/rebase.md)). The second is
+for your own agent; a finished one takes it as a follow-up task. If an agent is lost, its bot follows the
+`/orchestration` recovery reference before starting another on the same branch.
 
 ## 5. Clean up
 
-After the merge is **confirmed**, or with the `Stopped` feedback, send the developer one message
+After the merge is **confirmed**, or after your `Stopped`, send the developer one message
 ([MERGED](../assets/example/cleanup-merged.md), [STOPPED](../assets/example/cleanup-stopped.md)):
 
 ```bash
@@ -99,7 +101,7 @@ ORCA orchestration send --to dispatch:<dispatch_id> --subject "STOPPED <ID>: sto
 ORCA orchestration send --to "bot:<developer>" --chat <id> --type handoff --subject "MERGED <ID>: remove your worktree" --body-file follow-up.md
 ```
 
-The developer checks, reports and removes ([step 8](../SKILL.md#8-developer-remove-the-worktree); a worker sends its
+The developer checks, reports and removes ([step 7](../SKILL.md#7-developer-remove-the-worktree); a worker sends its
 [report](../assets/example/cleanup-report.md) before the removal). Then confirm:
 
 ```bash

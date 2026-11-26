@@ -219,10 +219,13 @@ A workflow (`workflows/*.yaml`) starts one agent per node. Each role loads only 
 
 **What it is.** How standing bots and the agents they start work together. **Rules.** A bot delegates a job to another bot
 with a handoff and gets a status back; a bot briefs its own agents; an agent reports only to the bot that started it.
-No agent messages another agent. When a bot has a role, nobody else starts that role's agents. **Flow.** CEO bot → issue
-→ developer bot → agents by difficulty tier → verified PR → status to the CEO bot. **Files.** `references/routing.md`
-(tiers; the CLI and model come from the team's table), `references/commands.md`, an example, five editable message
-templates and `scripts/message_lint.py`.
+No agent messages another agent. When a bot has a role, nobody else starts that role's agents. The CEO or CTO only
+orchestrates: it writes the issues and runs the playbook, and never plans, codes, tests, deploys or reviews code.
+**Roles.** Architect (plans), developer, tester (`test` lane), devops (`ops` lane: deployment and operations), reviewer
+(code review). The skills name roles only; which bot holds which role is each team's own mapping skill, kept outside
+this repository: the orchestrating bot reads it, and otherwise the bot list. **Flow.** CEO bot → issue → the builder bot of its lane → agents by difficulty tier → verified PR →
+status to the CEO bot. **Files.** `references/routing.md` (tiers; the CLI and model come from the team's table),
+`references/commands.md`, an example, five editable message templates and `scripts/message_lint.py`.
 
 ### delegate
 
@@ -231,8 +234,8 @@ templates and `scripts/message_lint.py`.
 ### manager
 
 **What it is.** How a project's manager handles a request. **What happens.** A question it answers read-only. Otherwise
-it runs one of the five playbooks (`plan`, `quick`, `complete`, `review`, `ship`) and coordinates the agents with
-`delegate`. **Never.** Start work on an unapproved issue, or let an author merge its own pull request.
+it runs the playbook the request names, or `build` when none is named (`quick` only when named, `plan`, `review`,
+`ship`), and delegates each job to the role that holds it, or coordinates its own agents with `delegate`. **Never.** Start work on an unapproved issue, or let an author merge its own pull request.
 
 ### planner
 
@@ -250,7 +253,9 @@ conflict, an unclear goal or a file outside its list.
 
 **What it is.** Judges one PR at one SHA, read-only, on a different model family than the author. **What
 happens.** Runs the adversarial review, keeps only findings proven by a command, checks the PR against the card,
-and posts `Verdict: PASS|FAIL at <sha>`. When a branch is behind, it also updates it and resolves conflicts.
+and posts `Verdict: PASS|FAIL at <sha>`. When the issue comes from an accepted plan it checks
+the code against that plan too, and a departure is a finding. In `build` and `ship` it fixes its own findings; `quick`
+has no reviewer. When a branch is behind, it also updates it and resolves conflicts.
 
 ### documenter
 

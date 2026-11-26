@@ -18,12 +18,20 @@ python3 <github skill>/scripts/issue_gate.py issue <number> --repo <owner>/<repo
 ```
 
 **Never implement** an issue that is done, not planned or duplicate. An open issue also needs the approval of the
-[merge rules](pull-requests.md#merge-rules): as shipped, **only the owner's acceptance comment**. An issue the owner's
-account created and a board status `Todo` / `In Progress` approve nothing: they are off while agents share the owner's
-account (the `approvals` list in [merge-rules.json](../assets/merge-rules.json)).
+[merge rules](pull-requests.md#merge-rules): as shipped, an issue **opened by an account with write access** (its role on
+the repository is `admin`, `maintain` or `write`) is approved as it is, and **nobody has to accept it**. A `MEMBER` or
+`COLLABORATOR` with only read or triage access is not enough. An issue the owner's account
+created and a board status `Todo` / `In Progress` approve nothing by themselves: they are off while agents share the
+owner's account (the `approvals` list in [merge-rules.json](../assets/merge-rules.json)).
 
-**Not approved yet:** report the issue link and give the owner this comment to post
-([template](../assets/owner-acceptance.template.md)), then stop. The owner posts it, never an agent:
+**Refused as not approved** (an outsider's or a read-only account's issue, or its author's permission could not be read): report the issue link
+and give the owner this one line, which works in any shell, then stop. The owner posts it, never an agent:
+
+```bash
+gh issue comment <number> -R <owner>/<repo> --body "Accepted by owner."
+```
+
+The full form is the [template](../assets/owner-acceptance.template.md):
 
 ```text
 Accepted by owner.
@@ -31,8 +39,9 @@ Accepted by owner.
 Notes: none
 ```
 
-The first line is what counts. `Notes:` can hold limits for the developer. To withdraw it, hide or delete the comment, or
-close the issue as not planned.
+The first line is what counts. `Notes:` can hold limits for the developer. The acceptance covers the issue as the owner
+read it: an edit of its body or a rename of its title after the comment voids it, and the owner reads the issue again
+and posts the line again. To withdraw it, hide or delete the comment, or close the issue as not planned.
 
 ## Work on it
 

@@ -2,6 +2,7 @@ Lane: backend
 Wave: 0 (Epic)
 Difficulty: simple
 Priority: medium
+Pipeline: quick
 
 ## Goal
 Users read order times correctly: each time is shown in their own zone, with the zone named.

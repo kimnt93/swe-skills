@@ -1,6 +1,6 @@
 ---
 name: playbook-ship
-description: "Take one existing pull request to main: the reviewer (a bot with its agents, or one agent a person asked) reviews it, fixes what it finds on the PR branch, reviews again for at most 3 rounds, then merges it and confirms the linked issue closed, or stops it with final feedback, leaving the PR open. Only for a PR whose issue is approved by the merge rules and that the reviewer did not write. Use when asked to ship, finish or land a PR. For a comment-only review use playbook-review."
+description: "Take one existing pull request to main: the reviewer (a bot with its agents, or one agent a person asked) reviews it, fixes what it finds on the PR branch, reviews again for at most 3 rounds, then merges it and confirms the linked issue closed, or stops it with final feedback, leaving the PR open. Only for a PR whose issue is approved by the merge rules and that the reviewer did not write. Use when asked to ship, finish or land a PR, such as an open PR that playbook-quick stopped. For a comment-only review use playbook-review."
 metadata:
   group: start
   summary: "Ship: review a PR, fix and re-review (3 rounds), merge it and close its issue, or stop"
@@ -34,7 +34,7 @@ python3 <github skill>/scripts/issue_gate.py pr <n> --repo <owner>/<repo>
 | Found | Do |
 |---|---|
 | merged, closed or a draft | report it; change nothing |
-| the gate refuses (no linked issue, not approved, done, not planned, duplicate) | change nothing; report the reason and, if approval is all that is missing, the owner's [acceptance comment](../github/references/issues.md#before-any-work) |
+| the gate refuses (no linked issue, not approved, done, not planned, duplicate) | change nothing; report the reason and, if approval is all that is missing, the owner's [acceptance comment](../github/references/issues.md#before-any-work) as one line for any shell: `gh issue comment <number> -R <owner>/<repo> --body "Accepted by owner."` |
 | a fork or an outside contributor | do not run or fix it; suggest `playbook-review` and ask the human |
 | you wrote some of it, or its author is still working on it | stop and tell whoever asked: a reviewer that wrote none of it ships it, after the handover |
 | `risk:money-path` | review and fix, but **do not merge**: after the PASS, ask the human |
@@ -43,7 +43,8 @@ python3 <github skill>/scripts/issue_gate.py pr <n> --repo <owner>/<repo>
 
 Follow the [review and fix loop](../reviewer/references/fix-loop.md): your own worktree on the PR branch, a
 `FAIL ... Round k of 3.` before each fix, **at most 3 rounds**, then PASS or `Stopped by reviewer`. A first review with no
-finding goes straight to the PASS.
+finding goes straight to the PASS. When the linked issue comes from an accepted plan, check the code
+[against that plan](../reviewer/SKILL.md#against-the-accepted-plan) too.
 
 ## 3. Merge and confirm
 
@@ -52,11 +53,12 @@ Right before the merge, all of these hold on the current head:
 ```bash
 python3 <github skill>/scripts/pr_loop.py can-merge --pr <n> --repo <owner>/<repo>   # the review allows the merge
 python3 <github skill>/scripts/issue_gate.py pr <n> --repo <owner>/<repo>            # merge rules: allowed
-gh pr checks <n> --repo <owner>/<repo>                                               # required checks green
+gh pr checks <n> --repo <owner>/<repo> --required                                    # required checks green
 gh pr view <n> --repo <owner>/<repo> --json headRefOid,mergeable,mergeStateStatus    # not behind, no conflict
 gh pr merge <n> --repo <owner>/<repo> --rebase --match-head-commit <passed sha> --delete-branch
 ```
 
+`no checks reported` with exit 1 means the repository has no checks, not a failure: say "no checks".
 Behind `main`: [rebase](../reviewer/references/fix-loop.md#behind-main) and review the new head. Never `--admin`.
 
 **Confirm it; the command's exit is not proof:**

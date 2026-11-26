@@ -1,6 +1,6 @@
 ---
 name: bot-orchestration
-description: "How standing bots and the agents they start work together: who may message whom (bot to agent, agent back to its own bot, bot to bot to delegate and to report), never agent to agent. The CEO bot writes the issue and delegates it to the developer bot; the developer bot rates it simple, medium or hard, starts an agent of the matching tier that builds it and opens the PR, verifies the work and reports back. Use before delegating a job to another bot, before starting any agent as a bot, and when reporting back."
+description: "How standing bots and the agents they start work together: who may message whom (bot to agent, agent back to its own bot, bot to bot to delegate and to report), never agent to agent. The CEO or CTO bot only orchestrates: it writes the issue and delegates it to the bot of its role (architect, developer, tester, devops, reviewer); the developer bot rates it simple, medium or hard, starts an agent of the matching tier that builds it and opens the PR, verifies the work and reports back. Use before delegating a job to another bot, before starting any agent as a bot, and when reporting back."
 metadata:
   group: process
   summary: "Bots delegate to bots and run their own agents; agents report only to their bot"
@@ -56,14 +56,25 @@ Commands: [commands](references/commands.md). A full run: [example](references/e
 
 ## Delegate a bot's job to that bot
 
-**Look first** (`ORCA bot list`). When a bot has the role, hand it the job. **Do not start that role's agents yourself.**
+**Roles, not names.** The skills of this plugin name roles only, never a bot. Which bot holds which role is each team's
+own mapping skill, kept outside this repository: the orchestrating bot reads it first, and only without one reads the
+bot list.
+
+**Look first** (the team's mapping skill, else `ORCA bot list`). When a bot has the role, hand it the job. **Do not start that role's agents yourself.**
 A bot starts agents for **its own** job only. Only when no bot has the role may the delegating bot start the agent.
 
 | Role bot | Owns | Does not |
 |---|---|---|
-| **CEO / CTO** | the issue and its priority, delegating, the decision, the merge its playbook gives it | start developer or reviewer agents when those bots exist; write the code |
+| **CEO / CTO** | **only orchestrates**: writes the issues, runs the playbook (delegating, the plan decision, the merge its playbook gives it), reports to the owner | plan, code, test, deploy or review code itself, in any playbook; start an agent for a role another bot holds |
+| **Architect** | the plan: analysis, the plan comment, sending it back | accept its own plan, build |
 | **Developer** | the code job: difficulty, agents, worktrees, verification, the PR, the report | write the code itself, design or priority calls, review of its own PR, the merge |
-| **Reviewer** | the verdict on a PR it did not write, drafted by its own agents; in `ship` and `complete` also the fixes, and in `ship` the merge | build the PR it judges |
+| **Tester** | a `test` lane issue: tests and verification work, built and reported like the developer's | judge a PR as its reviewer, the merge |
+| **Devops** | an `ops` lane issue: deployment, CI and infrastructure work, built and reported like the developer's | deploy or touch production without the owner's go, the merge |
+| **Reviewer** | the verdict on a PR it did not write, drafted by its own agents; in `build` and `ship` also the fixes and the check against the accepted plan, and in `ship` the merge | build the PR it judges; take part in `quick`, which has no check |
+
+Each role is the same rule: the bot that holds it does the job through its own agents. With no tester or devops bot, the
+developer bot builds that issue; with no bot for a role at all, the CEO/CTO starts its own agent for it, named
+`<bot name> / <role>`.
 
 **"Ended its turn without a reply"** is not proof that a bot did nothing: Orca can say it right after the bot reported,
 because a `status` is not a reply to the handoff. **Look for its status first** (your chat,
@@ -76,17 +87,18 @@ state of its issues, not to build them.
 
 ## The build flow
 
-1. **CEO bot** writes the issue (`write-issue`), gets it approved (the [merge rules](../github/references/pull-requests.md#merge-rules)),
+1. **CEO bot** writes the issue (`write-issue`), checks the [merge rules](../github/references/pull-requests.md#merge-rules) allow it,
    **delegates** it to the developer bot with its own return address, and **ends its turn**.
-2. **Developer bot** runs the gate, [rates the issue and picks the tier](references/routing.md), creates the issue's
+2. **Developer bot** (the tester bot for a `test` lane issue, the devops bot for an `ops` one) runs the gate, [rates the issue and picks the tier](references/routing.md), creates the issue's
    worktree, and **briefs one agent** per issue. Independent issues run in parallel, each with its own agent.
 3. **Agent** does its slice, pushes it and opens the PR when its brief says so, and **reports to its bot only**.
 4. **Developer bot verifies**: runs the evidence command itself and reads the diff against the owned files. A claim is
    not proof. It also checks that the PR is open and its checks are green.
 5. **Developer bot** sends the CEO bot a **status** and ends its turn.
-6. **CEO bot** continues its playbook: `playbook-quick` (it checks and merges) or `playbook-complete` (it delegates the
-   review to the reviewer bot, which reports back the same way). Feedback goes bot to bot; the developer bot gives it to
-   the same agent, or a new one.
+6. **CEO bot** continues its playbook: `playbook-build` (the default: it delegates the review to the reviewer bot,
+   which checks the code against the accepted plan and fixes, and merges on its PASS) or `playbook-quick` (no check:
+   it merges when the mechanical conditions hold, or sends a red check or a stale branch back to the developer bot).
+   Feedback goes bot to bot; the developer bot gives it to the same agent, or a new one.
 
 ## Agents separate their work
 
@@ -121,12 +133,12 @@ is a different writer from its developer agent.
 - **Good:** the CEO hands issue `API-03` to the developer bot and ends its turn; the developer bot starts a standard-tier
   agent, reruns its test, opens the PR and sends `PR READY`.
 - **Bad:** the CEO starts five developer agents itself, nudges each one and collects their reports, while the developer
-  bot sits idle.
+  bot sits idle; or it reads the diff and runs the tests to judge a PR, which is the reviewer's job.
 
 ## Never
 
 - Start another role bot's agents, or take over its job, while that bot exists.
-- Do a task yourself: write the code, fix a finding or do the review reading in the bot's own chat.
+- Do a task yourself: plan, write the code or tests, deploy, fix a finding or do the review reading in the bot's own chat.
 - Let an agent message another agent or another bot, or start its own helpers.
 - Report an agent's claim you did not verify, or let an agent a bot started decide, accept or merge.
 - Poll a healthy agent or bot: end your turn; Orca wakes you.

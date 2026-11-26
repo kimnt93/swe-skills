@@ -64,13 +64,15 @@ Once step 4 works on one repository, let a playbook carry work through GitHub. T
 |---|---|
 | `/swe:playbook-review review PR 54` | one `PASS` or `FAIL` comment; nothing changes. A safe first try |
 | `/swe:playbook-plan <problem>` | a planning issue and a plan comment; stops when the plan is accepted |
-| `/swe:playbook-quick <problem>` | issues, pull requests, the CTO/CEO's check and merge |
-| `/swe:playbook-complete <problem or plan>` | issues, pull requests, a separate reviewer who also fixes, then the merge |
+| `/swe:playbook-build <problem>` | the default: a plan, a pull request per package, a reviewer who checks it against the plan and fixes, then the merge |
+| `/swe:playbook-quick <problem>` | only when you name it: issues with no plan, pull requests merged on mechanical checks, with no review |
 | `/swe:playbook-ship ship PR 54` | review and fix, then merge and close the issue |
 
-Work is built and merged only for an approved issue. To approve one, comment `Accepted by owner.` on it: only this
-comment approves. An issue your account created and a board status `Todo` or `In Progress` are off while agents share
-your account. More:
+Work is built and merged only for an approved issue. As shipped, an issue opened by an account with write access (role
+admin, maintain or write, your agents included) is approved as it is: you accept nothing and review no code by default. Only an
+outsider's issue needs you; for that one, in any shell:
+`gh issue comment <number> -R <owner>/<repo> --body "Accepted by owner."`. An issue your account created and a board
+status `Todo` or `In Progress` approve nothing by themselves while agents share your account. More:
 [playbooks.md](playbooks.md). To make `swe-cli` available, run `make cli`; its commands are in
 [cli/README.md](../cli/README.md).
 
@@ -82,6 +84,6 @@ your account. More:
 | `make validate` fails on a placeholder or name | read the first ERROR line; the validator names the file and line |
 | the merge check says the board status cannot be read | run it again; if it still fails, check `gh auth status` and GitHub's status |
 | the merge check says the board was not read | the `gh` login lacks the scope for project boards; the check went on without them ([what is not checked](../src/skills/github/references/pull-requests.md#merge-rules)) |
-| the merge check says an issue is not approved | comment `Accepted by owner.` on it yourself; your authorship and a board status of `Todo` do not approve while agents share your account |
+| the merge check says an issue is not approved | it was opened by an account without write access (an outsider, or a read-only or triage member), or that permission could not be read; if you want it built, comment `Accepted by owner.` on it yourself (`gh issue comment <number> -R <owner>/<repo> --body "Accepted by owner."`) |
 | `gh auth status` fails inside a delegated session | `gh auth login` for the user that runs the session |
 | old `kim` or other plugin still listed | `PLUGIN_NAME=<old> make claude codex omp REMOVE=1` |

@@ -1,6 +1,6 @@
 ---
 name: playbook-plan
-description: "The planning pipeline for new features, cross-file changes and hard bugs: the CTO/CEO turns a problem into a planning card (an issue) on the repository and sends it through orchestration to the architect (a bot or a delegated worker); the architect analyses, compares approaches, recommends a design and stack, and comments it on the issue; the architect sends the result back to the CTO/CEO, who accepts it or asks for changes. It stops at acceptance: no code, no branch, no PR. Use when asked to plan, design or analyse a problem before anyone builds it."
+description: "The planning pipeline for new features, cross-file changes and hard bugs: the CTO/CEO turns a problem into a planning card (an issue) on the repository and sends it through orchestration to the architect (a bot or a delegated worker); the architect analyses, compares approaches, recommends a design and stack, and comments it on the issue; the architect sends the result back to the CTO/CEO, who accepts it or asks for changes. It stops at acceptance: no code, no branch, no PR. Use when only a plan is wanted: asked to plan, design or analyse a problem before anyone builds it. To plan and build, use playbook-build (the default), whose stage 2 is these steps."
 metadata:
   group: start
   summary: "Plan only: CTO card, architect analysis comment, back to the CTO to accept, then stop"
@@ -96,8 +96,12 @@ command. Post **one** `decision` comment ([format](../write-comment/references/o
   leaves the old one, and sends it back. Repeat from step 4.
 
 **Stop here.** Report the issue URL, the accepted comment and the decisions. The issue stays open. Do not create child
-cards, start a developer or open a worktree for the build. Building is a separate request: `playbook-complete` takes the
-accepted plan (`playbook-quick` when every package is `simple` or `medium`).
+cards, start a developer or open a worktree for the build. Building is a separate request, and it starts at stage 3 of
+its pipeline with this accepted plan: `playbook-build`, which builds the packages, has the reviewer check them against
+this plan and merges them.
+
+Inside `playbook-build` these steps are its stage 2: there the acceptance says the packages are built now, and the run
+goes on to stage 3 instead of stopping.
 
 ## State: read it from the issue
 
@@ -113,7 +117,7 @@ accepted plan (`playbook-quick` when every package is `simple` or `medium`).
 - **Good:** the architect comments the plan, then sends `PLAN READY` with the comment URL and two decisions to the CTO's
   chat. The CTO answers both in one acceptance comment and stops.
 - **Bad:** the architect comments and ends silently, so the CTO never knows. Or the CTO accepts and, in the same run,
-  starts developers: that is no longer this playbook.
+  starts developers: that is `playbook-build`, not this playbook.
 
 ## Done
 

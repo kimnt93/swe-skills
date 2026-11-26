@@ -1,55 +1,55 @@
 ---
 name: playbook-quick
-description: "The quick build pipeline: the CTO/CEO turns a problem into one or more ready-to-build issues, each developer implements one in its own worktree, opens one PR and sends it back, the CTO/CEO checks it and gives feedback for at most 3 rounds, then merges and confirms the merge, or stops it with final feedback, leaving the PR and branch on GitHub; either way the developer then removes the worktree. No architect plan and no separate reviewer. Use when every issue can be written now without a design question. Not for open design, money paths or hard work."
+description: "The quick pipeline, only when a request names it: issue, code, PR, merge, with no check. No plan, no reviewer, no verdict and no feedback rounds. The CTO/CEO turns the problem into ready-to-build issues; each developer implements one in its own worktree, runs the issue's Done when, opens one PR, watches the required checks and sends it back; the CTO/CEO, without reading the diff or running the PR's commands, merges it only when the mechanical conditions hold (merge rules allow, required checks green, not behind and no conflict, the head is the reported SHA, not a money path), confirms, and the developer removes its worktree. When they cannot hold, the CTO/CEO stops it and the PR stays open. Never picked by itself: with no playbook named, use playbook-build."
 metadata:
   group: start
-  summary: "Quick: CTO issues, a worktree and PR each, 3 feedback rounds, CTO merges or stops, clean up"
+  summary: "Quick, only when named: CTO issues, developer PRs, CTO merges on mechanical checks only; no review"
 ---
 
 # Playbook: Quick
 
-A problem goes in; each issue ends **merged** or **stopped**, and no developer worktree is left on disk. The CTO/CEO
-writes the issues, decides and merges. Developers build. There is **No architect** plan and no separate reviewer.
+A problem goes in; each issue ends **merged** or **stopped**, and no developer worktree is left on disk. **No architect**
+plan and **no check**: no reviewer, no verdict, no feedback rounds. The CTO/CEO writes the issues and merges; developers
+build. Nothing judges the code but the issue's own `Done when` and the required checks.
 
 ```text
 problem ─► CTO/CEO: one or more issues ─► send each to a developer
-                                              │ one issue, one worktree, one branch, one PR
+                                              │ one issue, one worktree, one branch, one PR; Done when; checks green
                                               ▼
-        CTO/CEO checks the head ◄──────── developer sends it back
-          │                                   ▲
-          ├─ not right, rounds left ──────────┘  Changes required (Round 1, 2, 3 of 3)
-          │
-          ├─ right ─► CTO/CEO merges ─► confirms the merge ─► developer removes the worktree
-          │
-          └─ still not right after round 3 ─► Stopped + feedback ─► developer stops, removes the worktree
-                                                                     (the PR and branch stay on GitHub)
+        CTO/CEO: mechanical conditions ◄── developer sends it back (the head SHA)
+          │   (no diff read, no command of the PR run)
+          ├─ all hold ─► CTO/CEO merges ─► confirms the merge ─► developer removes the worktree
+          ├─ a red check, behind main ─► Returned (≤3) ─► the same developer ─► new head ─► again
+          └─ cannot hold (gate refuses, money path, blocked) ─► Stopped by CTO ─► developer removes the worktree
+                                                                (the PR and branch stay on GitHub)
 ```
 
 This skill gives the **workflow**. How to send, track and answer is in [orchestration](references/orchestration.md),
 which uses the Orca `/orchestration` skill; load that skill before the first send. For a delegated agent outside Orca,
 use the `delegate` skill. A complete run is in [the example](references/example.md).
 
-Who may message whom is [bot-orchestration](../bot-orchestration/SKILL.md): when a developer bot exists, delegate to it; it runs its own agents.
+Who may message whom is [bot-orchestration](../bot-orchestration/SKILL.md): when a bot holds the developer role,
+delegate to it; it runs its own agents.
 
 ## Roles
 
 | Role | Does | Does not |
 |---|---|---|
-| **CTO/CEO** (owns the problem) | writes the issues, sends them, checks every PR, gives feedback, **merges or stops**, confirms, tells the developer to clean up | write or edit the code, merge a PR it authored |
-| **Developer** (the developer bot and the agents it runs; your own agent only when there is no developer bot) | builds one issue in its own worktree, opens its PR, **sends it back**, fixes what is asked, **removes the worktree** when told | merge, close the PR, delete the branch on GitHub, touch files the issue does not own, change the issue |
+| **CTO/CEO** (owns the problem) | writes the issues, sends them, checks the **mechanical** merge conditions, **merges or stops**, confirms, tells the developer to clean up | read the diff, run the PR's commands, judge or review the code, write or edit the code |
+| **Developer** (the developer role's bot and the agents it runs; your own agent only when no bot has the role) | builds one issue in its own worktree, runs its `Done when`, opens its PR, keeps the required checks green, **sends it back**, **removes the worktree** when told | merge, close the PR, delete the branch on GitHub, touch files the issue does not own, change the issue |
 
 Every issue, comment and PR body ends with `Created: <agent name>`; every commit is authored by the developer's name.
 
-## Is it quick?
+## When to use it
 
-Quick when the CTO/CEO can write, **now**, each issue's *Owned files* and runnable *Done when* with no design question,
-and each is `simple` or `medium`. The number of issues does not matter.
+**Only when the request names `playbook-quick`.** Nobody picks it by itself: a CTO/CEO told no playbook uses
+`playbook-build`, which plans and reviews.
 
-| Signal | Go to |
+| The request names quick, but | Do |
 |---|---|
-| a design choice is open: a new boundary, schema or contract nobody has decided | `playbook-plan` |
-| `hard` work, a race, security, `risk:money-path`, or code nobody here understands | `playbook-complete` |
-| a developer finds the work bigger than the issue says | it sends back `PR BLOCKED` with the evidence; the CTO/CEO re-routes |
+| a design choice is open: a new boundary, schema or contract nobody has decided | say so and ask the owner whether to use `playbook-build`; do not switch silently |
+| it is `hard` work, a race, security, `risk:money-path`, or code nobody here understands | say so and ask; do not switch silently |
+| a developer finds the work bigger than the issue says | it sends back `PR BLOCKED` with the evidence; the CTO/CEO tells the owner and asks |
 
 ## 1. CTO/CEO: turn the problem into issues
 
@@ -67,20 +67,31 @@ How to split:
   second in a later wave and name the first under `Depends on`. The one exception is the changelog, where each PR adds
   its own line: PRs merge one at a time, and the later one rebases.
 - **A shared contract is written down** (names, types, route, format) in the `Notes` of **both** issues. If you cannot
-  write it, the work is not quick.
+  write it, the work needs a plan: say so and ask.
+- **The `Done when` is the only check**, so make it a command that proves the outcome.
+- **Mark every issue quick:** the header line `Pipeline: quick` right after `Priority:`, before the first `## `
+  heading, with nothing else there but the template's header lines
+  ([the quick line](../write-issue/references/catalog.md#the-quick-line-pipeline-quick-only-from-playbook-quick)).
+  Only this playbook writes it, and only because the owner named it; without it the unreviewed merge is refused.
 - Each child says `Refs #<parent>` in `Notes`. After creating the children, list their numbers and waves in the
   parent's `## Notes`.
 
 **Then run the gate on every issue** to be built:
-`python3 <github skill>/scripts/issue_gate.py issue <n> --repo <owner>/<repo>`. An issue the CTO/CEO agent created is
-**not** approved by that: give the repository owner the issue links and the
-[acceptance comment](../github/references/issues.md#before-any-work), then end your turn. Never post it yourself. Send
-only the issues the gate allows.
+`python3 <github skill>/scripts/issue_gate.py issue <n> --repo <owner>/<repo>`. As shipped, an issue opened by an account with write
+access is approved ([merge rules](../github/references/pull-requests.md#merge-rules)). Only an issue it refuses **as not approved**,
+such as an outsider's, waits for the owner: give them its link and one line that works in any shell, then end your turn,
+and never post it yourself:
+
+```bash
+gh issue comment <number> -R <owner>/<repo> --body "Accepted by owner."
+```
+
+Send only the issues the gate allows.
 
 ## 2. CTO/CEO: send each issue to a developer
 
-One message per issue. The developer **bot** gets a [handoff](assets/example/developer-brief.md): the issue URL, the
-limits and **the return address**. Your own agent (no developer bot) gets an
+One message per issue. The developer's **bot** gets a [handoff](assets/example/developer-brief.md): the issue URL, the
+limits and **the return address**. Your own agent (no bot for the role) gets an
 [agent brief](assets/example/agent-brief.md), which also gives its author name. Send every issue of wave 1, then **end your turn**. A later wave is sent
 only after the PRs it depends on are **merged**. Commands: [send the issues](references/orchestration.md#2-send-the-issues).
 
@@ -97,78 +108,72 @@ a bot never codes.
    with the reason. In the worktree, branch from the newest `main` as `<id-lowercase>/<slug>`; change only the owned files.
 2. Test first when the change has code. Clean the diff with `deslop`.
 3. Commit with your name: `agent_identity.py git --author "<your name>" -- commit -m "<type>(<id>): <summary>"`.
-4. Run the issue's `Done when` on the committed head. Write the PR body from the
+4. Run the issue's `Done when` on the committed head **before opening the PR**. Write the PR body from the
    [PR template](../work-package/assets/pr.template.md), run both linters (the `work-package` and `github` skills), push and
    open the PR.
-5. Watch the required checks; fix what fails. You own the PR until it is merged or stopped. **Never merge.**
-6. **Keep the worktree** until the CTO/CEO says `MERGED` or `STOPPED` ([step 8](#8-developer-remove-the-worktree)): the
-   next round needs it.
+5. Watch the required checks (`gh pr checks <n> --required`); fix what fails (the `ci-fixer` skill). `no checks reported`
+   with exit 1 means the repository has no checks: say "no checks". You own the PR until it is merged or stopped.
+   **Never merge.**
+6. **Keep the worktree** until the CTO/CEO says `MERGED` or `STOPPED` ([step 7](#7-developer-remove-the-worktree)): a
+   red check or a rebase needs it.
 
 ## 4. Developer: send it back to the CTO/CEO
 
 **Opening the PR is not the end of the job.** An **agent** reports only to the bot that started it
 ([agent report](../bot-orchestration/assets/agent-report.template.md)). That bot verifies the head; a developer **bot** then
-sends the CTO/CEO the [return report](assets/example/return-report.md): `PR READY` or `PR BLOCKED`, the issue, the PR URL, the full head SHA, the verify result, the check state and what you did not do.
-One report for each head you want checked. How: [send it back](references/orchestration.md#3-send-the-pr-back). Then end your turn.
+sends the CTO/CEO the [return report](assets/example/return-report.md): `PR READY` or `PR BLOCKED`, the issue, the PR URL,
+the full head SHA, the `Done when` result, the check state and what you did not do. How:
+[send it back](references/orchestration.md#3-send-the-pr-back). Then end your turn.
 
-## 5. CTO/CEO: check the head, at most 3 rounds of feedback
+## 5. CTO/CEO: merge, then confirm
 
-Check the **PR at its head SHA**, not the report. First read where the loop stands:
-
-```bash
-python3 <github skill>/scripts/pr_loop.py state --pr <n> --repo <owner>/<repo>
-gh pr view <n> --repo <owner>/<repo> --json headRefOid,mergeable,mergeStateStatus,closingIssuesReferences
-python3 <github skill>/scripts/pr_lint.py pr <n> --repo <owner>/<repo> --allow '<each owned file>'
-gh pr checks <n> --repo <owner>/<repo>
-gh pr diff <n> --repo <owner>/<repo>
-```
-
-Run the issue's `Done when` in a clean check worktree of that SHA, and **remove it right after**, every round:
+**There is no check of the code.** Do not read the diff or run the PR's commands. Asking for this playbook gives the
+CTO/CEO the merge of its PRs; **a project whose rules reserve the merge for a person, or ask for a review, wins**: stop
+and ask that person. Merge only when every mechanical condition holds, with the head SHA the developer reported:
 
 ```bash
-git fetch origin pull/<n>/head
-git worktree add --detach <check dir> <sha>
-# run the commands in <check dir>
-git worktree remove <check dir>
-```
-
-Confirm: the `Goal` is met; only owned files changed; the tests would fail without the change; the changelog and docs
-the project requires are there. Then write **one** `decision` comment from the
-[PR comment template](../write-comment/assets/pr-comment.template.md), check it, and post it **on the PR**:
-
-```bash
-python3 <github skill>/scripts/pr_loop.py decide --pr <n> --repo <owner>/<repo> --body-file decision.md
-gh pr comment <n> --repo <owner>/<repo> --body-file decision.md
-```
-
-| The head | First line of the decision |
-|---|---|
-| right | `Accepted by CTO (<name>). PR #<n> at <40-character sha>.` → step 6 |
-| not right, fewer than 3 rounds used | `Changes required by CTO (<name>). PR #<n> at <sha>. Round <k> of 3.` |
-| not right, 3 rounds used | `Stopped by CTO (<name>). PR #<n> at <sha>.` → step 7 |
-
-**A round** is one `Changes required` decision: feedback, a fix, a new check. So there are at most **3 fixes and 4
-checks**: if the head after round 3 is still not right, the loop breaks. Put everything you know into each round; do not
-hold a finding back for the next. A rebase request, a question, or checks the developer fixes before reporting are not
-rounds. The count never resets.
-
-After `Changes required`, send it to the **same developer** ([feedback](references/orchestration.md#4-send-feedback)).
-It pushes to the same branch from the same worktree, posts a `fix` comment and sends the PR back. A wrong or unclear
-issue is fixed on the issue, not worked around.
-
-## 6. CTO/CEO: merge, then confirm the merge
-
-Asking for this playbook gives the CTO/CEO the merge of its PRs. **A project whose rules reserve the merge for a
-person wins:** stop after the acceptance and ask that person.
-
-When the accepted SHA is still the head, checks are green and the branch is not behind `main`, **the CTO/CEO merges**
-with the [merge command](../github/references/pull-requests.md#merge):
-
-```bash
-python3 <github skill>/scripts/pr_loop.py can-merge --pr <n> --repo <owner>/<repo>    # your acceptance is on this head
+python3 <github skill>/scripts/pr_loop.py can-merge --pr <n> --repo <owner>/<repo> --unreviewed --head <reported sha>
 python3 <github skill>/scripts/issue_gate.py pr <n> --repo <owner>/<repo>    # merge only on 'merge rules: allowed'
-gh pr merge <n> --repo <owner>/<repo> --rebase --match-head-commit <accepted sha> --delete-branch
+gh pr checks <n> --repo <owner>/<repo> --required                            # every required check passed
+gh pr view <n> --repo <owner>/<repo> --json headRefOid,mergeable,mergeStateStatus   # not behind, no conflict
+gh pr merge <n> --repo <owner>/<repo> --rebase --match-head-commit <reported sha> --delete-branch
 ```
+
+`can-merge --unreviewed` refuses a PR that is not open; **any** judgment or stop on the PR, by anyone, on any head (a
+`Verdict`, `Changes required`, `Accepted by`, `Stopped by`: a judged PR belongs to build or ship); a PR that links no
+issue, or links one without the `Pipeline: quick` line; a `risk:money-path` label on the PR or a linked issue; and a
+head other than the one given. **The script cannot know which head was reported:** you take the full SHA from the
+developer's report and pass it, never the live head you just read.
+`gh pr checks --required` printing `no checks reported` and exiting 1 means the repository has **no** checks, not that one
+failed: merge, and report "no checks". Only quick uses `--unreviewed`.
+
+| Found | Do |
+|---|---|
+| everything allows it | merge that SHA |
+| a red required check, or the branch behind `main` or in conflict | **return** it to the same developer ([at most 3](#returns-at-most-3)); its new head is reported and checked again |
+| 3 returns used, and a condition still does not hold | stop (step 6) and report to the owner |
+| a head other than the reported one | ask the developer for a new report |
+| `risk:money-path` | never auto-merged: ask a person to merge, and stop (step 6) |
+| the gate refuses (the issue became done, not planned or duplicate, or lost its approval) | stop (step 6) |
+
+### Returns: at most 3
+
+Each time you send a PR back, first post the return on the PR, so the count lives on the host and a resumed run keeps it:
+
+```text
+Returned by CTO (<name>). PR #<n> at <head sha>. Return <k> of 3.
+```
+
+with the mechanical reason under `Blocking` (the failing check, the conflict), then `Gate` and `Residual`
+([PR comment template](../write-comment/assets/pr-comment.template.md)). Check it first:
+`python3 <github skill>/scripts/pr_loop.py decide --pr <n> --repo <owner>/<repo> --body-file returned.md`. It refuses a
+fourth return: after 3, the next condition that does not hold is `Stopped by CTO` (step 6) with that reason, and a
+report to the owner. **One return is free:** a clean rebase needed only because another quick PR of this run merged
+is `Returned by CTO (<name>). PR #<n> at <head sha>. Rebase after #<m>.` ([example](assets/example/returned.md)).
+`decide` allows it once per merged quick PR `#<m>`, and only when `#<m>` merged after this PR's latest report or return
+(the newest of its last return, its creation and its head commit); an older merge, or a time it cannot read, and it
+counts. A return judges nothing, so the
+unreviewed merge still holds afterwards. `pr_loop.py state` shows `returns used: <k> of 3`.
 
 **Always `--rebase`.** It puts the developer's own commits on `main` under the developer's name. A squash makes a new
 commit authored by the account that opened the PR ([why](../github/references/identity.md#merges-keep-the-author)).
@@ -181,34 +186,31 @@ gh issue view <issue> --repo <owner>/<repo> --json state                        
 git fetch origin && git log origin/main -<commits> --format='%an | %s'                           # developer's name
 ```
 
-Only then: post the `merge` comment on the PR and send the developer [`MERGED`](assets/example/cleanup-merged.md)
-([clean up](references/orchestration.md#5-clean-up)). Not merged: keep the worktree and fix the cause.
+Only then: post the [merge comment](assets/example/merge.md) on the PR and send the developer
+[`MERGED`](assets/example/cleanup-merged.md) ([clean up](references/orchestration.md#5-clean-up)). Not merged: keep the
+worktree and fix the cause.
 
-- **Merge in dependency order, one at a time.** After each merge, another open PR may be behind: its developer rebases,
-  and the new SHA is checked again.
+- **Merge in dependency order, one at a time.** After each merge, another open PR may be behind: its developer rebases
+  and reports the new head.
 - **Then send the next wave**, from the new `main`.
 - **Close the problem:** when every child is merged, run the parent's `Done when` on `main`, post a `close` comment and
   close the parent.
 
-**The [merge rules](../github/references/pull-requests.md#merge-rules) come first.** An accepted head is not enough. If a
-linked issue became done, not planned or duplicate while it was built, nobody works on it further: stop the PR
-(step 7), whatever the round count.
+## 6. Stop
 
-## 7. The loop breaks: stop
+When a PR cannot be merged under this playbook (the gate refuses, a money path, `PR BLOCKED`, 3 returns used and a
+condition still does not hold, or the owner cancels):
 
-1. Post the `Stopped by` decision on the PR. It is the **final feedback**: one `Blocking` section per thing still wrong,
-   with its smallest fix, the `Gate` output, and under `Residual` what a person has to decide
-   ([example](assets/example/stopped.md)).
-2. Post a `status` comment (`Status: blocked`) on the issue with the PR and the decision link.
-3. Send the developer [`STOPPED`](assets/example/cleanup-stopped.md) with the feedback. It **stops implementing**:
-   if anything is not on GitHub yet, it commits and pushes it to the same branch, then cleans up (step 8).
+1. Post `Stopped by CTO (<name>). PR #<n> at <sha>.` on the PR, with the mechanical reason under `Blocking` and what a
+   person has to decide under `Residual` ([example](assets/example/stopped.md)). It judges no code.
+2. Post a `status` comment (`Status: blocked`) on the issue with the PR and the link.
+3. Send the developer [`STOPPED`](assets/example/cleanup-stopped.md). It **stops implementing**: if anything is not on
+   GitHub yet, it commits and pushes it to the same branch, then cleans up (step 7).
 4. **The PR stays open and unmerged, and the branch stays on GitHub.** Do not close the PR, delete the branch or close
-   the issue. Work that depends on this issue is not sent, and a developer already on it is stopped the same way. Other
-   issues carry on; the parent stays open.
-5. Report to the human: the PR, why it stopped, what is left. Restarting is the human's decision (for example a new
-   plan with `playbook-plan`, `playbook-complete`, or a replacement issue).
+   the issue. Work that depends on this issue is not sent. Other issues carry on; the parent stays open.
+5. Report to the owner: the PR, why it stopped, what is left (for example `playbook-ship` to review and land it).
 
-## 8. Developer: remove the worktree
+## 7. Developer: remove the worktree
 
 Only after `MERGED` or `STOPPED`. First prove nothing is lost; the script removes nothing:
 
@@ -240,35 +242,38 @@ A developer cancelled before it opened a PR pushes its branch, then runs `can-re
 | For each issue (`pr_loop.py state` for a PR) | The next step |
 |---|---|
 | no PR | send it, if the PRs it depends on are merged; otherwise it waits |
-| a PR, head not decided | the developer is working, or the CTO/CEO checks it (step 5) |
-| `Changes required` on the head | the developer fixes and sends it back |
-| `Accepted` names the head | merge and confirm (step 6) |
+| a PR, no report for its head | the developer is working |
+| a PR, the reported head, conditions hold | merge and confirm (step 5) |
+| a PR, a red check or behind `main` | post the next return (`pr_loop.py state`: returns used); the same developer fixes and reports again |
+| a PR, 3 returns used, a condition still failing | stop (step 6) and report to the owner |
 | merged, issue closed | the developer removes the worktree; when all are done, close the parent |
-| `Stopped` | the developer removes the worktree; the PR, branch and issue stay for the human |
-| closed without a merge or a `Stopped` decision | keep the branch and worktree; report it to the human |
+| `Stopped by` | the developer removes the worktree; the PR, branch and issue stay for the owner |
+| closed without a merge or a `Stopped` | keep the branch and worktree; report it to the owner |
 
 ## One good, one bad
 
-- **Good:** after round 3 the head still fails, so the CTO posts `Stopped by` with what is left; the developer pushes,
-  passes the removal check and removes the worktree; the open PR holds all the work for whoever takes it up.
-- **Bad:** a fourth "small" change request; or a forced removal of the worktree right after the last report, losing a fix
-  that was never pushed.
+- **Good:** the developer runs the `Done when`, opens PR #54, waits for green checks and reports its head; the CTO runs
+  `can-merge --unreviewed --head` with that SHA, the gate and the checks, and merges it without opening the diff.
+- **Bad:** the CTO reads the diff and asks for a change; or merges a head pushed after the report; or merges with a red
+  required check; or a forced removal of the worktree right after the last report.
 
 ## Done
 
-- Every issue is **merged** (an accepted SHA, the merge confirmed, the issue closed) or **stopped** (final feedback on
-  the PR; PR open, branch on GitHub, issue blocked).
-- No PR got more than 3 `Changes required` decisions.
-- Every developer worktree and every check worktree of this run is removed, and no worker is left running.
-- The human has one report: the problem, the issues, what was merged, what was stopped and why.
+- Every issue is **merged** (the reported SHA merged, the merge confirmed, the issue closed) or **stopped** (the PR open,
+  the branch on GitHub, the issue blocked).
+- Every developer worktree of this run is removed, and no worker is left running.
+- The owner has one report: the problem, the issues, what was merged, what was stopped and why, and that nobody reviewed
+  the code.
 
 ## Never
 
+- Pick quick when the request did not name it, or switch away from it silently.
 - Build or merge for an issue the gate refuses, or write the owner's acceptance for them.
-- Let a developer merge, or the CTO/CEO write the fix and merge it.
-- Merge a SHA you did not accept, with a red or missing required check, or with an admin override.
-- Ask for a fourth round, or reset the count with a new PR for the same work.
+- Read the diff, run the PR's commands or judge the code as the CTO/CEO; let a developer merge.
+- Merge without `can-merge --unreviewed --head <reported sha>`, with a red required check, a money path, or an admin
+  override; pass a head the developer did not report, or write `Pipeline: quick` on an issue the owner did not ask
+  quick for.
+- Send a PR back without posting its return, or a fourth time: stop it instead.
 - Remove a worktree before `MERGED` or `STOPPED`, when the check refuses, or with `--force`.
 - Close a stopped PR or delete its branch.
 - Run two issues that own the same file at once, or start a wave before what it depends on is merged.
-- Stretch quick over an open design: stop and use `playbook-plan`.

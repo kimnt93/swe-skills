@@ -2,6 +2,7 @@ Lane: frontend
 Wave: 2
 Difficulty: simple (formatting in one page)
 Priority: medium
+Pipeline: quick
 
 ## Goal
 The order list shows each time in the user's local zone with the zone's short name.

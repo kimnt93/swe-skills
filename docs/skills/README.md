@@ -21,9 +21,9 @@ when to use it, what to say, what happens, what you get, and its files.
 
 | Skill | Description |
 |---|---|
-| [playbook-complete](router.md#playbook-complete) | Complete: CTO issues, developer PRs, a reviewer reviews and fixes, CTO trusts and merges |
+| [playbook-build](router.md#playbook-build) | Build (the default): issue, architect plan, package PRs, reviewer fixes and passes, CTO merges |
 | [playbook-plan](router.md#playbook-plan) | Plan only: CTO card, architect analysis comment, back to the CTO to accept, then stop |
-| [playbook-quick](router.md#playbook-quick) | Quick: CTO issues, a worktree and PR each, 3 feedback rounds, CTO merges or stops, clean up |
+| [playbook-quick](router.md#playbook-quick) | Quick, only when named: CTO issues, developer PRs, CTO merges on mechanical checks only; no review |
 | [playbook-review](router.md#playbook-review) | Review: read a PR and post one verdict comment; nothing is changed or merged |
 | [playbook-ship](router.md#playbook-ship) | Ship: review a PR, fix and re-review (3 rounds), merge it and close its issue, or stop |
 | [swe](router.md#router) | Entry point: picks language and playbook, delegates by agent, finishes only when make verify passes |
@@ -50,13 +50,13 @@ when to use it, what to say, what happens, what you get, and its files.
 | [integrator](process.md#integrator) | Integrator: rebase a PR on main, resolve conflicts only in its own files, re-verify, re-review |
 | [interrogate](process.md#interrogate) | Adversarial review where only findings proven by a run survive |
 | [ketchup](process.md#ketchup) | Plain-words catch-up on what changed and what waits on you |
-| [manager](process.md#manager) | Manager: pick the playbook for a request, coordinate delegation, verify, and report |
+| [manager](process.md#manager) | Manager: pick the playbook (build by default), orchestrate only, delegate by role, verify, report |
 | [planner](process.md#planner) | Planner: split a goal into PR-sized cards with disjoint files, risks and agents, as a JSON plan |
 | [principles](process.md#principles) | 22 engineering principles; the router opens the ones that apply (money-path, idempotency, ...) |
 | [project](process.md#project) | Run a project's docs, GitHub repo setup, backlog and status |
 | [reflect](process.md#reflect) | Turn a long task's lessons into approved skill edits or new checks |
 | [replay-test](process.md#replay-test) | Prove money-path code on a recorded day, with duplicate and redelivery runs |
-| [reviewer](process.md#reviewer) | Reviewer: a verdict on one SHA from proven findings; fixes only in ship and complete |
+| [reviewer](process.md#reviewer) | Reviewer: a verdict on one SHA from proven findings, against the plan; fixes only in build and ship |
 | [tdd](process.md#tdd) | Failing test first, then the smallest change that makes it pass |
 | [verifier](process.md#verifier) | Verifier: run the real app against the feature map, file regressions, list findings; edits nothing |
 | [verify-create](process.md#verify-create) | Give a project make verify and a verify skill that drives it like a user |
