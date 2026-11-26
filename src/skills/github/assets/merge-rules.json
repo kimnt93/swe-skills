@@ -1,4 +1,5 @@
 {
+  "approvals": ["owner_comment"],
   "approve_statuses": ["Todo", "In Progress"],
   "refuse_statuses": ["Done", "Not planned", "Duplicate", "Canceled", "Cancelled"],
   "refuse_labels": ["duplicate", "wontfix"]

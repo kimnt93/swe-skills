@@ -74,8 +74,8 @@ you decide what happens. Details and gates: [playbooks.md](playbooks.md).
 
 ## What waits for you
 
-- **Approving an issue.** One an agent created is not approved by that. Comment on it, or set its board status to
-  `Todo` or `In Progress` (counted only when the check can read the board):
+- **Approving an issue.** One an agent created is not approved by that. Comment on it; only this comment approves
+  (an issue your account created and a board status `Todo` or `In Progress` are off while agents share your account):
 
   ```text
   Accepted by owner.

@@ -17,9 +17,10 @@ An agent starts work on an issue (a worktree, a branch, code) only when this all
 python3 <github skill>/scripts/issue_gate.py issue <number> --repo <owner>/<repo>   # 'implementation: allowed'
 ```
 
-**Never implement** an issue that is done, not planned or duplicate. An open issue also needs one approval of the
-[merge rules](pull-requests.md#merge-rules): the owner's acceptance comment, the owner as its author, or board status
-`Todo` / `In Progress` (counted only when the check could read the board).
+**Never implement** an issue that is done, not planned or duplicate. An open issue also needs the approval of the
+[merge rules](pull-requests.md#merge-rules): as shipped, **only the owner's acceptance comment**. An issue the owner's
+account created and a board status `Todo` / `In Progress` approve nothing: they are off while agents share the owner's
+account (the `approvals` list in [merge-rules.json](../assets/merge-rules.json)).
 
 **Not approved yet:** report the issue link and give the owner this comment to post
 ([template](../assets/owner-acceptance.template.md)), then stop. The owner posts it, never an agent:

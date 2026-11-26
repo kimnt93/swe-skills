@@ -68,8 +68,9 @@ Once step 4 works on one repository, let a playbook carry work through GitHub. T
 | `/swe:playbook-complete <problem or plan>` | issues, pull requests, a separate reviewer who also fixes, then the merge |
 | `/swe:playbook-ship ship PR 54` | review and fix, then merge and close the issue |
 
-Work is built and merged only for an approved issue. To approve one an agent created, comment `Accepted by owner.` on it,
-or set its board status to `Todo` or `In Progress` (counted only when the check can read the board). More:
+Work is built and merged only for an approved issue. To approve one, comment `Accepted by owner.` on it: only this
+comment approves. An issue your account created and a board status `Todo` or `In Progress` are off while agents share
+your account. More:
 [playbooks.md](playbooks.md). To make `swe-cli` available, run `make cli`; its commands are in
 [cli/README.md](../cli/README.md).
 
@@ -81,6 +82,6 @@ or set its board status to `Todo` or `In Progress` (counted only when the check 
 | `make validate` fails on a placeholder or name | read the first ERROR line; the validator names the file and line |
 | the merge check says the board status cannot be read | run it again; if it still fails, check `gh auth status` and GitHub's status |
 | the merge check says the board was not read | the `gh` login lacks the scope for project boards; the check went on without them ([what is not checked](../src/skills/github/references/pull-requests.md#merge-rules)) |
-| the merge check says an issue is not approved | comment `Accepted by owner.` on it yourself; a board status of `Todo` counts only when the check can read the board |
+| the merge check says an issue is not approved | comment `Accepted by owner.` on it yourself; your authorship and a board status of `Todo` do not approve while agents share your account |
 | `gh auth status` fails inside a delegated session | `gh auth login` for the user that runs the session |
 | old `kim` or other plugin still listed | `PLUGIN_NAME=<old> make claude codex omp REMOVE=1` |

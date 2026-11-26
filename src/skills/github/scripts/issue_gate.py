@@ -10,14 +10,18 @@ issue passes. An issue passes when nothing refuses it and one approval holds.
 
   Refused, whatever else says yes: the issue is closed (done, not planned or duplicate), it carries a refusing
   label, or its board status is a refusing one.
-  Approvals, any one: the repository owner commented the acceptance (assets/owner-acceptance.template.md); the
-  owner created the issue; or its board status is an approving one.
+  Approvals: the 'approvals' list in assets/merge-rules.json says which count, any one of them:
+    owner_comment  the repository owner commented the acceptance (assets/owner-acceptance.template.md)
+    owner_author   the owner created the issue
+    board_status   its board status is an approving one
+  Shipped: owner_comment only. Agents share the owner's account, so an issue the owner's account created and a board
+  status an agent may have set are off. A missing, empty or unknown value refuses everything.
   The board: when GitHub answers that the gh login lacks the scope to read it (INSUFFICIENT_SCOPES), the check
   goes on without it and says so. No board status refuses or approves then, so a Done or Not planned on an issue
   that is still open is not seen. Any other failure to read the board refuses.
 
 Agents often share the owner's account, so text that carries an agent's 'Created: <name>' line is never the
-owner's. The status and label names are in assets/merge-rules.json. For an organization's repository an owner is
+owner's. The status and label names are in assets/merge-rules.json too. For an organization's repository an owner is
 a user with the admin role. Exit 0 = allowed, 1 = refused (reasons printed), 2 = usage. Standard library only.
 """
 
@@ -35,6 +39,7 @@ from unittest import mock
 ASSETS = Path(__file__).resolve().parents[1] / "assets"
 REFS_RE = re.compile(r"^Refs #(\d+)\b", re.M)
 CREATED_RE = re.compile(r"^Created: (.+?)\s*$", re.M)
+APPROVALS = ("owner_comment", "owner_author", "board_status")
 CLOSED_AS = {"COMPLETED": "done", "NOT_PLANNED": "not planned", "DUPLICATE": "duplicate"}
 NO_SCOPE = "no scope"  # the board answer when GitHub says the login lacks the scope to read it
 NOT_READ = "the board was not read: the gh login lacks the scope, so no board status was checked"
@@ -61,6 +66,24 @@ def by_agent(text: str, login: str) -> bool:
     return any(name.lower() != login.lower() for name in CREATED_RE.findall(text or ""))
 
 
+def approval_setting(config: dict) -> tuple[list[str], str]:
+    """The approvals merge-rules.json switches on, and what is wrong with the setting ('' when nothing)."""
+    value = config.get("approvals")
+    if "approvals" not in config:
+        problem = "has no 'approvals'"
+    elif not isinstance(value, list):
+        problem = f"'approvals' is not a list: {json.dumps(value)}"
+    elif not value:
+        problem = "'approvals' is empty"
+    else:
+        unknown = [x for x in value if x not in APPROVALS]
+        if not unknown:
+            return value, ""
+        problem = "'approvals' has the unknown value " + ", ".join(json.dumps(x) for x in unknown)
+    return [], (f"merge-rules.json {problem}, so nothing approves it. List one or more of "
+                f"{', '.join(APPROVALS)}; the shipped setting is [\"owner_comment\"]")
+
+
 def refusals(issue: dict, board: list[str] | None, config: dict) -> list[str]:
     """Why this issue must not be implemented or merged. board is None when reading it failed."""
     if issue["state"] != "OPEN":
@@ -79,19 +102,44 @@ def refusals(issue: dict, board: list[str] | None, config: dict) -> list[str]:
 
 def approvals(issue: dict, board: list[str] | None, config: dict, phrase: str,
               is_owner: Callable[[str], bool]) -> list[str]:
+    on = approval_setting(config)[0]
     found = []
-    for comment in issue.get("comments", []):
+    for comment in issue.get("comments", []) if "owner_comment" in on else []:
         login = (comment.get("author") or {}).get("login", "")
         body = (comment.get("body") or "").lstrip()
         if (body.startswith(phrase) and not comment.get("isMinimized") and login and is_owner(login)
                 and not by_agent(body, login)):
             found.append(f"the owner accepted it: {comment.get('url', '')}".rstrip(": "))
     author = (issue.get("author") or {}).get("login", "")
-    if author and is_owner(author) and not by_agent(issue.get("body") or "", author):
+    if "owner_author" in on and author and is_owner(author) and not by_agent(issue.get("body") or "", author):
         found.append("the owner created it")
-    approved = {key(x) for x in config["approve_statuses"]}
+    approved = {key(x) for x in config["approve_statuses"]} if "board_status" in on else set()
     found += [f"its board status is '{x}'" for x in board or [] if key(x) in approved]
     return found
+
+
+def not_approved(number: int, config: dict, phrase: str, unread: bool) -> str:
+    """What the owner can do, and which approvals merge-rules.json has switched off."""
+    on = approval_setting(config)[0]
+    statuses = " or ".join(config["approve_statuses"])
+    ways = {"owner_comment": f"the repository owner comments '{phrase}' on it (assets/owner-acceptance.template.md)",
+            "owner_author": "the repository owner creates it",
+            "board_status": "" if unread else f"the owner sets its board status to {statuses}"}
+    offered = [ways[x] for x in APPROVALS if x in on and ways[x]]
+    off = {"owner_comment": f"the owner's comment '{phrase}'", "owner_author": "an issue the owner created",
+           "board_status": f"a board status of {statuses}"}
+    text = f"#{number} is not approved. "
+    if set(on) == {"owner_comment"}:
+        text += f"Only the repository owner's comment '{phrase}' approves it (assets/owner-acceptance.template.md). "
+    elif offered:
+        text += "It needs one of: " + "; or ".join(offered) + ". "
+    skipped = [off[x] for x in APPROVALS if x not in on]
+    if skipped:
+        joined = " and ".join(skipped)
+        why = "switched off" if "owner_comment" not in on else "off while agents share the owner's account"
+        text += f"{joined[0].upper()}{joined[1:]} approve{'' if len(skipped) > 1 else 's'} nothing: {why} "
+        text += "(the 'approvals' list in assets/merge-rules.json). "
+    return text + "An agent never approves for the owner"
 
 
 def judge(issue: dict, board: list[str] | str | None, config: dict, phrase: str,
@@ -102,16 +150,14 @@ def judge(issue: dict, board: list[str] | str | None, config: dict, phrase: str,
     unread = board == NO_SCOPE
     statuses = [] if unread else board
     note = f" ({NOT_READ})" if unread else ""
-    stop = refusals(issue, statuses, config)
+    setting = approval_setting(config)[1]
+    stop = refusals(issue, statuses, config) + ([setting] if setting else [])
     if stop:
         return False, f"#{number} is refused: " + "; ".join(stop) + note
     yes = approvals(issue, statuses, config, phrase, is_owner)
     if yes:
         return True, f"#{number}: " + "; ".join(yes) + note
-    by_board = "" if unread else f", or sets its board status to {' or '.join(config['approve_statuses'])}"
-    return False, (f"#{number} is not approved. The repository owner comments '{phrase}' on it "
-                   f"(assets/owner-acceptance.template.md){by_board}. "
-                   "An agent never does this for the owner" + note)
+    return False, not_approved(number, config, phrase, unread) + note
 
 
 def linked_issues(pr: dict, repo: str) -> tuple[list[int], list[str]]:
@@ -178,17 +224,21 @@ def read_board(number: int, repo: str) -> list[str] | str | None:
     return parse_board(done.returncode, done.stdout)
 
 
-def check_issue(number: int, repo: str, is_owner: Callable[[str], bool]) -> tuple[bool, str]:
+def check_issue(number: int, repo: str, is_owner: Callable[[str], bool], config: dict) -> tuple[bool, str]:
     issue = json.loads(gh("issue", "view", str(number), "--repo", repo, "--json",
                           "number,url,state,stateReason,author,body,labels,comments"))
     needs_board = issue["state"] == "OPEN" and "/pull/" not in issue["url"]
     board = read_board(number, repo) if needs_board else []
-    return judge(issue, board, rules(), acceptance_phrase(), is_owner)
+    return judge(issue, board, config, acceptance_phrase(), is_owner)
 
 
 def self_test() -> int:
-    config, phrase = rules(), acceptance_phrase()
+    shipped, phrase = rules(), acceptance_phrase()
     assert phrase == "Accepted by owner."
+    assert shipped["approvals"] == ["owner_comment"], "shipped: only the owner's comment approves"
+    every = {**shipped, "approvals": list(APPROVALS)}
+    author_on = {**shipped, "approvals": ["owner_comment", "owner_author"]}
+    board_on = {**shipped, "approvals": ["owner_comment", "board_status"]}
     boss = lambda login: login == "boss"
 
     def issue(**change) -> dict:
@@ -199,40 +249,75 @@ def self_test() -> int:
     def comment(body: str, login: str = "boss", **extra) -> dict:
         return {"author": {"login": login}, "body": body, "url": "u", **extra}
 
-    def ok(item: dict, board: list[str] | None = ()) -> bool:
-        return judge(item, None if board is None else list(board), config, phrase, boss)[0]
+    def verdict(item: dict, board: list[str] | None = (), config: dict = shipped) -> tuple[bool, str]:
+        return judge(item, None if board is None else list(board), config, phrase, boss)
 
-    assert not ok(issue()), "nobody approved it"
+    def ok(item: dict, board: list[str] | None = (), config: dict = shipped) -> bool:
+        return verdict(item, board, config)[0]
+
     accepted = issue(comments=[comment("Accepted by owner.\n\nNotes: none")])
-    assert ok(accepted)
+    owned = issue(author={"login": "boss"})
+    signed = issue(author={"login": "boss"}, body="x\n\nCreated: boss")
+    agent_made = issue(author={"login": "boss"}, body="x\n\nCreated: Bot (CTO)")
+
+    # 1. the shipped rules: only the owner's acceptance comment approves, and its protections hold
+    assert not ok(issue()), "nobody approved it"
+    assert ok(accepted) and ok(accepted, ["Todo"])
     assert not ok(issue(comments=[comment("Accepted by owner.", login="someone")])), "not the owner"
     assert not ok(issue(comments=[comment("Accepted by owner.\n\nCreated: Bot (Developer)")])), "agent on the owner's account"
     assert not ok(issue(comments=[comment("Not yet.\nAccepted by owner.")])), "first line only"
     assert not ok(issue(comments=[comment("Accepted by owner.", isMinimized=True)])), "hidden comment"
     assert not ok(issue(comments=[comment("Accepted by CTO (Bot). Plan v1.")])), "a CTO decision is not the owner's"
-    assert ok(issue(author={"login": "boss"})), "the owner created it"
-    assert ok(issue(author={"login": "boss"}, body="x\n\nCreated: boss")), "signed with the owner's login"
-    assert not ok(issue(author={"login": "boss"}, body="x\n\nCreated: Bot (CTO)")), "an agent created it"
-    assert ok(issue(), ["Todo"]) and ok(issue(), ["In Progress"]) and ok(issue(), ["in-progress"])
-    assert not ok(issue(), ["Backlog"])
-    for status in ("Done", "Not planned", "Duplicate", "Canceled"):
-        assert not ok(accepted, [status]), status
-        assert not ok(issue(), ["Todo", status]), f"{status} wins over Todo"
-    for reason, word in CLOSED_AS.items():
-        allowed, why = judge({**accepted, "state": "CLOSED", "stateReason": reason}, [], config, phrase, boss)
-        assert not allowed and word in why, why
-    assert not ok({**accepted, "labels": [{"name": "wontfix"}]}) and not ok({**accepted, "labels": [{"name": "Duplicate"}]})
-    assert not ok(accepted, None), "an unreadable board refuses"
-    assert not ok({**accepted, "url": "https://h/o/r/pull/7"}), "a pull request is not an issue"
+    for item, board in ((owned, []), (signed, []), (issue(), ["Todo"]), (issue(), ["In Progress"]),
+                        (issue(), ["in-progress"]), (owned, ["Todo"])):
+        allowed, why = verdict(item, board)
+        assert not allowed, ("off in the shipped rules", item["author"], board)
+        assert "Only the repository owner's comment" in why and "off while agents share the owner's account" in why, why
+        assert "board status to" not in why and "creates it" not in why, why
 
-    def asked(item: dict, code: int, answer: str) -> tuple[bool, str]:
+    # 2. the other two approvals, switched on, work as before; the comment counts only when listed
+    assert ok(owned, config=author_on) and ok(signed, config=author_on), "the owner created it"
+    assert not ok(agent_made, config=author_on), "an agent created it"
+    assert not ok(issue(), ["Todo"], author_on), "board status still off"
+    assert ok(issue(), ["Todo"], board_on) and ok(issue(), ["In Progress"], board_on)
+    assert ok(issue(), ["in-progress"], board_on) and not ok(issue(), ["Backlog"], board_on)
+    assert not ok(owned, config=board_on), "authorship still off"
+    assert ok(owned, config=every) and ok(issue(), ["Todo"], every) and ok(accepted, config=every)
+    assert not ok(accepted, config={**shipped, "approvals": ["owner_author"]}), "the comment is off when not listed"
+    assert "creates it" in verdict(issue(), [], every)[1] and "board status to" in verdict(issue(), [], every)[1]
+    assert "off while" not in verdict(issue(), [], every)[1]
+
+    # 3. a missing, empty or unknown setting refuses everything
+    missing = {k: v for k, v in shipped.items() if k != "approvals"}
+    for bad in (missing, {**shipped, "approvals": []}, {**shipped, "approvals": ["owner_coment"]},
+                {**shipped, "approvals": ["owner_comment", "anyone"]}, {**shipped, "approvals": "owner_comment"},
+                {**shipped, "approvals": None}, {**shipped, "approvals": [1]}):
+        for item in (accepted, owned, signed):
+            allowed, why = verdict(item, ["Todo"], bad)
+            assert not allowed and "merge-rules.json" in why and "'approvals'" in why, (bad, why)
+            assert "owner_comment, owner_author, board_status" in why, why
+
+    # 4. refusals win over every approval, whichever are on
+    for config in (shipped, every):
+        for status in ("Done", "Not planned", "Duplicate", "Canceled"):
+            assert not ok(accepted, [status], config), status
+            assert not ok(owned, [status], config) and not ok(issue(), ["Todo", status], config), status
+        for reason, word in CLOSED_AS.items():
+            allowed, why = verdict({**accepted, "state": "CLOSED", "stateReason": reason}, [], config)
+            assert not allowed and word in why, why
+        for name in ("wontfix", "Duplicate"):
+            assert not ok({**accepted, "labels": [{"name": name}]}, config=config), name
+        assert not ok(accepted, None, config), "an unreadable board refuses"
+        assert not ok({**accepted, "url": "https://h/o/r/pull/7"}, config=config), "a pull request is not an issue"
+
+    def asked(item: dict, code: int, answer: str, config: dict = shipped) -> tuple[bool, str]:
         """check_issue with gh stood in: the issue view returns item, the board query exits code with answer."""
         def run(command: list[str], **_) -> subprocess.CompletedProcess:
             view = command[1] == "issue"
             return subprocess.CompletedProcess(command, 0 if view else code, json.dumps(item) if view else answer, "")
 
         with mock.patch.object(subprocess, "run", run):
-            return check_issue(item["number"], "o/r", boss)
+            return check_issue(item["number"], "o/r", boss, config)
 
     def board_of(*statuses: str, archived: bool = False) -> str:
         nodes = [{"isArchived": archived, "fieldValueByName": {"name": x}} for x in statuses]
@@ -241,24 +326,27 @@ def self_test() -> int:
     def errors(*types: str) -> str:
         return json.dumps({"errors": [{"type": x, "message": "m"} for x in types]})
 
-    # 1. the board is readable: its refusals and approvals apply
-    assert asked(issue(), 0, board_of("Todo"))[0] and asked(issue(), 0, board_of("In Progress"))[0]
-    assert not asked(issue(), 0, board_of("Backlog"))[0] and not asked(issue(), 0, board_of())[0]
-    assert not asked(issue(), 0, board_of("Todo", archived=True))[0], "an archived item approves nothing"
-    for status in ("Done", "Not planned", "Duplicate", "Canceled"):
-        allowed, why = asked(accepted, 0, board_of(status))
-        assert not allowed and f"its board status is '{status}'" in why, why
-    assert "not read" not in asked(accepted, 0, board_of())[1]
+    # 5. the board is readable: its refusals always apply, its approvals only when switched on
+    assert not asked(issue(), 0, board_of("Todo"))[0] and not asked(issue(), 0, board_of("In Progress"))[0]
+    assert asked(issue(), 0, board_of("Todo"), every)[0] and asked(issue(), 0, board_of("In Progress"), every)[0]
+    assert not asked(issue(), 0, board_of("Backlog"), every)[0] and not asked(issue(), 0, board_of(), every)[0]
+    assert not asked(issue(), 0, board_of("Todo", archived=True), every)[0], "an archived item approves nothing"
+    for config in (shipped, every):
+        for status in ("Done", "Not planned", "Duplicate", "Canceled"):
+            allowed, why = asked(accepted, 0, board_of(status), config)
+            assert not allowed and f"its board status is '{status}'" in why, why
+        assert "not read" not in asked(accepted, 0, board_of(), config)[1]
 
-    # 2. the login lacks the scope: everything but the board works as before, and the output says so
+    # 6. the login lacks the scope: everything but the board works as before, and the output says so
     unscoped = errors("INSUFFICIENT_SCOPES", "INSUFFICIENT_SCOPES")
-    for item in (accepted, issue(author={"login": "boss"})):
-        allowed, why = asked(item, 1, unscoped)
+    for item, config in ((accepted, shipped), (accepted, every), (owned, every)):
+        allowed, why = asked(item, 1, unscoped, config)
         assert allowed and "the board was not read" in why, why
-    for item in (issue(), issue(comments=[comment("Accepted by owner.", login="someone")]),
-                 issue(comments=[comment("Accepted by owner.\n\nCreated: Bot (Developer)")]),
-                 issue(author={"login": "boss"}, body="x\n\nCreated: Bot (CTO)")):
-        allowed, why = asked(item, 1, unscoped)
+    for item, config in ((owned, shipped), (issue(), every),
+                         (issue(comments=[comment("Accepted by owner.", login="someone")]), every),
+                         (issue(comments=[comment("Accepted by owner.\n\nCreated: Bot (Developer)")]), every),
+                         (agent_made, every)):
+        allowed, why = asked(item, 1, unscoped, config)
         assert not allowed and "not approved" in why and "the board was not read" in why, why
         assert "board status to" not in why, "a status that cannot be read is not offered as an approval"
     for name in ("wontfix", "duplicate"):
@@ -268,14 +356,14 @@ def self_test() -> int:
         allowed, why = asked({**accepted, "state": "CLOSED", "stateReason": reason}, 1, unscoped)
         assert not allowed and f"closed ({word})" in why, why
 
-    # 3. any other failure to read the board refuses, whoever approved
+    # 7. any other failure to read the board refuses, whoever approved
     for code, answer in ((1, ""), (1, '{"message":"Bad credentials"}'), (1, "<html>502</html>"),
                          (1, errors("RATE_LIMITED")), (0, errors("FORBIDDEN")), (0, errors("NOT_FOUND")),
                          (1, errors("INSUFFICIENT_SCOPES", "RATE_LIMITED")), (1, board_of("Todo")),
                          (1, '{"errors":["INSUFFICIENT_SCOPES"]}'), (0, "null"),
                          (0, '{"data":{"repository":null}}')):
-        for item in (accepted, issue(author={"login": "boss"})):
-            allowed, why = asked(item, code, answer)
+        for item, config in ((accepted, shipped), (accepted, every), (owned, every)):
+            allowed, why = asked(item, code, answer, config)
             assert not allowed and "cannot be read" in why, (code, answer, why)
 
     here = {"number": 4, "repository": {"name": "r", "owner": {"login": "o"}}}
@@ -284,8 +372,9 @@ def self_test() -> int:
     assert linked_issues({"closingIssuesReferences": [], "body": "Refs #9\n"}, "o/r") == ([9], [])
     assert "links no issue" in linked_issues({"closingIssuesReferences": [], "body": "see #4"}, "o/r")[1][0]
     assert "another repository" in linked_issues({"closingIssuesReferences": [away], "body": ""}, "o/r")[1][0]
-    print("self-test passed: a linked issue, the three approvals, refusals win, agents cannot approve, "
-          "a board that is readable, out of scope or unreadable")
+    print("self-test passed: a linked issue, only the owner's comment approves as shipped, the other two approvals "
+          "when switched on, a bad setting refuses, refusals win, agents cannot approve, a board that is readable, "
+          "out of scope or unreadable")
     return 0
 
 
@@ -309,7 +398,8 @@ def main(argv: list[str]) -> int:
         numbers = [args.number]
     if numbers:
         is_owner = owner_check(args.repo)
-        results += [check_issue(n, args.repo, is_owner) for n in numbers]
+        config = rules()
+        results += [check_issue(n, args.repo, is_owner, config) for n in numbers]
     for allowed, text in results:
         print("OK" if allowed else "REFUSED", text)
     passed = all(allowed for allowed, _ in results)

@@ -35,18 +35,26 @@ after a review needs a new review: the verdict covers one head SHA.
 A pull request may be merged only when **both** hold:
 
 1. **It links an issue** of this repository: `Closes #N`, or `Refs #N` for partial work.
-2. **Every linked issue is approved** by at least one of these:
+2. **Every linked issue is approved.** As shipped, **only the repository owner's comment** on the issue, from the
+   [acceptance template](../assets/owner-acceptance.template.md), approves it.
 
-   | Approval | What counts |
-   |---|---|
-   | the repository owner accepted it | the owner's comment on the issue, from the [acceptance template](../assets/owner-acceptance.template.md) |
-   | the repository owner created it | an issue the owner wrote |
-   | it is on a board as work to do | board status `Todo` or `In Progress` |
+The `approvals` list in [merge-rules.json](../assets/merge-rules.json) says which approvals count; any one of them is
+enough:
+
+| `approvals` value | What counts | Shipped |
+|---|---|---|
+| `owner_comment` | the owner's comment on the issue, from the [acceptance template](../assets/owner-acceptance.template.md) | on |
+| `owner_author` | an issue the owner created | off |
+| `board_status` | board status `Todo` or `In Progress` | off |
+
+The other two are **off while agents share the owner's account**: an issue that account created and a board status set
+from it may be an agent's work. A project where agents have their own accounts may list them again; each then works as
+the table says. A missing or empty `approvals`, or a value not in the table, refuses every issue and says why.
 
 **These refuse it, whatever else says yes:** the issue is closed (done, not planned or duplicate), it is labelled
 `duplicate` or `wontfix`, or its board status is `Done`, `Not planned`, `Duplicate` or `Canceled`. The same rules decide
 whether work on an issue may **start** ([before any work](issues.md#before-any-work)). The status and label names are in
-[merge-rules.json](../assets/merge-rules.json).
+merge-rules.json too.
 
 ```bash
 python3 <github skill>/scripts/issue_gate.py pr <number> --repo <owner>/<repo>      # must end 'merge rules: allowed'
@@ -55,14 +63,18 @@ python3 <github skill>/scripts/issue_gate.py pr <number> --repo <owner>/<repo>  
 - **Agents may share the owner's account**, so an issue or comment with an agent's `Created: <name>` line is never the
   owner's. An agent **never** writes the acceptance comment, signs as the owner, or moves an unapproved issue to `Todo`
   or `In Progress`. The script cannot tell who typed an unsigned comment: this is the agent's duty.
-- The owner leaves the `Created:` line out of their own issues, or signs it with their account name.
+- The acceptance counts only when it is the comment's **first line**, the comment is **not hidden**, its author is the
+  owner, and it carries **no agent's** `Created:` line.
+- With `owner_author` on, the owner leaves the `Created:` line out of their own issues, or signs it with their account
+  name.
 - **The check uses the `gh` login as it is.** When GitHub answers that the login lacks the scope to read project
   boards, the check goes on without the board and its output says `the board was not read`. The closed state, the
-  refusing labels, and the owner's comment and authorship work as before. **Not checked then:**
+  refusing labels and the owner's comment (and authorship, when `owner_author` is on) work as before. **Not checked
+  then:**
   - a board `Done` or `Not planned` (or `Duplicate`, `Canceled`) on an issue that is **still open**: it does not
     refuse. To stop such an issue, close it or give it a refusing label;
-  - **approval by board status**: `Todo` or `In Progress` approves nothing. The issue needs the owner's comment or
-    the owner as its author.
+  - **approval by board status**, when `board_status` is on: `Todo` or `In Progress` approves nothing. The issue
+    needs another approval that is on, such as the owner's comment.
 - **Any other failure to read the board refuses** everything: the board may say done or not planned. Run the check
   again; do not merge until it reads the board or reports the missing scope.
 - Refused: do not merge. Report the reason and the one thing the owner can do.

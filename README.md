@@ -74,11 +74,11 @@ work and opens the pull request. Rules, message templates and a linter:
 ### Merge rules: only approved work
 
 Nothing is built or merged unless the pull request links an issue of the same repository and **every linked issue is
-approved** by one of:
-
-- the repository owner's comment on the issue ([template](src/skills/github/assets/owner-acceptance.template.md));
-- the repository owner being its author;
-- a project board status of `Todo` or `In Progress`, when the `gh` login can read the board.
+approved**. As shipped, only the repository owner's comment on the issue approves it
+([template](src/skills/github/assets/owner-acceptance.template.md)). An issue the owner's account created and a project
+board status of `Todo` or `In Progress` approve nothing: they are off while agents share the owner's account. The
+`approvals` list in [merge-rules.json](src/skills/github/assets/merge-rules.json) switches them on again
+(`owner_comment`, `owner_author`, `board_status`); a missing, empty or unknown value refuses everything.
 
 ```text
 Accepted by owner.
@@ -90,7 +90,7 @@ An issue that is closed (done, not planned or duplicate), labelled `duplicate` o
 `Not planned`, `Duplicate` or `Canceled` on a board is refused whatever else says yes. Agents often share the owner's
 account, so text signed by an agent never counts as the owner's. The check uses your `gh` login as it is. If GitHub
 answers that the login lacks the scope for project boards, it goes on without the board and says so: a board status then
-neither refuses nor approves ([what is not checked](src/skills/github/references/pull-requests.md#merge-rules)). Any
+does not refuse ([what is not checked](src/skills/github/references/pull-requests.md#merge-rules)). Any
 other failure to read the board refuses.
 
 ```bash

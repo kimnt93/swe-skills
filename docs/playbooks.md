@@ -47,12 +47,14 @@ Quick ([commands](../src/skills/playbook-quick/references/orchestration.md),
 
 ## Merge rules
 
-A pull request merges only when it links an issue of its repository and every linked issue is approved: the repository
-owner commented `Accepted by owner.`, the owner is its author, or its board status is `Todo` or `In Progress`. A closed
-issue (done, not planned, duplicate), a `duplicate` or `wontfix` label or a refusing board status refuses it. When the
-`gh` login lacks the scope for project boards, the check goes on without them and says so: no board status refuses or
-approves. Any other failure to read the board refuses. The same check runs before any work starts. Agents never approve
-for the owner. [Full rules](../src/skills/github/references/pull-requests.md#merge-rules).
+A pull request merges only when it links an issue of its repository and every linked issue is approved. As shipped, only
+the repository owner's comment `Accepted by owner.` approves it. An issue the owner's account created and a board status
+`Todo` or `In Progress` approve nothing: they are off while agents share the owner's account (the `approvals` list in
+`merge-rules.json` switches them on). A closed issue (done, not planned, duplicate), a `duplicate` or `wontfix` label or
+a refusing board status refuses it. When the `gh` login lacks the scope for project boards, the check goes on without
+them and says so: no board status refuses. Any other failure to read the board refuses. The same check runs before any
+work starts. Agents never approve for the owner.
+[Full rules](../src/skills/github/references/pull-requests.md#merge-rules).
 
 ## The gates
 
