@@ -59,9 +59,11 @@ TEMPLATES = {"epic": "write-issue", "planning": "write-issue", "package": "write
 PLAN_KINDS = ("plan", "epic-plan")
 # kind -> (what the first line must match, the shape to show, lines the body must have)
 FIRST_LINE = {
-    "decision": (r"(Accepted|Changes required|Stopped) by (CTO|CEO) \(.+?\)[.:]", "Accepted | Changes required | Stopped by CTO (<name>). ...", ()),
+    "decision": (r"((Accepted|Changes required|Stopped) by (CTO|CEO)|Stopped by reviewer) \(.+?\)[.:]",
+                 "Accepted | Changes required | Stopped by CTO (<name>). ... (a reviewer posts only Stopped)", ()),
     "status": (r"Status: (started|blocked|done)$", "Status: started|blocked|done", ("Card:", "Evidence:", "Next:")),
-    "verdict": (r"Verdict: (PASS|FAIL) at [0-9a-f]{40}$", "Verdict: PASS|FAIL at <40-character sha>", ()),
+    "verdict": (r"Verdict: (PASS at [0-9a-f]{40}|FAIL at [0-9a-f]{40}(\. Round [1-3] of 3\.)?)$",
+                "Verdict: PASS|FAIL at <40-character sha> (a FAIL in a fix loop adds '. Round K of 3.')", ()),
     "fix": (r"Fixed in [0-9a-f]{7,40}:$", "Fixed in <sha>:", ("New head:",)),
     "merge": (r"Merged by .+ at [0-9a-f]{7,40} after (PASS|acceptance)\.$", "Merged by <who> at <sha> after PASS|acceptance.", ()),
     "close": (r"(Closed: \S|Replaced by #\d+)", "Closed: <outcome and proof> | Replaced by #N", ()),
@@ -71,7 +73,8 @@ CLOSE_RE = re.compile(r"^(Closes|Refs) #\d+\s*$", re.M)
 GENERATED_RE = re.compile(r"(?im)^\W*generated (?:with|by) (?:\[|claude\b|chatgpt\b|copilot\b|codex\b|gemini\b)")
 MARKERS = ("optional", "on pass", "on fail", "needs code", "needs fence")
 PR_HEAD_RE = re.compile(r"PR #\d+ at [0-9a-f]{40}")
-MAX_ROUNDS = 3  # change requests the CTO/CEO may make on one PR in playbook-quick
+OWNER_ONLY_RE = re.compile(r"Accepted by owner\b", re.I)
+MAX_ROUNDS = 3  # change requests on one PR in a build playbook: a CTO/CEO decision or a reviewer's FAIL
 ROUND_RE = re.compile(rf"PR #\d+ at [0-9a-f]{{40}}\. Round [1-{MAX_ROUNDS}] of {MAX_ROUNDS}\.\s*$")
 CREATED_RE = re.compile(r"^Created: (\S.*?)\s*$", re.M)
 SECRET_RE = re.compile(
@@ -296,6 +299,8 @@ def pr_comment_outcome(kind: str, first: str) -> str | None:
 
 
 def lint_comment(kind: str, body: str) -> list[str]:
+    if OWNER_ONLY_RE.match(body.lstrip()):
+        return ["'Accepted by owner' is written only by the repository owner; an agent never posts it"]
     if kind in PLAN_KINDS:
         return lint_plan(kind, body) + lint_signature(body)
     pattern, shape, lines = FIRST_LINE[kind]

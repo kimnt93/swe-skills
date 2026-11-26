@@ -14,7 +14,9 @@ Only the headline and which sections apply differ:
 
 ## verdict (reviewer, on the PR)
 
-`Verdict: PASS at <40-character sha>` or `Verdict: FAIL at <40-character sha>`. PASS: Verified, Gate, Residual. FAIL:
+`Verdict: PASS at <40-character sha>` or `Verdict: FAIL at <40-character sha>`; in a fix loop (`playbook-ship`,
+`playbook-complete`) a FAIL ends `. Round <k> of 3.`, and the loop's end is `Stopped by reviewer (<name>). PR #<n> at
+<sha>.` PASS: Verified, Gate, Residual. FAIL:
 one Blocking section per finding, Gate, Residual (Verified for what did pass). There is no `CHANGES` verdict. A finding
 without a command and its output is dropped. A verdict is never carried to a new SHA or posted by the author on their
 own work.
@@ -38,15 +40,15 @@ Created: <author>
 
 or `Changes required by CTO (<name>):` with one concrete change per line. `CEO` replaces `CTO` when the CEO decides.
 
-## fix (author, on the same PR)
+## fix (whoever the playbook names as fixer, on the same PR)
 
 `Fixed in <sha>:`, one line per finding fixed, `New head: <sha>. Please re-review.`, then Gate and Residual. A reviewer
-does not edit the author's branch unless the playbook names the reviewer as fixer; a reviewer who fixes must not give
-the PASS for the new SHA.
+edits the branch only where the playbook names it as fixer (the
+[fix loop](../../reviewer/references/fix-loop.md)); its PASS then names every commit it pushed.
 
 ## merge (whoever the playbook names)
 
-`Merged by <who> at <sha> after PASS.` (`quick`: `after acceptance.`), what happened after (issue closed, branch
+`Merged by <who> at <sha> after PASS.` (`playbook-quick`: `after acceptance.`), what happened after (issue closed, branch
 deleted, changelog), then Gate (the required checks and their state) and Residual.
 
 ## Comments on an issue

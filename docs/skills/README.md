@@ -5,7 +5,7 @@ when to use it, what to say, what happens, what you get, and its files.
 
 | Page | Covers |
 |---|---|
-| [router.md](router.md) | `/swe` and its engineering methods (bug-fix, feature, refactoring, migration, perf-issue, ...), plus the three CTO playbooks |
+| [router.md](router.md) | `/swe` and its engineering methods (bug-fix, feature, refactoring, migration, perf-issue, ...), plus the five playbooks |
 | [process.md](process.md) | how, why, architect, principles, tdd, deslop, blast-radius, interrogate, verify-create, verify-maintain, replay-test, formal-verify, correct, ketchup, reflect, github, project |
 | [languages.md](languages.md) | go-code, py-code, rust-code, ts-code |
 | [data-platform.md](data-platform.md) | db-migrations, db-orm, api-contract, deployment-setup |
@@ -15,16 +15,17 @@ when to use it, what to say, what happens, what you get, and its files.
 ## Skills
 
 <!-- skills:start -->
-51 skills in 6 groups. Click a skill for its detail.
+52 skills in 6 groups. Click a skill for its detail.
 
 ### Start here
 
 | Skill | Description |
 |---|---|
-| [playbook](router.md#playbook) | Three playbooks: Plan, Review, Quick; pick by scope and risk |
+| [playbook-complete](router.md#playbook-complete) | Complete: CTO issues, developer PRs, a reviewer reviews and fixes, CTO trusts and merges |
 | [playbook-plan](router.md#playbook-plan) | Plan only: CTO card, architect analysis comment, back to the CTO to accept, then stop |
 | [playbook-quick](router.md#playbook-quick) | Quick: CTO issues, a worktree and PR each, 3 feedback rounds, CTO merges or stops, clean up |
-| [playbook-review](router.md#playbook-review) | Build an accepted plan: delegated PRs, PASS/FAIL review and fix loop, then the merge gate |
+| [playbook-review](router.md#playbook-review) | Review: read a PR and post one verdict comment; nothing is changed or merged |
+| [playbook-ship](router.md#playbook-ship) | Ship: review a PR, fix and re-review (3 rounds), merge it and close its issue, or stop |
 | [swe](router.md#router) | Entry point: picks language and playbook, delegates by agent, finishes only when make verify passes |
 
 ### Process and proof
@@ -54,7 +55,7 @@ when to use it, what to say, what happens, what you get, and its files.
 | [project](process.md#project) | Run a project's docs, GitHub repo setup, backlog and status |
 | [reflect](process.md#reflect) | Turn a long task's lessons into approved skill edits or new checks |
 | [replay-test](process.md#replay-test) | Prove money-path code on a recorded day, with duplicate and redelivery runs |
-| [reviewer](process.md#reviewer) | Reviewer: read-only verdict on one SHA, only findings proven by a run, PASS or FAIL |
+| [reviewer](process.md#reviewer) | Reviewer: a verdict on one SHA from proven findings; fixes only in ship and complete |
 | [tdd](process.md#tdd) | Failing test first, then the smallest change that makes it pass |
 | [verifier](process.md#verifier) | Verifier: run the real app against the feature map, file regressions, list findings; edits nothing |
 | [verify-create](process.md#verify-create) | Give a project make verify and a verify skill that drives it like a user |

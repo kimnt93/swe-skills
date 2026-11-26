@@ -1,4 +1,4 @@
-<headline: Verdict: PASS at <sha> | Verdict: FAIL at <sha> | Accepted by CTO (<name>). PR #<n> at <sha>. | Changes required by CTO (<name>). PR #<n> at <sha>. Round <k> of 3. | Stopped by CTO (<name>). PR #<n> at <sha>. | Fixed in <sha>: | Merged by <who> at <sha> after PASS.>
+<headline: Verdict: PASS at <sha> | Verdict: FAIL at <sha> (in a fix loop add: . Round <k> of 3.) | Accepted by CTO (<name>). PR #<n> at <sha>. | Changes required by CTO (<name>). PR #<n> at <sha>. Round <k> of 3. | Stopped by <CTO or reviewer> (<name>). PR #<n> at <sha>. | Fixed in <sha>: | Merged by <who> at <sha> after PASS.>
 
 <1 or 2 sentences: what was checked (PR, branch, issue) and the result>
 

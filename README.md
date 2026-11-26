@@ -35,20 +35,26 @@ make cli
 
 ### 1. Playbooks (`/swe:playbook-<name>`)
 
-Exactly three CTO pipelines. `plan` ends at an accepted plan on the issue; `review` ends at the reviewer/gate merge; `quick` ends at the CTO/CEO's merge.
+Exactly five pipelines. `plan` ends at an accepted plan; `quick` and `complete` build from a problem; `review` only
+comments on a PR; `ship` takes one PR to `main`.
 
 ```text
 /swe:playbook-plan users cannot export the orders they filtered; plan it
-/swe:playbook-review harden the order retry path; review every finding before merge
 /swe:playbook-quick users misread order times; fix it
+/swe:playbook-complete build the accepted export plan
+/swe:playbook-review review PR 54
+/swe:playbook-ship ship PR 54
 ```
 
 | Playbook | Purpose |
 |---|---|
 | `/swe:playbook-plan` | CTO card → architect plan comment → back to the CTO → accepts → stop ([example](src/skills/playbook-plan/references/example.md)) |
-| `/swe:playbook-review` | Build an accepted plan: PRs → reviewer PASS/FAIL and fix round → merge |
-| `/swe:playbook-quick` | CTO/CEO issues → a worktree and PR each → ≤3 feedback rounds → CTO/CEO merges and confirms, or stops → worktree removed ([example](src/skills/playbook-quick/references/example.md)) |
-| `/swe:playbook` | Dispatcher and the three-pipeline choice |
+| `/swe:playbook-quick` | CTO/CEO issues → a PR each → ≤3 feedback rounds → CTO/CEO merges or stops ([example](src/skills/playbook-quick/references/example.md)) |
+| `/swe:playbook-complete` | CTO/CEO issues → a PR each → a reviewer reviews and fixes → CTO/CEO trusts the PASS and merges ([example](src/skills/playbook-complete/references/example.md)) |
+| `/swe:playbook-review` | Read a PR and post one verdict comment; nothing changes |
+| `/swe:playbook-ship` | One PR: review and fix, ≤3 rounds → merge and close its issue, or stop ([example](src/skills/playbook-ship/references/example.md)) |
+
+Work is built or merged only for an approved issue ([merge rules](src/skills/github/references/pull-requests.md#merge-rules)).
 
 ### Templates: one style, yours to change
 

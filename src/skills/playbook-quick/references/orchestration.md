@@ -81,7 +81,7 @@ ORCA orchestration send --to "bot:<developer>" --chat <id> --type question \
 ```
 
 The first is for a worker (a finished one takes it as a follow-up task), the second for a bot. Send at most 3 rounds of
-feedback; check with `quick_loop.py decide` before each decision. A rebase request after another merge goes the same way
+feedback; check with `pr_loop.py decide` before each decision. A rebase request after another merge goes the same way
 and is not a round. If the developer is lost, follow the `/orchestration` recovery reference before
 starting another on the same branch.
 

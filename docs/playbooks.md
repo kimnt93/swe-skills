@@ -1,34 +1,41 @@
 # Playbooks
 
-There are **three CTO pipelines**. They all use the `work-package` formats and the `github` rules. **Plan** decides how
-and ends at an accepted plan; **Review** ends at the reviewer/gate merge and **Quick** at the CTO/CEO's merge. None lets
-the author merge.
+There are **five pipelines**. They use the `work-package` formats and the `github` rules. Nothing is built or merged
+unless the [merge rules](../src/skills/github/references/pull-requests.md#merge-rules) allow it, and no PR's author
+merges it.
 
 | Shortcut | Pipeline | Use it for | Inputs |
 |---|---|---|---|
 | `/swe:playbook-plan` | **Plan** | new feature, cross-file change, hard bug, a shape not yet settled | a problem or an `issue` |
-| `/swe:playbook-review` | **Review** | building an accepted plan with an independent PASS/FAIL review and fix round; risky or money-path work, code the author did not write | an accepted plan or an `issue` |
-| `/swe:playbook-quick` | **Quick** | ready to build with no design question; one problem may be several issues | a problem or `issue`s |
-
-`/swe:playbook` lists the three. There is no other playbook.
+| `/swe:playbook-quick` | **Quick** | ready to build, `simple` or `medium`; the CTO/CEO checks it | a problem or `issue`s |
+| `/swe:playbook-complete` | **Complete** | features, `hard` work, an accepted plan; a reviewer reviews and fixes | a problem, a plan or `issue`s |
+| `/swe:playbook-review` | **Review** | comment on one existing PR; changes nothing | a PR |
+| `/swe:playbook-ship` | **Ship** | take one existing PR to `main` and close its issue | a PR |
 
 ## DAGs
 
 ```text
-Plan     problem ─► CTO/CEO card ─► architect (bot or worker) ─► plan comment ─► back to CTO/CEO ─► accept ─► STOP
-Review   accepted plan ─► child cards ─► dev(s) ─► PR ─► reviewer PASS/FAIL ─► fixes ─► re-review ─► merge
-Quick    problem ─► CTO/CEO issue(s) ─► dev worktree ─► PR ⇄ CTO/CEO (≤3 rounds) ─► merge + confirm ─► remove worktree
-                                                          └─ still wrong ─► Stopped ─► remove worktree (PR and branch stay)
+Plan      problem ─► CTO/CEO card ─► architect ─► plan comment ─► back to CTO/CEO ─► accept ─► STOP
+Quick     problem ─► issue(s) ─► dev worktree ─► PR ⇄ CTO/CEO (≤3 rounds) ─► merge or stop ─► remove worktree
+Complete  problem ─► issue(s) ─► dev ─► PR, handover ─► reviewer: review ⇄ fix (≤3) ─► CTO/CEO trusts ─► merge or stop
+Review    PR ─► read and run ─► one verdict comment ─► STOP
+Ship      PR ─► reviewer: review ⇄ fix (≤3) ─► merge + close issue, or stop
 ```
+
+In `complete` and `ship` the reviewer fixes its own findings. Nobody else checks those fixes before `main`: the PASS
+names each commit, and a `risk:money-path` PR is never auto-merged
+([fix loop](../src/skills/reviewer/references/fix-loop.md)).
 
 The Plan messages travel through Orca orchestration. The
 [commands](../src/skills/playbook-plan/references/orchestration.md) and a
 [complete example](../src/skills/playbook-plan/references/example.md) (card, brief, plan comment, return, acceptance)
 ship with the skill.
 
-Quick ships its own [commands](../src/skills/playbook-quick/references/orchestration.md) and a
-[complete example](../src/skills/playbook-quick/references/example.md): one problem, two issues, one round of feedback,
-merged.
+Quick ([commands](../src/skills/playbook-quick/references/orchestration.md),
+[example](../src/skills/playbook-quick/references/example.md)), Complete
+([commands](../src/skills/playbook-complete/references/orchestration.md),
+[example](../src/skills/playbook-complete/references/example.md)) and Ship
+([example](../src/skills/playbook-ship/references/example.md)) ship their own.
 
 ## The gates
 
@@ -39,12 +46,14 @@ merged.
 | Issue ready (build) | CTO | `ID: title`, type + lane + difficulty labels, priority, closed file list, runnable `Done when` |
 | Plan accepted | CTO/CEO | the `plan` or `epic-plan` comment passes the linter, every open question is answered, and the decision comment is posted. **Plan ends here** |
 | PR ready | developer | owned files only, test first, `Closes #N`, evidence from the card's verify command on the committed head |
-| Review (`review`) | reviewer (different family) | `Verdict: PASS at <full sha>` and no open finding; a new push needs a new verdict |
-| PR returned (`quick`) | developer | `PR READY` or `PR BLOCKED` sent back with the PR URL and head SHA |
+| PR returned (`quick`, `complete`) | developer | `PR READY` or `PR BLOCKED` sent back with the PR URL and head SHA |
 | Accepted (`quick`) | CTO/CEO | checked at the head: lint, checks, diff, `Done when`; the decision names the SHA |
-| Feedback limit (`quick`) | CTO/CEO | at most 3 `Changes required` rounds, then accept or `Stopped by`; `quick_loop.py decide` refuses a fourth |
-| Worktree removed (`quick`) | developer | after the confirmed merge or the stop; `quick_loop.py can-remove` allows it only when nothing is lost |
-| Merge | reviewer/gate (`review`) or CTO/CEO (`quick`) | the checked SHA is the head, green required checks, branch not behind `main`; `gh pr merge --match-head-commit` or the project's documented gate |
+| Verdict (`review`, `ship`, `complete`) | reviewer, not the PR's writer | `Verdict: PASS\|FAIL at <full sha>` from proven findings; a new push needs a new verdict |
+| Feedback limit (`quick`, `ship`, `complete`) | whoever judges | at most 3 rounds, then pass or `Stopped by`; `pr_loop.py decide` refuses a fourth |
+| Trusted merge (`complete`) | CTO/CEO | `pr_loop.py can-merge`: a PASS on the head, not by the writer, naming the reviewer's own commits |
+| Worktree removed (`quick`, `ship`, `complete`) | whoever made it | `pr_loop.py can-remove` allows it only when nothing is lost |
+| Issue approved | the repository owner | before work starts and again before the merge: `issue_gate.py` allows it ([merge rules](../src/skills/github/references/pull-requests.md#merge-rules)) |
+| Merge | CTO/CEO (`quick`, `complete`) or reviewer (`ship`) | the checked SHA is the head, green required checks, branch not behind `main`; `gh pr merge --match-head-commit` or the project's documented gate |
 
 Issues are written with [`write-issue`](../src/skills/write-issue/SKILL.md) (kinds and the
 [catalog](../src/skills/write-issue/references/catalog.md)); plan, decision, verdict, fix and close comments with
@@ -56,17 +65,15 @@ All templates, and how to change their style: [templates](../src/skills/write-is
 ## Rules
 
 - A build is one package, one issue, one worktree, one branch, one PR, one owner.
-- The CTO does not code; the developer does not merge; the reviewer does not edit during review. In `quick` the CTO/CEO
-  merges, unless the project reserves the merge for a person.
-- In `review`, the default fixer is the author; if the CTO assigns the reviewer as fixer, a different reviewer or the CTO
-  posts the PASS for the new SHA. Never self-approve.
-- A `quick` issue that turns out to need a design decision or hard work stops and becomes `plan` or `review`.
+- The CTO does not code and the developer does not merge. A project that reserves the merge for a person wins.
+- Only `complete` and `ship` let the reviewer edit, and only to fix its posted findings. `review` never edits.
+- A `quick` issue that turns out to need a design decision or hard work stops and becomes `plan` or `complete`.
 - Plans and verdicts are comments, not new issues. A plan that creates packages also creates their issues and links them.
 - A merge is not done until the issue is closed, the branch deleted and the worktree removed.
 
 ## What happened to the old playbooks
 
-The old `playbook-deliver`, `playbook-feature`, `playbook-bugfix`, `playbook-review` (review-only), `playbook-cifix`,
-`playbook-docs`, `playbook-rebase`, `playbook-land`, `playbook-changelog`, `playbook-verify` and `playbook-solo` are
-removed. Their useful methods live in the skills they named (`github`, `tdd`, `docs-sync`, `ci-fixer`, `integrator`,
+The old `playbook-deliver`, `playbook-feature`, `playbook-bugfix`, `playbook-cifix`,
+`playbook-docs`, `playbook-rebase`, `playbook-land`, `playbook-changelog`, `playbook-verify`, `playbook-solo` and the `playbook` dispatcher are
+removed. `playbook-review` is now comment-only; building with a reviewer is `playbook-complete`. Their useful methods live in the skills they named (`github`, `tdd`, `docs-sync`, `ci-fixer`, `integrator`,
 `changelog`, `verifier`, `reviewer`, `delegate`); they are no longer separate CTO pipelines.

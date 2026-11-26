@@ -1,6 +1,6 @@
 ---
 name: manager
-description: "How a project's manager handles requests: pick one of the three CTO playbooks (plan, review, quick), coordinate the architect plan and delegated cards via Orca/T3/CLI, watch verification, and report."
+description: "How a project's manager handles requests: pick one of the five playbooks (plan, quick, complete, review, ship), coordinate the architect plan and delegated cards via Orca/T3/CLI, watch verification, and report."
 metadata:
   group: process
   summary: "Manager: pick the playbook for a request, coordinate delegation, verify, and report"
@@ -18,7 +18,8 @@ Decide per message, before anything else:
 |---|---|
 | A question: how something works, why it is so, what changed, what is running (`how`, `why`, `ketchup`, `interrogate`) | Answer directly with read-only skills. No edits, no delegations. |
 | A problem to plan or design | Run `playbook-plan`; it stops at the accepted plan. |
-| Work that changes code | Run the chosen playbook: `review` or `quick`; coordinate with `delegate`. |
+| Work that changes code | Run the chosen playbook: `quick`, `complete` or `ship`; coordinate with `delegate`. |
+| A pull request to look at | Run `playbook-review`; it only comments. |
 | Request to change agents or engines | Update `config.json` (`swe-cli config`). |
 
 A question never starts a run, and work never starts without an acceptance done-predicate.
@@ -69,11 +70,13 @@ swe-cli models show
 | Request | Playbook | Execution / Delegation |
 |---|---|---|
 | Plan a new feature, cross-file change, hard bug, unsettled shape | `playbook-plan` | Card → architect plan comment → back to the CTO → acceptance → stop |
-| Build an accepted plan; risky or money-path work | `playbook-review` | Accepted plan → PRs → reviewer PASS/FAIL → author fixes → re-review → merge |
-| Ready to build with no design question (one or more issues) | `playbook-quick` | Issues → a worktree and PR each → back to the CTO, ≤3 feedback rounds → CTO merges or stops → worktree removed |
+| Ready to build, `simple` or `medium`, checked by the CTO | `playbook-quick` | Issues → a PR each → ≤3 feedback rounds → CTO merges or stops |
+| Features, hard work, an accepted plan, with a separate reviewer | `playbook-complete` | Issues → a PR each → reviewer reviews and fixes → CTO trusts the PASS and merges |
+| Review this PR | `playbook-review` | One verdict comment; nothing changes |
+| Ship, finish or land this PR | `playbook-ship` | Reviewer reviews and fixes → merges and closes the issue, or stops |
 | A question: how/why/what changed | `how`, `why`, `ketchup`, `interrogate` | Answer read-only; no run |
 
-There is no other playbook. If an issue does not fit `quick`, use `plan`; if it needs a review round, use `review`.
+There is no other playbook. An open design question goes to `plan` first.
 
 ---
 
@@ -90,7 +93,7 @@ When executing a playbook with multiple cards or subtasks:
      --verify "make verify" \
      --json
    ```
-4. Check diffs and test results as the playbook says (`quick`: the CTO/CEO; `review`: the reviewer); the author never merges.
+4. Judge the diff as the playbook says (`quick`: the CTO/CEO; `complete` and `ship`: the reviewer); the author never merges.
 5. The role the playbook names merges the checked SHA; clean the worktree and branch.
 
 ---

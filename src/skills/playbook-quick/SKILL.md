@@ -46,7 +46,7 @@ and each is `simple` or `medium`. The number of issues does not matter.
 | Signal | Go to |
 |---|---|
 | a design choice is open: a new boundary, schema or contract nobody has decided | `playbook-plan` |
-| `hard` work, a race, security, `risk:money-path`, or code nobody here understands | `playbook-review` |
+| `hard` work, a race, security, `risk:money-path`, or code nobody here understands | `playbook-complete` |
 | a developer finds the work bigger than the issue says | it sends back `PR BLOCKED` with the evidence; the CTO/CEO re-routes |
 
 ## 1. CTO/CEO: turn the problem into issues
@@ -69,6 +69,12 @@ How to split:
 - Each child says `Refs #<parent>` in `Notes`. After creating the children, list their numbers and waves in the
   parent's `## Notes`.
 
+**Then run the gate on every issue** to be built:
+`python3 <github skill>/scripts/issue_gate.py issue <n> --repo <owner>/<repo>`. An issue the CTO/CEO agent created is
+**not** approved by that: give the repository owner the issue links and the
+[acceptance comment](../github/references/issues.md#before-any-work), then end your turn. Never post it yourself. Send
+only the issues the gate allows.
+
 ## 2. CTO/CEO: send each issue to a developer
 
 One brief per issue in the [brief format](assets/example/developer-brief.md): the issue URL, the developer's author
@@ -80,7 +86,8 @@ only after the PRs it depends on are **merged**. Commands: [send the issues](ref
 **Every issue has its own worktree**, never shared with another issue or with the main checkout
 ([create it](references/orchestration.md#2-send-the-issues)). Use the `developer` skill and the language skill:
 
-1. In the worktree, branch from the newest `main` as `<id-lowercase>/<slug>`; change only the owned files.
+1. Run `issue_gate.py issue <n>` (the `github` skill) **before** the worktree and any code; refused: send `PR BLOCKED`
+   with the reason. In the worktree, branch from the newest `main` as `<id-lowercase>/<slug>`; change only the owned files.
 2. Test first when the change has code. Clean the diff with `deslop`.
 3. Commit with your name: `agent_identity.py git --author "<your name>" -- commit -m "<type>(<id>): <summary>"`.
 4. Run the issue's `Done when` on the committed head. Write the PR body from the
@@ -101,7 +108,7 @@ One report for each head you want checked. How: [send it back](references/orches
 Check the **PR at its head SHA**, not the report. First read where the loop stands:
 
 ```bash
-python3 <this skill>/scripts/quick_loop.py state --pr <n> --repo <owner>/<repo>
+python3 <github skill>/scripts/pr_loop.py state --pr <n> --repo <owner>/<repo>
 gh pr view <n> --repo <owner>/<repo> --json headRefOid,mergeable,mergeStateStatus,closingIssuesReferences
 python3 <github skill>/scripts/pr_lint.py pr <n> --repo <owner>/<repo> --allow '<each owned file>'
 gh pr checks <n> --repo <owner>/<repo>
@@ -122,7 +129,7 @@ the project requires are there. Then write **one** `decision` comment from the
 [PR comment template](../write-comment/assets/pr-comment.template.md), check it, and post it **on the PR**:
 
 ```bash
-python3 <this skill>/scripts/quick_loop.py decide --pr <n> --repo <owner>/<repo> --body-file decision.md
+python3 <github skill>/scripts/pr_loop.py decide --pr <n> --repo <owner>/<repo> --body-file decision.md
 gh pr comment <n> --repo <owner>/<repo> --body-file decision.md
 ```
 
@@ -150,6 +157,8 @@ When the accepted SHA is still the head, checks are green and the branch is not 
 with the [merge command](../github/references/pull-requests.md#merge):
 
 ```bash
+python3 <github skill>/scripts/pr_loop.py can-merge --pr <n> --repo <owner>/<repo>    # your acceptance is on this head
+python3 <github skill>/scripts/issue_gate.py pr <n> --repo <owner>/<repo>    # merge only on 'merge rules: allowed'
 gh pr merge <n> --repo <owner>/<repo> --rebase --match-head-commit <accepted sha> --delete-branch
 ```
 
@@ -173,6 +182,10 @@ Only then: post the `merge` comment on the PR and send the developer [`MERGED`](
 - **Close the problem:** when every child is merged, run the parent's `Done when` on `main`, post a `close` comment and
   close the parent.
 
+**The [merge rules](../github/references/pull-requests.md#merge-rules) come first.** An accepted head is not enough. If a
+linked issue became done, not planned or duplicate while it was built, nobody works on it further: stop the PR
+(step 7), whatever the round count.
+
 ## 7. The loop breaks: stop
 
 1. Post the `Stopped by` decision on the PR. It is the **final feedback**: one `Blocking` section per thing still wrong,
@@ -185,7 +198,7 @@ Only then: post the `merge` comment on the PR and send the developer [`MERGED`](
    the issue. Work that depends on this issue is not sent, and a developer already on it is stopped the same way. Other
    issues carry on; the parent stays open.
 5. Report to the human: the PR, why it stopped, what is left. Restarting is the human's decision (for example a new
-   plan with `playbook-plan`, `playbook-review`, or a replacement issue).
+   plan with `playbook-plan`, `playbook-complete`, or a replacement issue).
 
 ## 8. Developer: remove the worktree
 
@@ -193,7 +206,7 @@ Only after `MERGED` or `STOPPED`. First prove nothing is lost; the script remove
 
 ```bash
 ORCA worktree current --json            # note this worktree's path
-python3 <this skill>/scripts/quick_loop.py can-remove --worktree <path> --pr <n> --repo <owner>/<repo>
+python3 <github skill>/scripts/pr_loop.py can-remove --worktree <path> --pr <n> --repo <owner>/<repo>
 ```
 
 It allows removal when the tree is clean, every local commit is on the PR on GitHub, and the PR is merged, or stopped
@@ -216,7 +229,7 @@ A developer cancelled before it opened a PR pushes its branch, then runs `can-re
 
 ## State: read it from the host
 
-| For each issue (`quick_loop.py state` for a PR) | The next step |
+| For each issue (`pr_loop.py state` for a PR) | The next step |
 |---|---|
 | no PR | send it, if the PRs it depends on are merged; otherwise it waits |
 | a PR, head not decided | the developer is working, or the CTO/CEO checks it (step 5) |
@@ -243,6 +256,7 @@ A developer cancelled before it opened a PR pushes its branch, then runs `can-re
 
 ## Never
 
+- Build or merge for an issue the gate refuses, or write the owner's acceptance for them.
 - Let a developer merge, or the CTO/CEO write the fix and merge it.
 - Merge a SHA you did not accept, with a red or missing required check, or with an admin override.
 - Ask for a fourth round, or reset the count with a new PR for the same work.

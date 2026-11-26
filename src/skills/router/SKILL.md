@@ -32,7 +32,7 @@ Never start a new HTTP API in Python or Rust without a reason written in the PR.
 1. **In your own words first.** Before any edit, state the goal, the smallest change you expect to
    meet it, and the **done-predicate**: a command and its expected output. Don't wait for
    confirmation. If the evidence rules out the requested change, show it and stop.
-2. **Pick one CTO pipeline** (`plan`, `review` or `quick`) from the table below. Open a todo list whose first items are
+2. **Pick one pipeline** (`plan`, `quick`, `complete`, `review` or `ship`) from the table below. Open a todo list whose first items are
    its steps.
 3. **Load the domain skill** before you write code. It carries the code standard and tested templates.
 4. **Principles.** Read the `principles` index; open each one whose "applies" line matches; name in
@@ -52,18 +52,22 @@ Never start a new HTTP API in Python or Rust without a reason written in the PR.
     comment and PR body; branch from `main`, small Conventional Commits, a PR linked to
     its issue, merge only through the gate (the `github` skill).
 
-## CTO pipelines: exactly three
+## Pipelines: exactly five
 
-Every request that plans or changes a repository is one of these. Pick by scope and risk; there is no fourth playbook.
+Every request that plans, builds or judges a change is one of these. Pick by what comes in; there is no sixth.
 
 | Pipeline | Use it for | Flow |
 |---|---|---|
 | `playbook-plan` | planning a new feature, cross-file change, hard bug, unsettled shape | CTO card → architect plan comment → back to the CTO → accepts → stop, nothing built |
-| `playbook-review` | building an accepted plan; risky or money-path work, code you did not write | accepted plan → PRs → reviewer PASS/FAIL → author fixes → re-review → merge |
-| `playbook-quick` | ready to build, no design question; one problem may be several issues | CTO/CEO issues → a worktree and PR each → ≤3 feedback rounds → CTO/CEO merges or stops → worktree removed, no plan |
+| `playbook-quick` | ready to build, `simple` or `medium`; one problem may be several issues | CTO/CEO issues → a PR each → the CTO/CEO checks, ≤3 feedback rounds → merges or stops |
+| `playbook-complete` | features, `hard` work, an accepted plan; a reviewer judges | CTO/CEO issues → a PR each → reviewer reviews and fixes, ≤3 rounds → CTO/CEO trusts it and merges |
+| `playbook-review` | comment on one existing PR | read → one PASS or FAIL comment → stop, nothing changed |
+| `playbook-ship` | take one existing PR to `main` | reviewer reviews and fixes, ≤3 rounds → merges and closes the issue, or stops |
 
-Issues are written with `write-issue`, comments with `write-comment`, PRs with `work-package`; only the role the playbook names merges, at the checked
-SHA. A request to plan stops at the accepted plan. A `quick` card that grows stops and becomes `plan` or `review`.
+Issues are written with `write-issue`, comments with `write-comment`, PRs with `work-package`. Anything built or merged
+passes the [merge rules](../github/references/pull-requests.md#merge-rules); only the role the playbook names merges, at
+the judged SHA. A request to plan stops at the accepted plan; a request to review changes nothing. A `quick` issue that
+grows stops and becomes `plan` or `complete`.
 
 ## Engineering methods
 

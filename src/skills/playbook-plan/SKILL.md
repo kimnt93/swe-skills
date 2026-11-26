@@ -89,8 +89,8 @@ command. Post **one** `decision` comment ([format](../write-comment/references/o
   leaves the old one, and sends it back. Repeat from step 4.
 
 **Stop here.** Report the issue URL, the accepted comment and the decisions. The issue stays open. Do not create child
-cards, start a developer or open a worktree for the build. Building is a separate request: `playbook-review` takes the
-accepted plan.
+cards, start a developer or open a worktree for the build. Building is a separate request: `playbook-complete` takes the
+accepted plan (`playbook-quick` when every package is `simple` or `medium`).
 
 ## State: read it from the issue
 

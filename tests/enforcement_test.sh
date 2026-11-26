@@ -78,7 +78,7 @@ python3 - "$root" <<'PY' || fail "playbook skills"
 import re, sys
 from pathlib import Path
 root = Path(sys.argv[1]); bad = []
-expected = {"playbook", "playbook-plan", "playbook-review", "playbook-quick"}
+expected = {"playbook-plan", "playbook-quick", "playbook-complete", "playbook-review", "playbook-ship"}
 actual = {p.parent.name for p in (root / "src/skills").glob("playbook*/SKILL.md")}
 if actual != expected:
     bad.append(f"playbooks must be exactly {sorted(expected)}, got {sorted(actual)}")
@@ -89,10 +89,11 @@ for f in sorted((root / "src/skills").glob("playbook*/SKILL.md")):
     if not re.search(r'^  summary: ".+"$', text, re.M):
         bad.append(f"{f.parent.name}: must have non-empty summary")
 checks = {
-    "playbook-review": ["different model family", "PASS", "FAIL", "fix"],
+    "playbook-review": ["one verdict comment", "Nothing else changes", "Never", "safe to run", "without** a round"],
+    "playbook-ship": ["fix loop", "of 3.", "can-merge", "issue_gate.py pr", "--match-head-commit", "Stopped by reviewer", "checked by nobody else"],
+    "playbook-complete": ["reviewer", "Trust it", "can-merge", "--handover", "of 3.", "Stopped by reviewer", "--match-head-commit", "/orchestration", "checked by nobody else"],
     "playbook-plan": ["architect", "plan comment", "CTO", "send it back", "**Stop here.**", "/orchestration"],
     "playbook-quick": ["No architect", "CTO/CEO merges", "send it back", "--match-head-commit", "/orchestration", "of 3.", "Stopped by", "can-remove"],
-    "playbook": ["playbook-plan", "playbook-review", "playbook-quick"],
 }
 for name, needles in checks.items():
     text = (root / "src/skills" / name / "SKILL.md").read_text(encoding="utf-8")
@@ -167,8 +168,25 @@ branch, title = "ord-02/local-order-times", "fix(ord-02): show local order times
 bad += [f"pr.md (work-package): {x}" for x in L.lint_pr(branch, title, text("pr.md"))]
 bad += [f"pr.md (github): {x}" for x in P.lint(branch, title, text("pr.md"), [], 40, [], 400)
         + P.lint_author(text("pr.md"), [("4f2c9a1d", ["Developer (example)"])], [])]
-# no quick command or message removes a worktree by force or deletes its branch
-for doc in sorted((skills / "playbook-quick").rglob("*.md")):
+# the complete playbook's examples pass the linters, and its approval passes the loop's own rules
+done = skills / "playbook-complete/assets/example"
+for name, kind in (("verdict-fail.md", "verdict"), ("fix.md", "fix"), ("verdict-pass.md", "verdict"), ("merge.md", "merge"),
+                   ("stopped.md", "decision")):
+    bad += [f"playbook-complete {name}: {x}" for x in L.lint_comment(kind, (done / name).read_text(encoding="utf-8"))]
+import pr_loop as G
+first, last = "4f2c9a1d8b7e6c5a4f3e2d1c0b9a8f7e6d5c4b3a", "9b8a7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b"
+def pull(head, who):
+    return {"state": "OPEN", "headRefOid": head, "body": text("pr.md"), "labels": [],
+            "commits": [{"oid": sha, "authors": [{"name": name}]} for sha, name in who]}
+dev, rev = (first, "Developer (example)"), (last, "Reviewer (example)")
+past = []
+for name, state in (("verdict-fail.md", pull(first, [dev])), ("verdict-pass.md", pull(last, [dev, rev]))):
+    body = (done / name).read_text(encoding="utf-8")
+    bad += [f"playbook-complete {name}: {x}" for x in G.check_decision(past, body, 54, state)]
+    past += G.decisions([{"body": body, "authorAssociation": "OWNER", "at": str(len(past))}], 54)
+bad += [f"playbook-complete can-merge: {x}" for x in G.merge_problems(past, pull(last, [dev, rev]))]
+# no playbook command or message removes a worktree by force or deletes its branch
+for doc in sorted([*skills.glob("playbook*/**/*.md"), *(skills / "reviewer").rglob("*.md")]):
     for line in doc.read_text(encoding="utf-8").splitlines():
         if re.search(r"worktree (rm|remove) .*--(force|delete-branch)", line):
             bad.append(f"{doc.relative_to(skills)}: forced or branch-deleting worktree removal: {line.strip()}")
@@ -177,6 +195,16 @@ for doc in sorted(skills.rglob("*.md")):
     for line in doc.read_text(encoding="utf-8").replace("\\\n", " ").splitlines():
         if re.match(r"\s*gh pr merge\b", line) and ("--rebase" not in line or re.search(r"--(squash|merge)\b", line)):
             bad.append(f"{doc.relative_to(skills)}: merge with --rebase so commits keep the agent's name: {line.strip()}")
+# every page that documents the merge command also runs the merge rules first
+for doc in sorted(skills.rglob("*.md")):
+    text_of = doc.read_text(encoding="utf-8")
+    if re.search(r"^\s*gh pr merge\b", text_of, re.M) and "issue_gate.py pr" not in text_of:
+        bad.append(f"{doc.relative_to(skills)}: documents 'gh pr merge' without 'issue_gate.py pr' (the merge rules)")
+    if re.search(r"^\s*gh pr merge\b", text_of, re.M) and "can-merge" not in text_of:
+        bad.append(f"{doc.relative_to(skills)}: documents 'gh pr merge' without 'pr_loop.py can-merge' (the judgment on this head)")
+for kind in ("reply", "decision", "status"):
+    if "only by the repository owner" not in " ".join(L.lint_comment(kind, "Accepted by owner.\n\nCreated: Bot (CTO)\n")):
+        bad.append(f"package_lint lets an agent write the owner's acceptance as a {kind} comment")
 for doc in sorted(skills.rglob("*")):
     if doc.is_file() and doc.suffix in (".md", ".sh", ".py") and "-cli merge" in doc.read_text(encoding="utf-8"):
         bad.append(f"{doc.relative_to(skills)}: names a CLI merge command that does not exist")
@@ -188,5 +216,5 @@ for line in commands.splitlines():
 if bad:
     raise SystemExit("; ".join(bad))
 PY
-pass "playbook skills: exactly three CTO pipelines, valid metadata, plan/review/quick boundaries and comment format"
+pass "playbook skills: exactly five pipelines, valid metadata, their boundaries, examples and comment formats"
 echo "all passed"

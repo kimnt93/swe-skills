@@ -203,9 +203,10 @@ def cmd_delegate(argv: List[str]) -> int:
 def cmd_playbooks() -> int:
     playbooks = [
         ("playbook-plan", "CTO card, architect plan comment, sent back to CTO, accept, stop (nothing built)"),
-        ("playbook-review", "Build an accepted plan: PRs, reviewer PASS/FAIL, author fixes, re-review, merge"),
-        ("playbook-quick", "CTO issue(s), a worktree and PR each, 3 feedback rounds, merge or stop, clean up"),
-        ("playbook", "Dispatcher for the three CTO pipelines"),
+        ("playbook-quick", "CTO issue(s), a PR each, CTO checks with 3 feedback rounds, merge or stop"),
+        ("playbook-complete", "CTO issue(s), a PR each, reviewer reviews and fixes, CTO trusts it and merges"),
+        ("playbook-review", "Review one PR and post one verdict comment; changes nothing"),
+        ("playbook-ship", "One PR: review and fix (3 rounds), merge and close its issue, or stop"),
     ]
     name = get_plugin_name()
     print(f"=== Available Playbooks (invoke via /{name}:<playbook>) ===")

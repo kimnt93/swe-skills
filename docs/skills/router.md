@@ -205,15 +205,10 @@ limit: smaller scope; dropped connection: same brief; wrong approach: one tier u
 `harness.md` maps each abstract action (start a subagent, ask the human, todo list, wake later, project-local
 skill path) to Claude Code, oh-my-pi and Codex.
 
-## Playbooks: three CTO pipelines
+## Playbooks: five pipelines
 
-Every repository change is one of these. They use the `write-issue`, `write-comment` and `work-package` formats; the role each playbook names merges.
-There is no fourth playbook.
-
-### playbook
-
-**What it is.** Dispatcher for the three CTO pipelines. **When.** Choose `plan` to plan new or unsettled work, `review` to
-build an accepted plan or risky work with a PASS/FAIL fix round, and `quick` when every issue is ready to build with no design question.
+They use the `write-issue`, `write-comment` and `work-package` formats; the role each playbook names merges, under the
+merge rules. There is no sixth playbook.
 
 ### playbook-plan
 
@@ -221,16 +216,28 @@ build an accepted plan or risky work with a PASS/FAIL fix round, and `quick` whe
 comment (`write-comment`) → sent back to the CTO/CEO → decision → stop. No code, branch or PR. **When.** New features,
 cross-file changes, hard bugs, or a shape not yet settled.
 
-### playbook-review
-
-**What it is.** The build pipeline for an accepted plan: child cards and developer PRs, an independent reviewer PASS/FAIL
-at the head, an author fix round, a re-review at the new SHA, and the reviewer/gate merge. **When.** Risky or money-path
-work, code the author did not write, or work likely to have review findings.
-
 ### playbook-quick
 
 **What it is.** CTO/CEO issues (a parent when there is more than one) → each developer in its own worktree opens one
 PR and sends it back → at most 3 feedback rounds → the CTO/CEO merges the accepted SHA and confirms, or stops it with
 final feedback (PR and branch stay on GitHub) → the developer removes the worktree. No architect plan and no separate
-reviewer. **When.** Every issue can be written now with no design question, each `simple` or `medium`. **Files.**
-`scripts/quick_loop.py` (round count, decision check, safe-removal check), the orchestration commands and an example.
+reviewer. **When.** Every issue can be written now with no design question, each `simple` or `medium`. **Files.** The
+orchestration commands and an example.
+
+### playbook-complete
+
+**What it is.** CTO/CEO issues → each developer opens one PR, hands the branch over and removes its worktree → a
+reviewer (another agent) reviews and fixes, at most 3 rounds → the CTO/CEO trusts the PASS, checks it mechanically and
+merges, or reports the stop. The reviewer's own fixes are checked by nobody else, and the PASS names them. **When.**
+Features, hard work, or building an accepted plan. **Files.** The orchestration commands, an example and its messages.
+
+### playbook-review
+
+**What it is.** Read one pull request, its issue and diff, run its checks when the code is safe to run, and post one
+`PASS` or `FAIL` comment at the head SHA. Nothing is edited, pushed or merged. **When.** Someone asks for a review.
+
+### playbook-ship
+
+**What it is.** One existing PR: the reviewer reviews it, fixes its findings, reviews again for at most 3 rounds, then
+merges it and confirms its issue closed, or stops it with the PR left open. It needs an issue the merge rules approve,
+and a reviewer who did not write the PR. **When.** Ship, finish or land a PR. **Files.** An example.

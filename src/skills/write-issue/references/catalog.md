@@ -77,9 +77,9 @@ The part of the product (`bots`, `mobile`, `ci`, ...). Each project has its own;
 |---|---|---|
 | `plan` | architect, on a planning card | ``## Architecture & Planning (`ID` — Priority: Low)`` |
 | `epic-plan` | architect, on an epic | ``## Architecture & Planning (`ID`)`` |
-| `decision` | CTO/CEO, on a plan or a PR | `Accepted by CTO (<name>).`, `Changes required by CTO (<name>)`, or on a PR `Stopped by CTO (<name>).` |
+| `decision` | CTO/CEO, on a plan or a PR | `Accepted by CTO (<name>).`, `Changes required by CTO (<name>)`, or on a PR `Stopped by CTO (<name>).`; a reviewer posts only `Stopped by reviewer (<name>).` |
 | `status` | whoever holds the work | `Status: started\|blocked\|done` |
-| `verdict` | reviewer, on the PR | `Verdict: PASS\|FAIL at <40-character sha>` |
+| `verdict` | reviewer, on the PR | `Verdict: PASS\|FAIL at <40-character sha>`; a FAIL in a fix loop adds `. Round K of 3.` |
 | `fix` | author, on the PR | `Fixed in <sha>:` |
 | `merge` | whoever the playbook names to merge, on the PR | `Merged by <who> at <sha> after PASS.` or `after acceptance.` |
 | `close` | the owner of the issue | `Closed: <outcome>` or `Replaced by #N` |
@@ -89,3 +89,6 @@ The part of the product (`bots`, `mobile`, `ci`, ...). Each project has its own;
 
 Issues (the three kinds), comments (the nine kinds), branches, commits and pull requests (the `work-package` skill).
 Every issue, comment and PR body ends with `Created: <agent name>`; every commit is authored by that name.
+
+**Not an agent's:** the owner's acceptance comment (`Accepted by owner.`). Only the repository owner writes it
+([merge rules](../../github/references/pull-requests.md#merge-rules)); creating an issue does not approve it.

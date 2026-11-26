@@ -7,7 +7,7 @@ a web change, with one contract between them. The project, files, numbers and na
 | # | Who | What | File |
 |---|---|---|---|
 | 1 | CTO/CEO | creates the parent and two issues; the contract is in both | [parent](../assets/example/parent.md), [API issue](../assets/example/issue-api.md), [web issue](../assets/example/issue-web.md) |
-| 2 | CTO/CEO | sends wave 1 (API); ends the turn | [brief](../assets/example/developer-brief.md) (the web one; the API one is alike) |
+| 2 | CTO/CEO | runs the gate; after the repository owner's [acceptance](../../github/assets/owner-acceptance.template.md) on each issue, sends wave 1 (API); ends the turn | [brief](../assets/example/developer-brief.md) (the web one; the API one is alike) |
 | 3 | Developer | builds, opens the PR | [PR body](../assets/example/pr.md) |
 | 4 | Developer | sends it back | [return report](../assets/example/return-report.md) |
 | 5 | CTO/CEO | checks the head, asks for a change | [changes](../assets/example/changes.md) |
@@ -67,7 +67,7 @@ gh pr create --base main --title "fix(ord-02): show local order times" --body-fi
 python3 <github skill>/scripts/pr_lint.py pr 54 --repo <owner>/<repo> --allow 'web/src/pages/Orders*' --allow CHANGELOG.md
 gh pr checks 54 --repo <owner>/<repo>
 python3 <work-package skill>/scripts/package_lint.py comment --kind decision --body-file changes.md
-python3 <playbook-quick skill>/scripts/quick_loop.py decide --pr 54 --repo <owner>/<repo> --body-file changes.md
+python3 <github skill>/scripts/pr_loop.py decide --pr 54 --repo <owner>/<repo> --body-file changes.md
 gh pr comment 54 --repo <owner>/<repo> --body-file changes.md
 ORCA orchestration send --to dispatch:<dispatch_id> --subject "ORD-02: changes required on PR #54" --body-file changes.md
 
@@ -75,13 +75,15 @@ ORCA orchestration send --to dispatch:<dispatch_id> --subject "ORD-02: changes r
 
 # 7 and 8. CTO/CEO
 gh pr comment 54 --repo <owner>/<repo> --body-file acceptance.md
+python3 <github skill>/scripts/pr_loop.py can-merge --pr 54 --repo <owner>/<repo>
+python3 <github skill>/scripts/issue_gate.py pr 54 --repo <owner>/<repo>
 gh pr merge 54 --repo <owner>/<repo> --rebase --match-head-commit 9b8a7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b --delete-branch
 gh pr view 54 --repo <owner>/<repo> --json state,mergeCommit,closingIssuesReferences
 gh pr comment 54 --repo <owner>/<repo> --body-file merge.md
 
 # 9. CTO/CEO, then the developer in its worktree, then the CTO/CEO
 ORCA orchestration send --to dispatch:<dispatch_id> --subject "MERGED ORD-02: remove your worktree" --body-file cleanup-merged.md
-python3 <playbook-quick skill>/scripts/quick_loop.py can-remove --worktree <path> --pr 54 --repo <owner>/<repo>
+python3 <github skill>/scripts/pr_loop.py can-remove --worktree <path> --pr 54 --repo <owner>/<repo>
 ORCA worktree rm --worktree path:<path>
 ORCA worktree ps
 ```
