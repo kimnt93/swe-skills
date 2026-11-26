@@ -60,9 +60,11 @@ A bot starts agents for **its own** job only. Only when no bot has the role may 
 | **Developer** | the code job: difficulty, agents, worktrees, verification, the PR, the report | design or priority calls, review of its own PR, the merge |
 | **Reviewer** | the verdict on a PR it did not write, drafted by its own agents; in `ship` and `complete` also the fixes, and in `ship` the merge | build the PR it judges |
 
-**The role bot does not answer** (for example out of quota: Orca says it ended its turn without a reply): the job is
-still **that bot's**. Do not redo it, call it dropped, or start its role's agents. Tell the owner which bot, which job
-and why, and let them decide.
+**"Ended its turn without a reply"** is not proof that a bot did nothing: Orca can say it right after the bot reported,
+because a `status` is not a reply to the handoff. **Look for its status first** (your chat,
+`ORCA orchestration inbox`). It arrived: that is the report, so verify it and continue. None arrived (for example the
+bot is out of quota): the job is still **that bot's**. Do not redo it, call it dropped, or start its role's agents. Tell
+the owner which bot, which job and why, and let them decide.
 
 An analysis, a check or a search that is part of a bot's own job may use its own agent: a CEO may start one to read the
 state of its issues, not to build them.
