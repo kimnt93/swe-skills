@@ -1,8 +1,0 @@
-# Project directory of dev-gorouter: written by `swe-cli project create` or `init` / `swe-cli project <name> add`; edit freely.
-name: dev-gorouter
-description: Dev-mode example - build one change to a Go HTTP router in an isolated worktree, run the checks, report; no review, no merge
-repos:
-  gorouter:
-    url: https://github.com/kimnt93/gorouter
-    github: kimnt93/gorouter
-    dir: gorouter
