@@ -109,7 +109,7 @@ Turn a repeated lesson into something that fails: a type, then a lint or checker
 
 ### money-path
 Code that moves or counts money is held to a higher bar. Orders, fills, executions, positions, balances,
-margin, risk limits, fees and P&L: top tier only (never a `low` model, never reviewed by one); proven on a
+margin, risk limits, fees and P&L: the work and its review run on row `hard` of the agent table; proven on a
 replay of a recorded day plus duplicate and redelivery runs (`replay-test`); idempotent under retries; exact
 arithmetic (decimal or integer minor units, never floats); the order lifecycle a named state machine; never
 auto-merged; every PR lists what it did not replay.

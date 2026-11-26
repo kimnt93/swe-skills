@@ -2,7 +2,8 @@
 # build_test: prove the build, the validator and the installer, without touching the live harnesses.
 #
 #   tests/build_test.sh            build, validate, rename, copy-install, guards
-#   tests/build_test.sh --claude   also load the built plugin in Claude Code and run /<name> (uses a few Haiku tokens)
+#   tests/build_test.sh --claude   also load the built plugin in Claude Code and run /<name> (uses a few tokens, on
+#                                  $CLAUDE_TEST_MODEL if set, else your Claude Code default)
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -90,10 +91,11 @@ pass "validator: dangling skill, non-portable term, dangling principle, broken l
 
 # 5. optional: Claude Code loads the built plugin and /<name> answers with the stack index
 if [ "${1:-}" = "--claude" ]; then
-  (cd "$tmp" && timeout 180 claude -p --model haiku --plugin-dir "$root/dist/qa" "/qa") >"$tmp/claude.txt" 2>&1 \
+  model=(); [ -z "${CLAUDE_TEST_MODEL:-}" ] || model=(--model "$CLAUDE_TEST_MODEL")
+  (cd "$tmp" && timeout 180 claude -p "${model[@]}" --plugin-dir "$root/dist/qa" "/qa") >"$tmp/claude.txt" 2>&1 \
     || { cat "$tmp/claude.txt"; fail "claude run"; }
   grep -q "/qa:go-code" "$tmp/claude.txt" || { cat "$tmp/claude.txt"; fail "/qa did not print the index"; }
-  (cd "$tmp" && timeout 180 claude -p --model haiku --plugin-dir "$root/dist/qa" \
+  (cd "$tmp" && timeout 180 claude -p "${model[@]}" --plugin-dir "$root/dist/qa" \
     "List the subagent types available to you whose names start with qa. Reply with only the names, one per line.") \
     >"$tmp/agents.txt" 2>&1 || { cat "$tmp/agents.txt"; fail "claude agents run"; }
   grep -q "qa:worker" "$tmp/agents.txt" && grep -q "qa:adversary" "$tmp/agents.txt" \

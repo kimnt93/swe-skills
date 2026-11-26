@@ -591,4 +591,57 @@ if bad:
     raise SystemExit("; ".join(bad))
 PY
 pass "one agent table: unfilled template, every worker-start from its row, no tier or agent names"
+
+# the whole repository: only Orca starts agents, no tracked file names a model, and the pages link to what exists
+python3 - "$root" <<'PY' || fail "the stack as written"
+import re, subprocess, sys
+from pathlib import Path
+root = Path(sys.argv[1]); bad = []
+names = subprocess.run(["git", "-C", str(root), "ls-files", "-co", "--exclude-standard"], capture_output=True, text=True, check=True).stdout.split("\n")
+files = {}
+for name in names:
+    path = root / name
+    if not name or name == "CHANGELOG.md" or not path.is_file() or path.is_symlink():
+        continue
+    try:
+        files[name] = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        continue
+if len(files) < 200:
+    bad.append(f"expected the repository's files, found {len(files)}")
+other_path = re.compile(r"\bt3\b|\boutside (?:of )?orca\b|\bwithout orca\b|\bdirect[ -](?:headless[ -])?cli\b|\bcli relay|\bheadless (?:cli|relay)|\btmux\b", re.I)
+model_id = re.compile(r"\bclaude-(?:\d|sonnet|opus|haiku|fable)|\b(?:sonnet|opus|haiku|fable)\b|\bgpt-?\d|\bgemini-\d|\bo[1-9]-(?:mini|pro|preview)\b"
+                      r"|\bdeepseek-(?:v\d|r\d|chat|coder)|\bgrok-\d|\bqwen-?\d|\bllama-?\d|\bkimi-k\d|\bcodestral\b", re.I)
+for name, text in files.items():
+    for number, line in enumerate(text.split("\n"), 1):
+        hit = None if name.startswith("tests/") else other_path.search(line)
+        if hit:
+            bad.append(f"{name}:{number}: '{hit.group(0)}' is a way to run agents outside this stack")
+        # validate_skills.py lists patterns it refuses; this file holds the patterns above
+        hit = None if name in ("scripts/validate_skills.py", "tests/enforcement_test.sh") else model_id.search(line)
+        if hit:
+            bad.append(f"{name}:{number}: '{hit.group(0)}' names a model; only a team's own agent table does")
+commands = {"name", "update", "delegate", "agents", "playbooks", "config", "doctor", "changelog"}
+for name, text in files.items():
+    if not name.endswith(".md"):
+        continue
+    for found in re.finditer(r"(?:^[ \t]*|`)(?:swe|@PLUGIN@|<name>)-cli ([a-z][a-z-]*)(?: ([a-z]+))?", text, re.M):
+        command, sub = found.group(1), found.group(2)
+        if command not in commands or (command == "changelog" and sub not in (None, "show", "check")):
+            bad.append(f"{name}: '{found.group(0).strip(' `')}' is not a command of cli/bin/main")
+pages = [n for n in files if n.endswith(".md") and (n.startswith("docs/") or n in ("README.md", "STACK.md", "AGENTS.md", "cli/README.md"))]
+for name in pages:
+    prose = re.sub(r"^```.*?^```", "", files[name], flags=re.M | re.S)
+    prose = re.sub(r"`[^`\n]*`", "``", prose)
+    for target in re.findall(r"\]\(([^)#\s]+)", prose):
+        if not target.startswith(("http:", "https:", "mailto:")) and not ((root / name).parent / target).exists():
+            bad.append(f"{name}: broken link {target}")
+for name in ("README.md", "STACK.md", "docs/README.md", "docs/playbooks.md"):
+    for layer in (r"\bOrca\b", r"\bbots?\b", r"\bharness"):
+        if not re.search(layer, files.get(name, ""), re.I):
+            bad.append(f"{name} must describe the stack: Orca, Orca bots and harnesses ({layer} is missing)")
+if bad:
+    raise SystemExit("; ".join(bad[:20]))
+PY
+pass "the stack as written: only Orca starts agents, no model named, real commands, docs links resolve, three layers described"
 echo "all passed"

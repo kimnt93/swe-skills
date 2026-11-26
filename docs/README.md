@@ -1,25 +1,18 @@
 # Documentation
 
+The stack: **Orca** (workspaces, worktrees, orchestration), **Orca bots** (standing role holders that orchestrate) and
+**harnesses** (the coding CLIs Orca runs agents in; the plugin installs into each).
+
 | Read | When |
 |---|---|
-| [getting-started.md](getting-started.md) | first install, first task, troubleshooting |
-| [../STACK.md](../STACK.md) | the dev stack: languages, data, platform, observability, quality |
-| [harnesses.md](harnesses.md) | every supported harness (Claude Code, Codex, oh-my-pi and 52 more): install command, directories, how to invoke (generated) |
-| [runbooks.md](runbooks.md) | the steps that need you: pilot service, agents live, autopilot, model upgrade, publish, local install (**outdated in parts**) |
-| [context.md](context.md) | context limits per tool (Claude 350k, the rest 245k) (**outdated in parts**) |
-| [setup-claude.md](setup-claude.md) | Claude Code on your Claude subscription as the coding agent (**outdated in parts**) |
-| [setup-omp.md](setup-omp.md) | oh-my-pi as the coding agent (**outdated in parts**) |
-| [setup-codex.md](setup-codex.md) | Codex CLI as the coding agent or manager (**outdated in parts**) |
-| [setup-opencode.md](setup-opencode.md) | opencode as the coding agent, reviewer or manager (**outdated in parts**) |
-| [usage.md](usage.md) | what to say for each kind of task; skills; GitHub; a project of agents |
-| [recommended-setup.md](recommended-setup.md) | the order of work, agents, the daily routine, what never to do (**outdated in parts**) |
-| [architecture.md](architecture.md) | the design: roles, flows, invariants, decisions, risks (**outdated in parts**) |
-| [delegation.md](delegation.md) | sessions in git worktrees (tmux or Orca): the commands, project directories, keeping conflicts small (**outdated in parts**) |
-| [agents-and-skills.md](agents-and-skills.md) | which manager and coding agent gets which skills and GitHub rights (**outdated in parts**) |
-| [playbooks.md](playbooks.md) | the five `/swe:playbook-*` pipelines (`build` by default), the merge rules and the gates |
-| [workflows.md](workflows.md) | project directory, YAML workflows, roles, reports, merge and clean (**outdated in parts**) |
+| [getting-started.md](getting-started.md) | first install, the agent table, first task, troubleshooting |
+| [../STACK.md](../STACK.md) | the dev stack: languages, data, platform, observability, quality, agents |
+| [harnesses.md](harnesses.md) | every supported harness: install command, directories, how to invoke (generated) |
+| [runbooks.md](runbooks.md) | the steps that need you: agent table, local install, publish |
+| [usage.md](usage.md) | what to say for each kind of task; skills; GitHub |
+| [playbooks.md](playbooks.md) | the six `/swe:playbook-*` pipelines (`build` by default), bots and agents, the merge rules and the gates |
 | [skills/](skills/README.md) | **each skill in detail**: what it is, when to use it, what to say, what happens, what you get, its files; the router's 18 playbooks; the 22 principles; which skill for which situation |
 | [skills.md](skills.md) | the quick reference for every skill (generated from the skills) |
-| `../cli/README.md` | the `swe-cli` command and `config.yaml` |
+| [../cli/README.md](../cli/README.md) | the `swe-cli` command, `config.json` and the agent table |
 | [development.md](development.md) | make targets, build settings, repo layout, enforced rules (for contributors) |
 | `../AGENTS.md` | rules for agents (and people) changing this repository |

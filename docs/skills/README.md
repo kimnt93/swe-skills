@@ -5,7 +5,7 @@ when to use it, what to say, what happens, what you get, and its files.
 
 | Page | Covers |
 |---|---|
-| [router.md](router.md) | `/swe` and its engineering methods (bug-fix, feature, refactoring, migration, perf-issue, ...), plus the five playbooks |
+| [router.md](router.md) | `/swe` and its engineering methods (bug-fix, feature, refactoring, migration, perf-issue, ...), plus the six playbooks |
 | [process.md](process.md) | how, why, architect, principles, tdd, deslop, blast-radius, interrogate, verify-create, verify-maintain, replay-test, formal-verify, correct, ketchup, reflect, github, project |
 | [languages.md](languages.md) | go-code, py-code, rust-code, ts-code |
 | [data-platform.md](data-platform.md) | db-migrations, db-orm, api-contract, deployment-setup |
@@ -125,7 +125,7 @@ when to use it, what to say, what happens, what you get, and its files.
 
 ```text
                       /swe  (router)
-        language ─► playbook ─► principles ─► subagents by tier ─► make verify
+        language ─► playbook ─► principles ─► agents by table row ─► make verify
            │            │
            │            ├─ bug-fix ──► tdd ──► (root cause) ──► interrogate ──► github (PR)
            │            ├─ feature ──► how ─► architect ─► domain skill ─► verify-create's lever
@@ -141,6 +141,7 @@ when to use it, what to say, what happens, what you get, and its files.
 ## Conventions every skill follows
 
 - A short `SKILL.md` router, one topic per file in `references/`, tested files in `assets/` and `scripts/`.
-- A skill names a *tier* (`top`, `mid`, `low`), never a model; model ids live in the project's `models.yaml`.
+- A skill names a *row* of the agent table (`simple`, `medium`, `hard`, `planner/architect`), never a harness or a
+  model; only the team's own copy of the table does. Rows may be the same.
 - A claim carries its evidence or a label (measured, inferred, guess); "done" means `make verify` passed.
 - Anything a skill ships that runs has a test (a `--self-test`, a Go test, or a case in `tests/`).

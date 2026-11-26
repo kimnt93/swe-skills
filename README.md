@@ -1,9 +1,19 @@
 # swe-skills
 
 A software-engineering plugin for coding agents. One entry command (`/swe`) picks the language for the job, routes the task to
-tested skills and engineering principles, and does not finish until the project's `make verify` passes. Five **playbooks**
-(`/swe:playbook-<name>`) take work from a problem or a pull request to its end, and `/swe:delegate` hands tasks to other
-coding agents through **Orca**, **T3 Code** or a direct CLI.
+tested skills and engineering principles, and does not finish until the project's `make verify` passes. Six **playbooks**
+(`/swe:playbook-<name>`) cover the path from a problem or a pull request to its end, run by a team of bots in **Orca**.
+
+## The stack
+
+| Layer | What it is |
+|---|---|
+| **Orca** | where every agent runs: workspaces, one git worktree per task, and orchestration (who started whom, messages, waiting) |
+| **Orca bots** | standing role holders (CTO/CEO, architect, developer, tester, devops, reviewer) that orchestrate: they hand each task to an agent or another bot |
+| **Harnesses** | the coding CLIs that Orca runs agents in; the plugin installs into each (`make harness` lists them) |
+
+Which harness, model and reasoning effort an agent runs on comes from one place, the team's
+[agent table](#the-agent-table).
 
 | The job | Language |
 |---|---|
@@ -36,7 +46,7 @@ make cli
 
 ### 1. Playbooks (`/swe:playbook-<name>`)
 
-Exactly five. A request that names one follows it; with none named, the CTO/CEO uses **`build`**. Every one that
+Exactly six. A request that names one follows it; with none named, the CTO/CEO uses **`build`**. Every one that
 builds ends with the merge.
 
 | You have | Playbook | What happens | Ends |
@@ -44,6 +54,7 @@ builds ends with the merge.
 | work to build (**the default**) | [`build`](src/skills/playbook-build/SKILL.md) ([example](src/skills/playbook-build/references/example.md)) | CTO/CEO card → the architect plans it carefully → the CTO/CEO checks the plan against the card and accepts → the developer, tester or devops opens a PR each → a **reviewer** checks it against the plan and fixes, at most 3 rounds → the CTO/CEO trusts the PASS | merged or stopped |
 | a request that names `quick` | [`quick`](src/skills/playbook-quick/SKILL.md) ([example](src/skills/playbook-quick/references/example.md)) | CTO/CEO issues, no plan → one worktree and PR each → the CTO/CEO merges on mechanical conditions only: **no check** of the code | merged or stopped |
 | a problem you want only planned | [`plan`](src/skills/playbook-plan/SKILL.md) ([example](src/skills/playbook-plan/references/example.md)) | CTO/CEO card → architect comments the plan → back to the CTO/CEO | at the accepted plan; nothing built |
+| a refactoring you want planned as issues | [`refactor-plan`](src/skills/playbook-refactor-plan/SKILL.md) ([example](src/skills/playbook-refactor-plan/references/example.md)) | the architect reads every repository and open issue and writes the new issues → the CTO/CEO posts them unchanged: new ones first, then the replaced ones closed as not planned | at the posted issues; no code, nothing deleted |
 | a PR you want judged | [`review`](src/skills/playbook-review/SKILL.md) | read it, run it when safe, post one `PASS` or `FAIL` comment | at the comment; nothing changed |
 | a PR you want on `main` | [`ship`](src/skills/playbook-ship/SKILL.md) ([example](src/skills/playbook-ship/references/example.md)) | one reviewer reviews, fixes and re-reviews, at most 3 rounds, then merges | merged and issue closed, or stopped |
 
@@ -51,6 +62,7 @@ builds ends with the merge.
 /swe:playbook-build limit requests per API key
 /swe:playbook-quick users misread order times; fix it
 /swe:playbook-plan users cannot export the orders they filtered; plan it
+/swe:playbook-refactor-plan plan the refactor of the order code in orders-api and orders-web
 /swe:playbook-review review PR 54
 /swe:playbook-ship ship PR 54
 ```
@@ -65,7 +77,7 @@ there is.
 
 ### Bots and agents
 
-A **bot** is a standing member; an **agent** is a coding CLI that a bot starts for one job. The bot orchestrates:
+A **bot** is a standing member; an **agent** is one run of a harness that a bot starts for one job. The bot orchestrates:
 
 ```text
 CEO bot ─ issue ─► developer bot ─ brief ─► agent (one issue, own worktree)
@@ -73,9 +85,26 @@ CEO bot ─ issue ─► developer bot ─ brief ─► agent (one issue, own wo
    └──── status ──────┘    └──── report ──────┘        agents never message each other
 ```
 
-Bots delegate with a handoff and report back with a status. The developer bot picks the agent by difficulty, checks its
-work and opens the pull request. Rules, message templates and a linter:
-[bot-orchestration](src/skills/bot-orchestration/SKILL.md).
+Bots delegate with a handoff and report back with a status. The developer bot takes the agent table's row for the
+issue, checks the agent's work and its pull request, and reports. Replies and status reports are short. Rules, message
+templates and a linter: [bot-orchestration](src/skills/bot-orchestration/SKILL.md).
+
+### The agent table
+
+The CTO/CEO holds one table with the rows `simple`, `medium`, `hard` and `planner/architect`, each with a harness, a
+model and a reasoning effort. This repository ships only the empty
+[template](src/skills/bot-orchestration/assets/agent-table.template.md); each team fills its own copy outside any public
+repository. It is the only place that sets harness, model and effort: every brief and handoff takes them from it. Rows
+may be the same. **There is no default**: a missing table, row or cell stops the run and asks.
+
+```bash
+swe-cli agents init               # copy the empty template to ~/.config/swe/agent-table.md; never overwrites
+swe-cli agents check              # every row is there and filled
+swe-cli agents row medium         # what a medium brief runs on
+```
+
+`$AGENT_TABLE`, or the `agent_table` key of `config.json`, names a table kept somewhere else
+([cli/README.md](cli/README.md#configuration)).
 
 ### Merge rules: only approved work
 
@@ -121,47 +150,28 @@ These checks are run by the agents; GitHub does not enforce them. Full rules:
 - The linters read the Markdown templates: edit a file to change the style
   ([the list and how](src/skills/write-issue/references/templates.md)).
 
-### 2. Multi-Agent Delegation (`/swe:delegate`)
+### 2. One task, one worker (`/swe:delegate`)
 
-Delegate coding tasks to standalone CLI agents via **Orca sessions**, **T3 Code threads**, or direct headless CLI relays:
+`/swe:delegate` writes a brief that stands alone, starts one Orca worker on a row of the agent table, and reads its diff
+and runs the check before anything lands ([delegate](src/skills/delegate/SKILL.md)):
 
 ```text
-/swe:delegate codex: implement table view pagination
-/swe:delegate claude --model claude-3-7-sonnet --reasoning high: refactor authentication
-/swe:delegate fix the race condition in cache eviction
+/swe:delegate add pagination to the orders table
+/swe:delegate fix the race in cache eviction
 ```
 
-### 3. Simplified CLI (`swe-cli`)
+### 3. CLI (`swe-cli`)
 
 ```bash
-swe-cli update        # update latest code, rebuild plugin, and reinstall into harnesses
-swe-cli playbooks     # list all available playbooks and their slash commands
-swe-cli delegate      # run delegation runner directly from terminal
-swe-cli config show   # inspect active configuration (config.json)
-swe-cli doctor        # health check for agent CLIs, Orca, T3 Code, git, gh
+swe-cli update        # pull the latest code, rebuild the plugin, reinstall it into harnesses
+swe-cli playbooks     # list the six playbooks and their slash commands
+swe-cli agents        # check the team's agent table (also: path, row <row>, init)
+swe-cli delegate      # start one Orca worker for a brief, on a row of the agent table
+swe-cli config show   # show config.json
+swe-cli doctor        # check git, gh, Orca, the harness CLIs and the agent table
 ```
 
-## Configuration (`config.json`)
-
-Configuration is managed in `config.json` (search paths: `$SWE_CONFIG` -> `./config.json` -> installed plugin directory -> `~/.config/swe/config.json`):
-
-```json
-{
-  "default_agent": "codex",
-  "delegation": {
-    "engine": "auto",
-    "timeout_ms": 300000,
-    "yolo": true
-  },
-  "orca": { "enabled": true, "binary": "orca" },
-  "t3": { "enabled": true, "binary": "t3" },
-  "agents": {
-    "developer-junior": { "cli": "codex", "model": "o3-mini", "reasoning": "medium" },
-    "developer-senior": { "cli": "claude", "model": "claude-sonnet-5-5", "reasoning": "high" },
-    "reviewer": { "cli": "claude", "model": "claude-sonnet-5-5", "reasoning": "high" }
-  }
-}
-```
+All commands and `config.json`: [cli/README.md](cli/README.md). `make cli` links the command.
 
 ## Documentation
 
@@ -169,8 +179,9 @@ Configuration is managed in `config.json` (search paths: `$SWE_CONFIG` -> `./con
 |---|---|
 | [docs/getting-started.md](docs/getting-started.md) | install, first task, troubleshooting |
 | [docs/usage.md](docs/usage.md) | what to say for each kind of task |
-| [docs/playbooks.md](docs/playbooks.md) | the five playbooks, their gates and rules |
+| [docs/playbooks.md](docs/playbooks.md) | the six playbooks, their gates and rules |
 | [docs/skills/](docs/skills/README.md) | each skill in detail |
 | [docs/harnesses.md](docs/harnesses.md) | every supported harness and how it installs |
+| [docs/runbooks.md](docs/runbooks.md) | the steps that need you: agent table, local install, publish |
 | [docs/development.md](docs/development.md) | make targets, build settings, layout, enforced rules |
 | [cli/README.md](cli/README.md) | every `swe-cli` command |

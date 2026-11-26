@@ -25,6 +25,8 @@ Build settings live in `plugin.env`. Put private values (your real domain, owner
 | money-path: replay, duplicates, redelivery | `replay-test/scripts/replay.py` |
 | TypeScript: strict, no `any`, no `console` | the `ts-code` templates' `tsconfig.json` and ESLint config |
 | architecture: layers and imports | Go `archcheck`, Python `lint-imports` (both in `make verify`) |
+| one place sets harness, model and effort | `agent_table.py` (no default), the "one agent table" checks in `tests/enforcement_test.sh` |
+| Orca is the only way agents start; no model id in a tracked file | `tests/enforcement_test.sh` |
 | a good submit: branch, title, body, issue, size, scope | `github/scripts/pr_lint.py` |
 | repo: rebase only, protected `main`, labels | `project/scripts/setup_repo.sh` |
 | "done" means proven | `verify-create/assets/verify.mk` + the `verify` CI job in `deployment-setup` |
@@ -42,7 +44,7 @@ Build settings live in `plugin.env`. Put private values (your real domain, owner
 | `make <harness> REMOVE=1` | uninstall (only what this tool installed) |
 | `make cli` | link the `<name>-cli` command into `~/.local/bin` |
 | `make test` | build, enforcement, frontend and cli tests |
-| `make docs` | regenerate `docs/skills.md` from the skills |
+| `make docs` | regenerate `docs/skills.md`, `docs/harnesses.md` and the index in `docs/skills/README.md` |
 | `make package` | `dist/<name>-<version>.zip` |
 | `make publish` | release `dist/<name>/` into a publish repo, commit and tag (`PUSH=1` pushes) |
 
@@ -51,12 +53,13 @@ Build settings live in `plugin.env`. Put private values (your real domain, owner
 ```
 plugin.env           build settings (name, owner, version, domain, description)
 src/skills/          the skills; src/skills/router/ becomes /<name>
-src/agents/          Claude Code subagents (worker, adversary); models from cli/templates/config.yaml
+src/agents/          Claude Code subagents (worker, adversary); they name no model
 src/manifests/       plugin manifests with placeholders
 scripts/             build.py, install.py, validate_skills.py, gen_docs.py, publish.sh
-cli/                 the `<name>-cli` command, workflows/, config.yaml, templates/ (config.yaml, PROJECT.md, learn skill), briefs, tests
-docs/                architecture.md (the design), agents-and-skills.md (the recommended setup)
-tests/               build_test.sh, enforcement_test.sh, fixtures
+cli/                 the `<name>-cli` command (bin/main) and its tests
+docs/                this documentation; skills.md and harnesses.md are generated
+tests/               build, enforcement, harness and frontend tests, fixtures
+config.example.json  the shipped config.json: it only names where the team's agent table is
 CHANGELOG.md         one entry per version (make publish requires it)
 dist/                build output (git-ignored); never edit it
 ```

@@ -147,7 +147,7 @@ def self_test() -> int:
             orca_command(env, only_bare)
         except TABLE.Stop:
             continue
-        raise AssertionError(f"{env}: a bare orca outside Orca, or another executable, was used")
+        raise AssertionError(f"{env}: a bare orca without an Orca terminal, or another executable, was used")
 
     started: list[list[str]] = []
 

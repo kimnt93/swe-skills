@@ -43,7 +43,7 @@ Router rule: Go unless the task is ML or data (Python) or a measured hot path (R
 | Packaging and deploy | **Docker**, **Docker Swarm** stacks, **Traefik** routing by Host rule and labels | `deployment-setup` |
 | HTTP contract | `/v1` versions, Swagger at `/docs`, `/healthz`, port 3000, `x-internal-service-token` | `api-contract` |
 | CI | **GitHub Actions**; `make verify` is the one required check | `verify-create`, `github` |
-| Source control | GitHub, trunk on `main`, squash-only PRs, Conventional Commits | `github` |
+| Source control | GitHub, trunk on `main`, rebase merges only, Conventional Commits | `github` |
 | Change logs | `CHANGELOG.md` per repo in the PR; `changelog/` in the project directory | `changelog` |
 
 ## Observability

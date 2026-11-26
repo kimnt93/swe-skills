@@ -30,8 +30,8 @@ competing explanations, what is unknown, and a Preserve / Change / Avoid / Risk 
 **What it is.** Settle types, signatures and module shape before code. **Use it when** code crosses a
 function boundary, or for a new service, endpoint, consumer, pipeline or frontend feature. **Say.**
 `/swe:architect design the position snapshot API` (add "with checkpoint" to stop for your sign-off).
-**What happens.** (1) Ground: map what the code touches. (2) Sketch: at least two runners on tier `top`
-(different families when possible) each produce a whole-shape design from the caller's usage, with
+**What happens.** (1) Ground: map what the code touches. (2) Sketch: at least two runners on row `planner/architect`
+(different families when the table offers them) each produce a whole-shape design from the caller's usage, with
 `not implemented` bodies; screen them against the red-flags list (pass-through layers, one-implementation
 interfaces, boolean parameters, stringly typed values, shared mutable state, I/O in the domain, float money).
 (3) Pick a base and graft the best of the other; write the rationale (usage, shape, decision, rejected
@@ -157,7 +157,7 @@ approval and run through the `eval` playbook if substantial.
 
 **What it is.** The one way every agent works with git and GitHub. **Flow.** Issue, branch
 `<type>/<issue>-<slug>`, small Conventional Commits, push, PR with `Closes #N`, `pr_lint.py`, green checks,
-review by the other model family, merge through the gate, issue closed, branch deleted; each step has the
+review by an agent that wrote none of it, merge through the gate, issue closed, branch deleted; each step has the
 exact `gh`/`git` command and a check after. **Submit rules.** One feature function per PR, about 400 changed
 lines at most, the simplest code that works, only the files the card allows, the project's `ARCHITECTURE.md`
 respected, tests with the change, `make verify` green. **Never.** Push to `main`, force-push someone else's
@@ -206,14 +206,15 @@ card, labels mirroring the card, milestones, triage, blocked); status reports fr
 behaviour, the merge gate says the entry is missing, you cut a release, or you ask what changed. **Two layers.** Every repo has a
 `CHANGELOG.md` with an `## [Unreleased]` section, and the PR adds its entry **before merge** (not needed for `docs`, `chore`, `ci`,
 `test`, `style`, `build` PRs or a `no-changelog` label). The project directory has `changelog/project.md` and one file per repo,
-written by the manager after each merge. **What happens.** `swe-cli changelog check <pr>` says whether a pull request has its entry; a missing one is a review
+kept by the manager after each merge. **What happens.** A pull request that needs an entry and has none gets a review
 finding.
-**Say.** `/swe:changelog add the entry for this PR`, or `swe-cli changelog show`. **Files.** `references/format.md`, `assets/CHANGELOG.template.md`.
+**Say.** `/swe:changelog add the entry for this PR`. **Files.** `references/format.md`, `assets/CHANGELOG.template.md`.
 
-## Roles of the workflow agents
+## Roles
 
-A workflow (`workflows/*.yaml`) starts one agent per node. Each role loads only the skills listed for it in
-`roles.yaml`; the role skills below say how that agent works and how it ends (one outcome line, a report).
+The stack has three layers: **Orca** (workspaces, one git worktree per task, orchestration), **Orca bots** (standing role
+holders that orchestrate) and **harnesses** (the coding CLIs Orca runs agents in; the plugin installs into each). The
+role skills below say how an agent in each role works and what it reports.
 
 ### bot-orchestration
 
@@ -221,26 +222,35 @@ A workflow (`workflows/*.yaml`) starts one agent per node. Each role loads only 
 with a handoff and gets a status back; a bot briefs its own agents; an agent reports only to the bot that started it.
 No agent messages another agent. When a bot has a role, nobody else starts that role's agents. The CEO or CTO only
 orchestrates: it writes the issues and runs the playbook, and never plans, codes, tests, deploys or reviews code.
+Replies and status reports are short and carry only what the reader needs.
 **Roles.** Architect (plans), developer, tester (`test` lane), devops (`ops` lane: deployment and operations), reviewer
 (code review). The skills name roles only; which bot holds which role is each team's own mapping skill, kept outside
-this repository: the orchestrating bot reads it, and otherwise the bot list. **Flow.** CEO bot → issue → the builder bot of its lane → agents by difficulty tier → verified PR →
-status to the CEO bot. **Files.** `references/routing.md` (tiers; the CLI and model come from the team's table),
-`references/commands.md`, an example, five editable message templates and `scripts/message_lint.py`.
+this repository: the orchestrating bot reads it, and otherwise the bot list. **Flow.** CEO bot → issue → the builder bot
+of its lane → an agent on the issue's row → verified PR → status to the CEO bot. **The agent table.** One per team, held
+by the CTO/CEO, with the rows `simple`, `medium`, `hard` and `planner/architect`, each a harness, a model and a reasoning
+effort; the only place that sets them, with no default. **Files.** `assets/agent-table.template.md` (empty),
+`scripts/agent_table.py`, `references/routing.md` (which row), `references/commands.md`, an example, five editable message
+templates and `scripts/message_lint.py`.
 
 ### delegate
 
-**What it is.** Universal task delegation to AI agent CLIs (Codex, Claude, OMP, Pi, Devin, Antigravity) via Orca sessions, T3 Code threads, or direct CLI relays. **What happens.** Formulates self-contained briefs, executes in isolated worktrees, runs verification test commands, and inspects diffs before landing. **When.** Delegating implementation cards or subtasks to specialized coding agents.
+**What it is.** One coding task to one Orca worker. **What happens.** A brief that stands alone, with its `Row:` line;
+`scripts/delegate.py` reads that row of the agent table and runs `orca orchestration worker-start` with its harness, model
+and effort (it has no option to choose any of them, and a missing row stops it); then the diff is read and the check run
+before anything lands. **When.** A bot or a person hands a single task to a coding agent. **Files.**
+`references/orca-session.md`, `examples/brief-templates.md`, `scripts/delegate.py`, `scripts/discover_agents.py`.
 
 ### manager
 
 **What it is.** How a project's manager handles a request. **What happens.** A question it answers read-only. Otherwise
-it runs the playbook the request names, or `build` when none is named (`quick` only when named, `plan`, `review`,
-`ship`), and delegates each job to the role that holds it, or coordinates its own agents with `delegate`. **Never.** Start work on an unapproved issue, or let an author merge its own pull request.
+it runs the playbook the request names, or `build` when none is named (`quick` only when named, `plan`, `refactor-plan`,
+`review`, `ship`), and delegates each job to the role that holds it, or coordinates its own agents with `delegate`, each
+on a row of the agent table. **Never.** Start work on an unapproved issue, or let an author merge its own pull request.
 
 ### planner
 
 **What it is.** Turns a goal into PR-sized cards. **What happens.** Reads the architecture and the code, gives
-every card disjoint files, a risk, a tier, a workflow and a type, orders cards that share a file, files one issue
+every card disjoint files, a risk, a difficulty, a workflow and a type, orders cards that share a file, files one issue
 per card and writes the JSON plan the runner fans out over. Read-only on the code.
 
 ### developer
@@ -251,15 +261,15 @@ conflict, an unclear goal or a file outside its list.
 
 ### reviewer
 
-**What it is.** Judges one PR at one SHA, read-only, on a different model family than the author. **What
-happens.** Runs the adversarial review, keeps only findings proven by a command, checks the PR against the card,
+**What it is.** Judges one PR at one SHA, read-only; it wrote none of the change, and is another model family where the
+agent table gives one. **What happens.** Runs the adversarial review, keeps only findings proven by a command, checks the PR against the card,
 and posts `Verdict: PASS|FAIL at <sha>`. When the issue comes from an accepted plan it checks
 the code against that plan too, and a departure is a finding. In `build` and `ship` it fixes its own findings; `quick`
 has no reviewer. When a branch is behind, it also updates it and resolves conflicts.
 
 ### documenter
 
-**What it is.** Writes and corrects documentation on the smallest model. **What happens.** Every command it
+**What it is.** Writes and corrects documentation. **What happens.** Every command it
 documents is run; a command that fails is a finding in the PR, not hidden. Touches no code.
 
 ### docs-sync

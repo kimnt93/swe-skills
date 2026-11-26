@@ -1,7 +1,8 @@
 # Usage
 
-How to work with the plugin day to day. Examples use the default name `swe`; in oh-my-pi write
-`/skill:swe` for `/swe` and `/skill:<skill>` for `/swe:<skill>`.
+How to work with the plugin day to day. The stack runs in Orca, and every agent runs on a row of your team's
+[agent table](playbooks.md#bots-and-agents). Examples use the default name `swe`; in oh-my-pi write `/skill:swe` for
+`/swe` and `/skill:<skill>` for `/swe:<skill>`.
 
 ## The one habit: start with the router
 
@@ -11,7 +12,7 @@ How to work with the plugin day to day. Examples use the default name `swe`; in 
 
 The router (1) restates your goal and a **done-predicate** (a command and its expected output),
 (2) picks the language, (3) picks a playbook, (4) loads the domain skill and the principles that apply,
-(5) delegates by agent, and (6) finishes only when `make verify` exits 0 on the committed head, with its
+(5) delegates to agents on rows of the agent table, and (6) finishes only when `make verify` exits 0 on the committed head, with its
 tail in the reply. Called with no request, `/swe` prints the skill table.
 
 ### Which language it picks
@@ -66,6 +67,7 @@ day, then with duplicated and redelivered events) and, for state machines and ra
 | work to build (the default, also with no playbook named) | `/swe:playbook-build <problem or plan>` | an accepted plan, then pull requests a separate reviewer checked against it, fixed and passed, then merged |
 | a request for quick, by name | `/swe:playbook-quick <problem>` | no plan and no check: pull requests merged when the merge rules, the required checks and the reported head allow it |
 | a problem you want only planned | `/swe:playbook-plan <problem>` | an accepted plan on the issue; nothing built |
+| a refactoring you want planned as issues | `/swe:playbook-refactor-plan <request, with the repositories>` | new issues written by the architect and posted unchanged; the ones they replace closed as not planned; nothing built |
 | a pull request to judge | `/swe:playbook-review review PR <n>` | one verdict comment; nothing changed |
 | a pull request to land | `/swe:playbook-ship ship PR <n>` | merged with its issue closed, or stopped with the reasons |
 

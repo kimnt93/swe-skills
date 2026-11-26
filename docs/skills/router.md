@@ -6,7 +6,7 @@ how the work will be done, then makes sure it is proven.
 ### router
 
 **What it is.** The front door of the plugin. It restates the goal, picks the language, picks a playbook,
-loads the skills and principles that apply, delegates by model tier, and refuses to finish until
+loads the skills and principles that apply, delegates to agents on a row of the team's agent table, and refuses to finish until
 `make verify` passes on the committed head.
 
 **Use it when.** At the start of any non-trivial task: a feature, a bug, a performance problem, a
@@ -22,7 +22,7 @@ migration, an incident, a refactor, a question about the code. With no request i
 2. **Language:** the choice follows the job (below). An existing repo's language wins.
 3. **Playbook:** it picks one from the table in this page and opens a todo list with that playbook's steps.
 4. **Skills and principles:** it loads the domain skill (for example `go-code`) and each principle whose "applies" line matches; `money-path` always applies to orders, fills, positions, balances, risk limits and P&L.
-5. **Delegation:** subagents get a tier (`top`, `mid`, `low`), never a model name; the router reads their diffs itself.
+5. **Delegation:** every subagent runs on a row of the team's agent table, which alone sets harness, model and reasoning effort; the router reads their diffs itself.
 6. **Proof:** `make verify` on the committed head; its tail goes in the reply.
 
 **Which language.**
@@ -37,8 +37,7 @@ migration, an incident, a refactor, a question about the code. With no request i
 
 **You get.** A reply with the goal, what changed, the principles that shaped decisions, the `make verify`
 output, and what could not be checked. **Files.** `references/` holds the 18 playbooks below plus
-`models.md` (what each tier is for, escalation) and `harness.md` (how to start a subagent, ask the human,
-keep a todo list in each harness).
+`harness.md` (how to start a subagent, ask the human, keep a todo list in each harness).
 
 ---
 
@@ -91,8 +90,8 @@ bug in its own PR if you find one. **You get** the pin, the steps, and what got 
 column, index or constraint changes. **Steps.** Name the end state and every reader and writer of the touched
 tables; split into expand, migrate (dual-write, batched backfill, switch reads), contract (drop, marked
 destructive); lint with `check_migrations.py`; try up, down, up on a real PostgreSQL; measure a backfill's
-rows per second before it runs anywhere shared; money-path tables are `top` tier and the contract phase needs
-your go. One PR per phase. **You get** the phases, the proof per phase, the backfill numbers.
+rows per second before it runs anywhere shared; money-path tables are row `hard` of the agent table and the contract
+phase needs your go. One PR per phase. **You get** the phases, the proof per phase, the backfill numbers.
 
 ### multi-phase
 
@@ -192,18 +191,16 @@ new one.
 ### eval
 
 **What it is.** Change a skill, prompt or model choice only after a blind comparison. **Use it when** you
-edit a skill substantially or consider a cheaper model for the manager. **Steps.** Fix 5 to 10 real cases
+edit a skill substantially or consider another model for a row of the agent table. **Steps.** Fix 5 to 10 real cases
 and what good looks like before running; prepare each candidate in a clean directory; run every case on every
 candidate; judge blind with a model from another family; check the transcripts, not the self-reports; keep the
-change only if it is not worse on any case that matters. See `docs/runbooks.md` for the model-upgrade use.
+change only if it is not worse on any case that matters.
 
-### models and harness (references, not playbooks)
+### harness (a reference, not a playbook)
 
-`models.md` defines the tiers (`top`: money-path, cross-service design, races, bugs without a repro;
-`mid`: the default; `low`: mechanical work with a deterministic check) and the escalation by cause (context
-limit: smaller scope; dropped connection: same brief; wrong approach: one tier up; two failures: replan).
 `harness.md` maps each abstract action (start a subagent, ask the human, todo list, wake later, project-local
-skill path) to Claude Code, oh-my-pi and Codex.
+skill path) to Claude Code, oh-my-pi and Codex. Which harness, model and effort an agent runs on is not here: only
+the team's agent table says it.
 
 ## Playbooks: six pipelines
 

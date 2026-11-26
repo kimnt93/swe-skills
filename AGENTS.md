@@ -46,7 +46,7 @@ table** (`bot-orchestration`), kept outside this repository; `config.json` (`$SW
 make validate                               # build + validate (after every change)
 make test                                   # build, enforcement, frontend and cli tests (selftest, flowtest, inittest)
 bash tests/frontend_test.sh --e2e --docker # also Playwright and the frontend images
-bash tests/build_test.sh --claude           # also load the built plugin in Claude Code (a few Haiku tokens)
+bash tests/build_test.sh --claude           # also load the built plugin in Claude Code (uses a few tokens)
 PLUGIN_NAME=acme PLUGIN_DOMAIN=acme.test make validate   # any name and domain must build too
 ```
 
