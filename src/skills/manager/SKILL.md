@@ -70,7 +70,7 @@ swe-cli models show
 |---|---|---|
 | Plan a new feature, cross-file change, hard bug, unsettled shape | `playbook-plan` | Card → architect plan comment → back to the CTO → acceptance → stop |
 | Build an accepted plan; risky or money-path work | `playbook-review` | Accepted plan → PRs → reviewer PASS/FAIL → author fixes → re-review → merge |
-| Docs, one-file fix, small test, mechanical change | `playbook-quick` | Issue → developer PR → reviewer/gate merge, no plan |
+| Ready to build with no design question (one or more issues) | `playbook-quick` | Issues → a worktree and PR each → back to the CTO, ≤3 feedback rounds → CTO merges or stops → worktree removed |
 | A question: how/why/what changed | `how`, `why`, `ketchup`, `interrogate` | Answer read-only; no run |
 
 There is no other playbook. If an issue does not fit `quick`, use `plan`; if it needs a review round, use `review`.
@@ -90,7 +90,7 @@ When executing a playbook with multiple cards or subtasks:
      --verify "make verify" \
      --json
    ```
-4. Check diffs and test results as the playbook says; the author never merges.
+4. Check diffs and test results as the playbook says (`quick`: the CTO/CEO; `review`: the reviewer); the author never merges.
 5. The role the playbook names merges the checked SHA; clean the worktree and branch.
 
 ---

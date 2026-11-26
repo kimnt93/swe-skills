@@ -204,7 +204,7 @@ def cmd_playbooks() -> int:
     playbooks = [
         ("playbook-plan", "CTO card, architect plan comment, sent back to CTO, accept, stop (nothing built)"),
         ("playbook-review", "Build an accepted plan: PRs, reviewer PASS/FAIL, author fixes, re-review, merge"),
-        ("playbook-quick", "CTO issue, developer PR, reviewer/gate merge; docs and small fixes, no plan"),
+        ("playbook-quick", "CTO issue(s), a worktree and PR each, 3 feedback rounds, merge or stop, clean up"),
         ("playbook", "Dispatcher for the three CTO pipelines"),
     ]
     name = get_plugin_name()

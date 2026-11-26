@@ -91,7 +91,7 @@ for f in sorted((root / "src/skills").glob("playbook*/SKILL.md")):
 checks = {
     "playbook-review": ["different model family", "PASS", "FAIL", "fix"],
     "playbook-plan": ["architect", "plan comment", "CTO", "send it back", "**Stop here.**", "/orchestration"],
-    "playbook-quick": ["No architect", "simple", "reviewer/gate"],
+    "playbook-quick": ["No architect", "CTO/CEO merges", "send it back", "--match-head-commit", "/orchestration", "of 3.", "Stopped by", "can-remove"],
     "playbook": ["playbook-plan", "playbook-review", "playbook-quick"],
 }
 for name, needles in checks.items():
@@ -148,8 +148,30 @@ for doc in sorted(skills.rglob("*.md")):
     for line in doc.read_text(encoding="utf-8").splitlines():
         if re.match(r"\s*git commit\b", line):
             bad.append(f"{doc.relative_to(skills)}: plain 'git commit'; use agent_identity.py git -- commit")
+# the quick playbook's example: issues, comments and PR body pass the linters
 import os
+sys.path.insert(0, str(skills / "github/scripts"))
+import pr_lint as P
+quick = skills / "playbook-quick/assets/example"
 os.environ.pop("AGENT_NAME", None)
+def text(name):
+    return (quick / name).read_text(encoding="utf-8")
+for name, kind, title, lane in (("parent.md", "epic", "ORD-00: Epic — Order times in the user's zone", "backend"),
+                                ("issue-api.md", "package", "ORD-01: Return order times in UTC", "backend"),
+                                ("issue-web.md", "package", "ORD-02: Show order times in the local zone", "frontend")):
+    bad += [f"{name}: {x}" for x in L.lint_issue(kind, title, ["bug", lane, "simple"], text(name))]
+for name, kind in (("changes.md", "decision"), ("fix.md", "fix"), ("acceptance.md", "decision"), ("merge.md", "merge"),
+                   ("stopped.md", "decision")):
+    bad += [f"{name}: {x}" for x in L.lint_comment(kind, text(name))]
+branch, title = "ord-02/local-order-times", "fix(ord-02): show local order times"
+bad += [f"pr.md (work-package): {x}" for x in L.lint_pr(branch, title, text("pr.md"))]
+bad += [f"pr.md (github): {x}" for x in P.lint(branch, title, text("pr.md"), [], 40, [], 400)
+        + P.lint_author(text("pr.md"), [("4f2c9a1d", ["Developer (example)"])], [])]
+# no quick command or message removes a worktree by force or deletes its branch
+for doc in sorted((skills / "playbook-quick").rglob("*.md")):
+    for line in doc.read_text(encoding="utf-8").splitlines():
+        if re.search(r"worktree (rm|remove) .*--(force|delete-branch)", line):
+            bad.append(f"{doc.relative_to(skills)}: forced or branch-deleting worktree removal: {line.strip()}")
 # a squash or merge commit is authored by the account, not the agent: every documented merge is a rebase
 for doc in sorted(skills.rglob("*.md")):
     for line in doc.read_text(encoding="utf-8").replace("\\\n", " ").splitlines():

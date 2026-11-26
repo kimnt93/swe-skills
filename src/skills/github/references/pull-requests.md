@@ -32,7 +32,8 @@ after a review needs a new review: the verdict covers one head SHA.
 
 ## Merge
 
-Who merges, and after which check of the head, is the playbook's choice. Never the author. A project whose rules reserve the merge for a person wins.
+Who merges is the playbook's choice: in `quick`, the CTO/CEO after an `Accepted by` decision; in `review`, the
+reviewer/gate after a `Verdict: PASS`. Never the author. A project whose rules reserve the merge for a person wins.
 
 Before: the checked SHA is still the head, required checks are green, the branch is not behind `main`.
 

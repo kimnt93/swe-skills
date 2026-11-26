@@ -60,7 +60,7 @@ Every request that plans or changes a repository is one of these. Pick by scope 
 |---|---|---|
 | `playbook-plan` | planning a new feature, cross-file change, hard bug, unsettled shape | CTO card → architect plan comment → back to the CTO → accepts → stop, nothing built |
 | `playbook-review` | building an accepted plan; risky or money-path work, code you did not write | accepted plan → PRs → reviewer PASS/FAIL → author fixes → re-review → merge |
-| `playbook-quick` | docs, one-file fix, small test, mechanical change | CTO issue → developer PR → reviewer/gate merge, no plan |
+| `playbook-quick` | ready to build, no design question; one problem may be several issues | CTO/CEO issues → a worktree and PR each → ≤3 feedback rounds → CTO/CEO merges or stops → worktree removed, no plan |
 
 Issues are written with `write-issue`, comments with `write-comment`, PRs with `work-package`; only the role the playbook names merges, at the checked
 SHA. A request to plan stops at the accepted plan. A `quick` card that grows stops and becomes `plan` or `review`.
