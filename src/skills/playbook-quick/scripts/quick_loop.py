@@ -59,8 +59,10 @@ def stopped(past: list[dict]) -> bool:
     return any(d["verb"] == "Stopped" for d in past)
 
 
-def check_decision(past: list[dict], body: str, pr: int, head: str) -> list[str]:
+def check_decision(past: list[dict], body: str, pr: int, head: str, pr_state: str = "OPEN") -> list[str]:
     """Why this decision may not be posted. Empty: post it."""
+    if pr_state != "OPEN":
+        return [f"PR #{pr} is {pr_state}: no further decision on it"]
     match = DECISION_RE.match(first_line(body))
     if not match or int(match["pr"]) != pr:
         return [f"first line is not a decision on PR #{pr}: '<Accepted|Changes required|Stopped> by CTO (<name>). "
@@ -80,11 +82,15 @@ def check_decision(past: list[dict], body: str, pr: int, head: str) -> list[str]
     return problems
 
 
-def describe(past: list[dict], head: str) -> str:
+def describe(past: list[dict], head: str, pr_state: str = "OPEN") -> str:
     used = len(rounds_used(past))
     lines = [f"rounds used: {used} of {MAX_ROUNDS}"]
-    if stopped(past):
+    if pr_state == "MERGED":
+        lines.append("state: MERGED. Confirm the issue is closed; the developer removes its worktree.")
+    elif stopped(past):
         lines.append("state: STOPPED. Developer stops and removes its worktree; the PR and branch stay.")
+    elif pr_state == "CLOSED":
+        lines.append("state: CLOSED without a merge. Keep the branch and worktree; report it to the human.")
     elif past and past[-1]["sha"] == head and past[-1]["verb"] == "Accepted":
         lines.append("state: ACCEPTED at the head. Merge it.")
     elif past and past[-1]["sha"] == head:
@@ -169,6 +175,13 @@ def self_test() -> int:
     assert "this PR is stopped" in check_decision(done, text("Accepted", d), 54, d)[0]
     assert "STOPPED" in describe(done, d)
     assert "first line is not a decision" in check_decision([], "Looks good", 54, a)[0]
+    yes = decisions([say("Accepted", a)], 54)
+    assert "Merge it" in describe(yes, a, "OPEN")
+    assert "MERGED" in describe(yes, a, "MERGED") and "Merge it" not in describe(yes, a, "MERGED")
+    assert "CLOSED" in describe(yes, a, "CLOSED") and "Merge it" not in describe(yes, a, "CLOSED")
+    assert "STOPPED" in describe(done, d, "CLOSED"), "a stopped PR the human later closed is still stopped"
+    for state in ("MERGED", "CLOSED"):
+        assert "no further decision" in check_decision([], text("Changes required", a, 1), 54, a, state)[0], state
 
     merged, opened = {"state": "MERGED", "headRefOid": a}, {"state": "OPEN", "headRefOid": a}
     assert removal_problems("", a, merged, False, "") == [], "merged, remote branch already deleted"
@@ -228,9 +241,10 @@ def main(argv: list[str]) -> int:
     else:
         pr, past = read_pr(args.pr, args.repo)
         if args.mode == "state":
-            print(describe(past, pr["headRefOid"]))
+            print(describe(past, pr["headRefOid"], pr["state"]))
             return 0
-        problems = check_decision(past, Path(args.body_file).read_text(encoding="utf-8"), args.pr, pr["headRefOid"])
+        body = Path(args.body_file).read_text(encoding="utf-8")
+        problems = check_decision(past, body, args.pr, pr["headRefOid"], pr["state"])
         ok = "decision allowed"
     for problem in problems:
         print("REFUSED", problem)
