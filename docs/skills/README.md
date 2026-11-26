@@ -5,7 +5,7 @@ when to use it, what to say, what happens, what you get, and its files.
 
 | Page | Covers |
 |---|---|
-| [router.md](router.md) | `/swe` and its engineering methods (bug-fix, feature, refactoring, migration, perf-issue, ...), plus the six playbooks |
+| [router.md](router.md) | `/swe` and its engineering methods (bug-fix, feature, refactoring, migration, perf-issue, ...), plus the seven playbooks |
 | [process.md](process.md) | how, why, architect, principles, tdd, deslop, blast-radius, interrogate, verify-create, verify-maintain, replay-test, formal-verify, correct, ketchup, reflect, github, project |
 | [languages.md](languages.md) | go-code, py-code, rust-code, ts-code |
 | [data-platform.md](data-platform.md) | db-migrations, db-orm, api-contract, deployment-setup |
@@ -15,7 +15,7 @@ when to use it, what to say, what happens, what you get, and its files.
 ## Skills
 
 <!-- skills:start -->
-54 skills in 6 groups. Click a skill for its detail.
+57 skills in 6 groups. Click a skill for its detail.
 
 ### Start here
 
@@ -27,12 +27,14 @@ when to use it, what to say, what happens, what you get, and its files.
 | [playbook-refactor-plan](router.md#playbook-refactor-plan) | Refactoring plan only: the architect writes the issues, the CTO/CEO posts them unchanged |
 | [playbook-review](router.md#playbook-review) | Review: read a PR and post one verdict comment; nothing is changed or merged |
 | [playbook-ship](router.md#playbook-ship) | Ship: review a PR, fix and re-review (3 rounds), merge it and close its issue, or stop |
+| [playbook-test](router.md#playbook-test) | Testing only: use the software as a user, report pass or fail per function with evidence |
 | [swe](router.md#router) | Entry point: picks language and playbook, delegates by table row, ends only on make verify |
 
 ### Process and proof
 
 | Skill | Description |
 |---|---|
+| [api-cli-testing](process.md#api-cli-testing) | Test an API or CLI as its caller: real inputs, observed outputs, pass or fail with evidence |
 | [architect](process.md#architect) | Sketch types and module shape twice, pick one, then implement against it |
 | [blast-radius](process.md#blast-radius) | Find what a change could break elsewhere, and prove why it is safe |
 | [bot-orchestration](process.md#bot-orchestration) | Bots delegate to bots and run their own agents; agents report only to their bot |
@@ -62,6 +64,7 @@ when to use it, what to say, what happens, what you get, and its files.
 | [verifier](process.md#verifier) | Verifier: run the real app against the feature map, file regressions, list findings; edits nothing |
 | [verify-create](process.md#verify-create) | Give a project make verify and a verify skill that drives it like a user |
 | [verify-maintain](process.md#verify-maintain) | Keep the verify skill and its feature map true as the app changes |
+| [web-testing](process.md#web-testing) | Test a web app as a user: real clicks, screenshots, a video per click, pass or fail with evidence |
 | [why](process.md#why) | Find the history and reasons behind code before changing or removing it |
 | [work-package](process.md#work-package) | Package branch, commits and PR text, and the one linter and label catalog |
 | [write-comment](process.md#write-comment) | Comment on an issue or PR: plan, decision, status, verdict, fix, merge; signed and linted |

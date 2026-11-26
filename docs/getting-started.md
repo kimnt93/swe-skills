@@ -82,6 +82,7 @@ Once step 4 works on one repository, let a playbook carry work through GitHub. T
 | `/swe:playbook-build <problem>` | the default: a plan, a pull request per package, a reviewer who checks it against the plan and fixes, then the merge |
 | `/swe:playbook-quick <problem>` | only when you name it: issues with no plan, pull requests merged on mechanical checks, with no review |
 | `/swe:playbook-ship ship PR 54` | review and fix, then merge and close the issue |
+| `/swe:playbook-test <what to test, where>` | the app, API or tool used as its user does; a report with evidence; no code fixed |
 
 Work is built and merged only for an approved issue. As shipped, an issue opened by an account with write access (role
 admin, maintain or write, your agents included) is approved as it is: you accept nothing and review no code by default. Only an

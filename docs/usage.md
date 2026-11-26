@@ -70,6 +70,7 @@ day, then with duplicated and redelivered events) and, for state machines and ra
 | a refactoring you want planned as issues | `/swe:playbook-refactor-plan <request, with the repositories>` | new issues written by the architect and posted unchanged; the ones they replace closed as not planned; nothing built |
 | a pull request to judge | `/swe:playbook-review review PR <n>` | one verdict comment; nothing changed |
 | a pull request to land | `/swe:playbook-ship ship PR <n>` | merged with its issue closed, or stopped with the reasons |
+| software to test | `/swe:playbook-test <what a user does, the target and its environment>` | pass or fail per function, evidence, bugs ready to file; no code fixed |
 
 A review loop has at most 3 rounds. After that the pull request passes or is stopped: it stays open with its branch, and
 you decide what happens. Details and gates: [playbooks.md](playbooks.md).

@@ -30,6 +30,7 @@ Build settings live in `plugin.env`. Put private values (your real domain, owner
 | a good submit: branch, title, body, issue, size, scope | `github/scripts/pr_lint.py` |
 | repo: rebase only, protected `main`, labels | `project/scripts/setup_repo.sh` |
 | "done" means proven | `verify-create/assets/verify.mk` + the `verify` CI job in `deployment-setup` |
+| a test run: allowed targets, production approvals, secrets and evidence outside repositories | `web-testing/scripts/testkit.py`, `web_test.py`, `api-cli-testing/scripts/io_test.py`; their self-tests and `tests/testing_skills_test.sh` |
 
 ## Make targets
 
@@ -43,10 +44,18 @@ Build settings live in `plugin.env`. Put private values (your real domain, owner
 | `make skills` | list the skills |
 | `make <harness> REMOVE=1` | uninstall (only what this tool installed) |
 | `make cli` | link the `<name>-cli` command into `~/.local/bin` |
-| `make test` | build, enforcement, frontend and cli tests |
+| `make test` | build, enforcement, harness, frontend, testing-skill and cli tests |
 | `make docs` | regenerate `docs/skills.md`, `docs/harnesses.md` and the index in `docs/skills/README.md` |
 | `make package` | `dist/<name>-<version>.zip` |
 | `make publish` | release `dist/<name>/` into a publish repo, commit and tag (`PUSH=1` pushes) |
+
+`make test` runs `tests/testing_skills_test.sh` without a browser: the API and command-line runner against the local
+fixture in `tests/fixtures/web-app/`. Run the browser half after changing a testing skill. It needs `uv`, `ffmpeg` and
+once `uv run --with playwright==1.65.0 playwright install chromium`; `--keep <empty directory>` keeps the evidence:
+
+```bash
+bash tests/testing_skills_test.sh --browser --keep ~/test-evidence/fixture-run
+```
 
 ## Layout
 

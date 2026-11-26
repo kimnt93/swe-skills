@@ -136,6 +136,29 @@ each at the highest level that works: architecture, then types, then a lint or c
 fix, then a test, docs last; prove each new check fails on a real past mistake; keep a rule to enforcer table
 in `AGENTS.md`. **You get** each class with its evidence and the level chosen.
 
+## Testing running software
+
+### web-testing
+
+**What it is.** A test of a web app as its user does it. **Use it when** a UI must be checked or a UI bug needs
+evidence. **Say.** `/swe:web-testing test that a customer can get a price on staging` **What happens.** You write a plan
+of steps with realistic inputs and the expected result of each; `scripts/web_test.py` runs it in Chromium through
+Playwright with real clicks and keystrokes. **You get** per step the input, expected and observed output and a
+screenshot; per click a video from the action until the answer arrived, key frames named by time (no video player
+needed) and an analysis: timing, console errors, failed requests, slow or missing answers. Dead, broken and slow
+controls fail. On production, steps that change something are held unless approved one by one; credentials come from
+the environment; evidence stays outside every repository. **Needs** `uv` and `ffmpeg`. **Files.** `scripts/` the web
+runner and the shared safety and report code (`testkit.py`), `references/` safety, plan, analysis, `assets/` an
+example plan.
+
+### api-cli-testing
+
+**What it is.** The same for an HTTP API or a command-line tool, called from outside. **Use it when** there is no
+screen. **Say.** `/swe:api-cli-testing smoke-test the orders API on staging` **What happens.** `scripts/io_test.py`
+sends the plan's requests and runs its allowed commands without a shell. **You get** the input, expected result,
+observed status and body or exit code and output, the time, a verdict and one report; wrong, slow and missing answers
+fail. **Files.** `references/` the plan format, `assets/` an example plan. It shares the safety rules of `web-testing`.
+
 ## Keeping track
 
 ### ketchup

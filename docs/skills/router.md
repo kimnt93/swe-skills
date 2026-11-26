@@ -202,10 +202,10 @@ change only if it is not worse on any case that matters.
 skill path) to Claude Code, oh-my-pi and Codex. Which harness, model and effort an agent runs on is not here: only
 the team's agent table says it.
 
-## Playbooks: six pipelines
+## Playbooks: seven pipelines
 
 They use the `write-issue`, `write-comment` and `work-package` formats; the role each playbook names merges, under the
-merge rules. There is no seventh playbook, and every one that builds ends with the merge. A request that names one follows
+merge rules. There is no eighth playbook, and every one that builds ends with the merge. A request that names one follows
 it; with none named, the CTO/CEO uses `playbook-build`. Nobody picks `playbook-quick` by itself. The CTO/CEO only
 orchestrates: it never plans, codes, tests, deploys or reviews code. By default the owner approves and reviews no code:
 the weight is on the plan, and the reviewer checks the code against it.
@@ -260,3 +260,13 @@ bundle format, an example run with its messages and an example bundle.
 merges it and confirms its issue closed, or stops it with the PR left open. It needs an issue the merge rules approve,
 and a reviewer who did not write the PR; when the issue comes from an accepted plan, the review checks the code against
 it. **When.** Ship, finish or land a PR. **Files.** An example.
+
+### playbook-test
+
+**What it is.** Testing only. The CTO/CEO sends the target, its environment, the functions, the names of the account
+variables and what is allowed to the tester, who writes the expected result of every step before running, uses the
+software as its user does (`web-testing`, `api-cli-testing`), runs each failure again and returns a short report: pass
+or fail per function, evidence paths and bugs ready to file. No code is fixed, no branch, PR or merge; issues are filed
+only when asked. The safety rules of a test run bind it: no production action that spends, trades, deletes or messages
+real people without explicit approval. **When.** Test, QA or find bugs in a running app, API or tool. **Files.** An
+example run with its messages.
