@@ -848,4 +848,15 @@ if bad:
     raise SystemExit("; ".join(bad[:20]))
 PY
 pass "the stack as written: only Orca starts agents, no model named, real commands, docs links resolve, three layers described"
+rule=principles/references/never-block-on-the-human.md
+for skill in router architect planner intake manager delegate bot-orchestration developer reviewer src/skills/playbook-*; do
+  skill=${skill##*/}
+  grep -qF "](../$rule)" "src/skills/$skill/SKILL.md" || fail "$skill does not link the rule for asking ($rule)"
+done
+[ "$(grep -rlF 'No reply is never approval' src | wc -l)" = 1 ] || fail "the rule for asking is written once, in $rule: link it, don't copy it"
+for template in plan epic-plan; do
+  grep -q '^### Decisions <!-- optional -->$' "src/skills/write-comment/assets/$template.template.md" \
+    || fail "$template template has no Decisions section"
+done
+pass "one rule for asking: linked by the roles and all eight playbooks, written once; plans record decisions"
 echo "all passed"
