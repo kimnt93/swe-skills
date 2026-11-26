@@ -205,10 +205,10 @@ limit: smaller scope; dropped connection: same brief; wrong approach: one tier u
 `harness.md` maps each abstract action (start a subagent, ask the human, todo list, wake later, project-local
 skill path) to Claude Code, oh-my-pi and Codex.
 
-## Playbooks: five pipelines
+## Playbooks: six pipelines
 
 They use the `write-issue`, `write-comment` and `work-package` formats; the role each playbook names merges, under the
-merge rules. There is no sixth playbook, and every one that builds ends with the merge. A request that names one follows
+merge rules. There is no seventh playbook, and every one that builds ends with the merge. A request that names one follows
 it; with none named, the CTO/CEO uses `playbook-build`. Nobody picks `playbook-quick` by itself. The CTO/CEO only
 orchestrates: it never plans, codes, tests, deploys or reviews code. By default the owner approves and reviews no code:
 the weight is on the plan, and the reviewer checks the code against it.
@@ -241,6 +241,16 @@ when the merge rules allow it, the required checks passed, the branch is not beh
 is no money path (`can-merge --unreviewed --head`), and confirms; otherwise it returns it to the same developer, at most 3 times (each return
 a comment on the PR; a clean rebase after another quick PR merged is free), or stops it (PR and branch stay on GitHub) → the developer removes the worktree. **When.** Only when the request names it. **Files.** The
 orchestration commands, an example and its messages.
+
+### playbook-refactor-plan
+
+**What it is.** Planning only, for a refactoring: the CTO/CEO passes the request to the planner/architect, who reads every
+repository in scope and its issues and writes a bundle: a parent card, every new issue complete (analysis, recommended
+solution, owned files, waves, `Done when`) and a `remove` or `keep` for every open issue. The CTO/CEO does no work on it:
+`refactor_bundle.py post` creates the new issues, fills in their numbers, then closes each removed one as not planned
+with a short comment. Nothing is deleted, an issue with an open linked pull request stays open and is reported, and a
+rerun creates no duplicate. No code, branch, PR or merge. **When.** A refactoring plan is asked for. **Files.** The
+bundle format, an example run with its messages and an example bundle.
 
 ### playbook-review
 

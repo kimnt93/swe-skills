@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "bundle": "orders-query-refactor",
+  "author": "CTO (example) / architect",
+  "repos": ["example-org/orders-api", "example-org/orders-web"],
+  "parent": "epic",
+  "new": [
+    {"key": "epic", "repo": "example-org/orders-api", "kind": "epic",
+     "title": "ORD-00: Epic — One order query behind every screen and export",
+     "labels": ["refactor", "backend", "medium"], "body": "issues/epic.md"},
+    {"key": "api-1", "repo": "example-org/orders-api", "kind": "package",
+     "title": "ORD-01: Move order filtering into one query function",
+     "labels": ["refactor", "backend", "medium"], "body": "issues/api-1.md"},
+    {"key": "api-2", "repo": "example-org/orders-api", "kind": "package",
+     "title": "ORD-02: Serve the order list and the export from that query",
+     "labels": ["refactor", "backend", "medium"], "body": "issues/api-2.md"},
+    {"key": "web-1", "repo": "example-org/orders-web", "kind": "package",
+     "title": "ORD-03: Read the order filters from one typed module",
+     "labels": ["refactor", "frontend", "simple"], "body": "issues/web-1.md"}
+  ],
+  "old": [
+    {"repo": "example-org/orders-api", "number": 12, "action": "remove",
+     "reason": "The list and the export differ because each builds its own filter; one query fixes the cause.",
+     "replaced_by": ["api-1", "api-2"]},
+    {"repo": "example-org/orders-api", "number": 15, "action": "remove",
+     "reason": "The handler cleanup is part of moving both handlers to the shared query.", "replaced_by": ["api-2"]},
+    {"repo": "example-org/orders-api", "number": 18, "action": "keep",
+     "reason": "A retention rule: it changes data, not the structure this plan changes."},
+    {"repo": "example-org/orders-web", "number": 7, "action": "remove",
+     "reason": "The three filter copies become one module.", "replaced_by": ["web-1"]},
+    {"repo": "example-org/orders-web", "number": 9, "action": "remove",
+     "reason": "Asks to fix a filter widget that no screen imports any more."}
+  ]
+}

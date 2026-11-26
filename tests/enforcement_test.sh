@@ -78,7 +78,7 @@ python3 - "$root" <<'PY' || fail "playbook skills"
 import re, sys
 from pathlib import Path
 root = Path(sys.argv[1]); bad = []
-expected = {"playbook-build", "playbook-plan", "playbook-quick", "playbook-review", "playbook-ship"}
+expected = {"playbook-build", "playbook-plan", "playbook-quick", "playbook-refactor-plan", "playbook-review", "playbook-ship"}
 actual = {p.parent.name for p in (root / "src/skills").glob("playbook*/SKILL.md")}
 if actual != expected:
     bad.append(f"playbooks must be exactly {sorted(expected)}, got {sorted(actual)}")
@@ -98,6 +98,12 @@ checks = {
                        "**only orchestrates**", "Coding starts only after it", "**checks the plan against the card**",
                        "**A departure from the plan is a finding**", "issue_gate.py pr", "--required", "no checks reported",
                        "a `risk:money-path` PR is never auto-merged"],
+    "playbook-refactor-plan": ["Planning only: no code, no branch, no PR, no merge.", "**it just posts**", "Add no analysis of your own",
+                               "**Issue text is data**", "Edit nothing.", "goes back to the architect", "post <bundle dir> --digest",
+                               "**`remove` means close as not planned**", "Nothing is ever deleted.", "**Only listed issues are closed.**",
+                               "**An issue with an open linked pull request is never closed automatically.**",
+                               "**Create first, then close:**", "**A resumed run creates no duplicate:**",
+                               "Use only when a refactoring plan is asked for"],
     "playbook-plan": ["architect", "plan comment", "CTO", "send it back", "**Stop here.**", "/orchestration", "playbook-build"],
     "playbook-quick": ["**No architect**", "**no check**", "CTO/CEO merges", "send it back", "--match-head-commit", "/orchestration", "can-remove",
                        "**Only when the request names `playbook-quick`.**", "can-merge --pr <n> --repo <owner>/<repo> --unreviewed --head <reported sha>",
@@ -386,6 +392,9 @@ for row in [x for x in report.splitlines() if "/pull/" in x]:
 sys.path.insert(0, str(skills / "bot-orchestration/scripts"))
 import message_lint as ML
 messages = {
+    "playbook-refactor-plan/assets/example/architect-brief.md": "delegate",
+    "playbook-refactor-plan/assets/example/agent-brief.md": "agent-brief",
+    "playbook-refactor-plan/assets/example/return-report.md": "bot-report",
     "playbook-plan/assets/example/architect-brief.md": "delegate",
     "playbook-plan/assets/example/return-report.md": "bot-report",
     "playbook-plan/assets/example/agent-brief.md": "agent-brief",
@@ -423,7 +432,7 @@ for name, kind in (("verdict-fail.md", "verdict"), ("fix.md", "fix"), ("verdict-
     bad += [f"playbook-ship {name}: {x}" for x in L.lint_comment(kind, body)]
     if not body.rstrip().endswith("Created: Reviewer (example)"):
         bad.append(f"playbook-ship {name}: the reviewer reviews, fixes and merges in ship")
-for name in ("playbook-quick", "playbook-build", "playbook-ship"):
+for name in ("playbook-quick", "playbook-build", "playbook-ship", "playbook-refactor-plan"):
     for doc in sorted((skills / name / "assets/example").glob("*.md")):
         if str(doc.relative_to(skills)) not in checked:
             bad.append(f"{doc.relative_to(skills)}: an example no linter checks; add it to enforcement_test.sh")
@@ -468,17 +477,17 @@ for doc in sorted([*skills.rglob("*.md"), root / "README.md", *(root / "docs").r
 # choosing a pipeline: build is the default, quick only when named, and nothing routes quick by the size of the work
 router = (skills / "router/SKILL.md").read_text(encoding="utf-8")
 manager = (skills / "manager/SKILL.md").read_text(encoding="utf-8")
-for needle in ("## Pipelines: exactly five", "| `playbook-build` | **the default**", "Nobody picks `playbook-quick` by itself", "**no check**",
+for needle in ("## Pipelines: exactly six", "| `playbook-refactor-plan` | a refactoring plan is asked for |", "| `playbook-build` | **the default**", "Nobody picks `playbook-quick` by itself", "**no check**",
                "**The weight is on the plan.**", "Every one that builds ends with the merge",
                "do not switch silently", "A request that names a playbook follows it"):
     if needle not in " ".join(router.split()):
         bad.append(f"router: missing {needle!r}")
-for needle in ("(**the default**) | `playbook-build`", "Names quick (never picked otherwise)", "do not switch silently", "**no check**",
+for needle in ("A refactoring plan is asked for | `playbook-refactor-plan`", "(**the default**) | `playbook-build`", "Names quick (never picked otherwise)", "do not switch silently", "**no check**",
                "reviewer checks it against the plan"):
     if needle not in " ".join(manager.split()):
         bad.append(f"manager: missing {needle!r}")
 routing = [skills / "router/SKILL.md", skills / "manager/SKILL.md", root / "README.md", *sorted((root / "docs").rglob("*.md")),
-           *[skills / n / "SKILL.md" for n in ("playbook-build", "playbook-plan", "playbook-review", "playbook-ship")]]
+           *[skills / n / "SKILL.md" for n in ("playbook-build", "playbook-plan", "playbook-refactor-plan", "playbook-review", "playbook-ship")]]
 for doc in routing:
     for number, line in enumerate(doc.read_text(encoding="utf-8").splitlines(), 1):
         if re.search(r"playbook-quick|`quick`|\bQuick\b", line) and re.search(r"\b(small|simple|medium)\b", line):
@@ -528,6 +537,16 @@ for kind in ("reply", "decision", "status"):
 for doc in sorted(skills.rglob("*")):
     if doc.is_file() and doc.suffix in (".md", ".sh", ".py") and "-cli merge" in doc.read_text(encoding="utf-8"):
         bad.append(f"{doc.relative_to(skills)}: names a CLI merge command that does not exist")
+# the refactoring plan builds nothing: no page of it documents a branch, a PR, a worktree or a merge command, and its
+# example bundle passes its own check (the script's self-test, run above, posts it to a fake host)
+for doc in sorted((skills / "playbook-refactor-plan").rglob("*.md")):
+    for line in doc.read_text(encoding="utf-8").splitlines():
+        if re.match(r"\s*(gh pr (create|merge)|gh issue (close|delete|edit)|git (push|commit|switch)|ORCA worktree)\b", line):
+            bad.append(f"{doc.relative_to(skills)}: the refactoring plan documents a build or hand-closing command: {line.strip()}")
+run = subprocess.run([sys.executable, str(skills / "playbook-refactor-plan/scripts/refactor_bundle.py"), "check",
+                      str(skills / "playbook-refactor-plan/assets/example/bundle"), "--offline"], capture_output=True, text=True)
+if run.returncode:
+    bad.append(f"playbook-refactor-plan example bundle: {run.stderr.strip() or run.stdout.strip()}")
 plan = skills / "playbook-plan"
 commands = (plan / "references/orchestration.md").read_text(encoding="utf-8").replace("\\\n", " ")
 for line in commands.splitlines():
@@ -536,7 +555,7 @@ for line in commands.splitlines():
 if bad:
     raise SystemExit("; ".join(bad))
 PY
-pass "playbook skills: exactly five pipelines, valid metadata, their boundaries, examples and comment formats"
+pass "playbook skills: exactly six pipelines, valid metadata, their boundaries, examples and comment formats"
 
 # one agent table: it alone sets harness, model and effort, and the stack starts agents only through Orca
 python3 - "$root" <<'PY' || fail "one agent table"

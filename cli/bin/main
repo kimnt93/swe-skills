@@ -170,16 +170,17 @@ def cmd_playbooks() -> int:
         ("playbook-build", "DEFAULT. Issue, architect plan, PRs, reviewer checks them against the plan and fixes, CTO merges"),
         ("playbook-quick", "Only when named. Issues, PRs, CTO merges on mechanical checks only; no review"),
         ("playbook-plan", "CTO card, architect plan comment, sent back to CTO, accept, stop (nothing built)"),
+        ("playbook-refactor-plan", "Refactoring plan only: architect writes the issues, CTO posts them unchanged"),
         ("playbook-review", "Review one PR and post one verdict comment; changes nothing"),
         ("playbook-ship", "One PR: review and fix (3 rounds), merge and close its issue, or stop"),
     ]
     name = get_plugin_name()
     print(f"=== Available Playbooks (invoke via /{name}:<playbook>) ===")
-    print(f"{'Playbook':<22} | {'Slash Command':<24} | {'Description'}")
+    print(f"{'Playbook':<24} | {'Slash Command':<29} | {'Description'}")
     print("-" * 80)
     for pb_name, desc in playbooks:
         cmd_str = f"/{name}:{pb_name}"
-        print(f"{pb_name:<22} | {cmd_str:<24} | {desc}")
+        print(f"{pb_name:<24} | {cmd_str:<29} | {desc}")
     print("A request that names a playbook follows it; with none named, playbook-build runs.")
     return 0
 

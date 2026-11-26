@@ -15,7 +15,7 @@ when to use it, what to say, what happens, what you get, and its files.
 ## Skills
 
 <!-- skills:start -->
-53 skills in 6 groups. Click a skill for its detail.
+54 skills in 6 groups. Click a skill for its detail.
 
 ### Start here
 
@@ -24,9 +24,10 @@ when to use it, what to say, what happens, what you get, and its files.
 | [playbook-build](router.md#playbook-build) | Build (the default): issue, architect plan, package PRs, reviewer fixes and passes, CTO merges |
 | [playbook-plan](router.md#playbook-plan) | Plan only: CTO card, architect analysis comment, back to the CTO to accept, then stop |
 | [playbook-quick](router.md#playbook-quick) | Quick, only when named: CTO issues, developer PRs, CTO merges on mechanical checks only; no review |
+| [playbook-refactor-plan](router.md#playbook-refactor-plan) | Refactoring plan only: the architect writes the issues, the CTO/CEO posts them unchanged |
 | [playbook-review](router.md#playbook-review) | Review: read a PR and post one verdict comment; nothing is changed or merged |
 | [playbook-ship](router.md#playbook-ship) | Ship: review a PR, fix and re-review (3 rounds), merge it and close its issue, or stop |
-| [swe](router.md#router) | Entry point: picks language and playbook, delegates by agent, finishes only when make verify passes |
+| [swe](router.md#router) | Entry point: picks language and playbook, delegates by table row, ends only on make verify |
 
 ### Process and proof
 
