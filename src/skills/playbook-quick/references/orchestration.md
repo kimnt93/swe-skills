@@ -26,7 +26,7 @@ ORCA orchestration send --to "bot:<developer>" --chat new --type handoff \
 ```
 
 The developer bot then creates the issue's worktree and [runs its own agent](../../bot-orchestration/references/commands.md)
-in it. A bot that codes from its own home creates one worktree for the issue first:
+in it. A developer bot that works from its own home creates the issue's worktree first:
 
 ```bash
 ORCA worktree create --repo <repo> --name <id-lowercase> --branch <id-lowercase>/<slug> --base-branch origin/main

@@ -89,8 +89,8 @@ the PR an [agent brief](assets/example/agent-brief-reviewer.md)), then end your 
 
 ## 5. Reviewer: review and fix
 
-A reviewer bot may give the loop to its own agent of another model family. The agent signs with the **reviewer bot's**
-name, and the bot checks the verdict before it reports.
+A reviewer **bot** gives the loop to its own agent, from another model family when the team's table has one. The agent
+signs with the **reviewer bot's** name, and the bot checks the verdict before it reports.
 
 Follow the [review and fix loop](../reviewer/references/fix-loop.md): own worktree on the PR branch, a
 `FAIL ... Round k of 3.` before each fix, **at most 3 rounds**, then a PASS that names its own commits, or

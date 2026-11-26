@@ -217,7 +217,7 @@ for doc in sorted(skills.glob("playbook*/**/*.md")):
             bad.append(f"{doc.relative_to(skills)}: delegates with a question; use handoff, and report with status: {line.strip()}")
 text_of = (skills / "bot-orchestration/SKILL.md").read_text(encoding="utf-8")
 for needle in ("Agents do separate work and never talk to each other", "agent → agent", "Do not start that role's agents yourself",
-               "--type handoff", "--type status", "An agent starts **no helpers**", "**ends its turn**"):
+               "--type handoff", "--type status", "An agent starts **no helpers**", "**ends its turn**", "**A bot never does the task itself.**"):
     if needle not in text_of:
         bad.append(f"bot-orchestration: missing {needle!r}")
 # no playbook command or message removes a worktree by force or deletes its branch

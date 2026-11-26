@@ -53,6 +53,9 @@ carries the issue URL, what to answer, the limits, and **the return address**
 
 ## 3. Architect: analyse and comment on the issue
 
+An architect **bot** gives the analysis to its own planning agent, checks the plan and answers for it; the comment is
+signed with the bot's name.
+
 Use the `write-comment` skill: [analyse the code first](../write-comment/references/plan.md#analyse-the-code-first),
 then post **one** comment on the issue, signed `Created: <your agent name>`. You write no plan file and open no
 implementation issues.

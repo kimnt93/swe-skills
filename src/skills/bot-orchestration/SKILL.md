@@ -17,6 +17,11 @@ metadata:
 
 **The bot is the orchestrator. Agents do separate work and never talk to each other.**
 
+**A bot never does the task itself.** Code, tests, deployment work, a review and its fixes, a plan's analysis: each goes
+to the bot that holds the role, or to the bot's own agent of the right [tier](references/routing.md). The bot's own work is
+to decide, delegate, **verify** (run the evidence command, read the result) and report; where its playbook gives it the
+issue, the decision comment or the merge, it does those itself.
+
 ```text
 CEO bot ── issue ──► developer bot ──┬─ brief ─► agent A (issue 1, own worktree)
    ▲                  ▲     │        └─ brief ─► agent B (issue 2, own worktree)
@@ -57,7 +62,7 @@ A bot starts agents for **its own** job only. Only when no bot has the role may 
 | Role bot | Owns | Does not |
 |---|---|---|
 | **CEO / CTO** | the issue and its priority, delegating, the decision, the merge its playbook gives it | start developer or reviewer agents when those bots exist; write the code |
-| **Developer** | the code job: difficulty, agents, worktrees, verification, the PR, the report | design or priority calls, review of its own PR, the merge |
+| **Developer** | the code job: difficulty, agents, worktrees, verification, the PR, the report | write the code itself, design or priority calls, review of its own PR, the merge |
 | **Reviewer** | the verdict on a PR it did not write, drafted by its own agents; in `ship` and `complete` also the fixes, and in `ship` the merge | build the PR it judges |
 
 **"Ended its turn without a reply"** is not proof that a bot did nothing: Orca can say it right after the bot reported,
@@ -121,6 +126,7 @@ is a different writer from its developer agent.
 ## Never
 
 - Start another role bot's agents, or take over its job, while that bot exists.
+- Do a task yourself: write the code, fix a finding or do the review reading in the bot's own chat.
 - Let an agent message another agent or another bot, or start its own helpers.
 - Report an agent's claim you did not verify, or let an agent a bot started decide, accept or merge.
 - Poll a healthy agent or bot: end your turn; Orca wakes you.

@@ -87,8 +87,8 @@ only after the PRs it depends on are **merged**. Commands: [send the issues](ref
 ## 3. Developer: one issue, one worktree, one PR
 
 A developer **bot** rates the issue, starts one agent of that [tier](../bot-orchestration/references/routing.md) for it,
-verifies the agent's work itself and answers to the CTO/CEO. Whoever codes, the agent or a bot coding itself, does the
-steps below, opening the PR included.
+verifies the agent's work itself and answers to the CTO/CEO. The **agent** does the steps below, opening the PR included:
+a bot never codes.
 
 **Every issue has its own worktree**, never shared with another issue or with the main checkout
 ([create it](references/orchestration.md#2-send-the-issues)). Use the `developer` skill and the language skill:

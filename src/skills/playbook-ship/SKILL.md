@@ -16,9 +16,9 @@ PR ─► merge rules ─► review ⇄ fix (≤3 rounds) ─► PASS ─► mer
         │ refused: report, change nothing      └─► still wrong ─► Stopped (PR and branch stay) ─► remove worktree
 ```
 
-**You are the reviewer:** you review, fix and merge. A reviewer **bot** may give the review and the fixes to its own
-agent, but **the bot merges**; a single agent a person asked directly does all of it. Asking for this playbook gives you
-the merge of this PR. If you wrote any of it, you cannot ship it: tell whoever asked, and the bot gives it to a reviewer
+**You are the reviewer:** you review, fix and merge. A reviewer **bot** gives the review and the fixes to its own agent,
+checks the result, and **merges itself**; a single agent a person asked directly does all of it. Asking for this playbook
+gives you the merge of this PR. If you wrote any of it, you cannot ship it: tell whoever asked, and the bot gives it to a reviewer
 that wrote none of it. A project whose rules reserve the merge for a person wins.
 
 Your own fixes are **checked by nobody else** before `main`. The PASS names them. A bot that has a reviewer bot beside it
