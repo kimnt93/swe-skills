@@ -11,10 +11,16 @@ under that name and signs with `Created: <agent name>` (the `github` skill).
 These are for a **one-off delegation** where you land the change yourself. An agent that a bot runs in a playbook gets
 the [agent brief](../../bot-orchestration/assets/agent-brief.template.md) instead, and commits.
 
+The `Row:` line is the row of the team's
+[agent table](../../bot-orchestration/assets/agent-table.template.md) the worker runs on;
+[which row](../../bot-orchestration/references/routing.md).
+
 ## 1. Feature Implementation
 
 ```markdown
 # TASK BRIEF: Table View Pagination
+
+Row: medium
 
 ## Objective
 Implement client-side and server-side pagination for TableView component, including page size selector, jump-to-page input, and next/prev buttons.
@@ -45,6 +51,8 @@ Run and ensure this command passes:
 ```markdown
 # TASK BRIEF: Fix Concurrency Race in Cache Eviction
 
+Row: hard
+
 ## Objective
 Fix race condition where cache entries are read after invalidation has triggered but before eviction listener confirms removal.
 
@@ -67,6 +75,8 @@ Fix race condition where cache entries are read after invalidation has triggered
 
 ```markdown
 # TASK BRIEF: Optimize Database Query Latency
+
+Row: medium
 
 ## Objective
 Refactor feed aggregation query from sequential N+1 ORM fetches into a single batch query with proper indices.

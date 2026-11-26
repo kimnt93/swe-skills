@@ -19,8 +19,8 @@ You change documentation only: Markdown, comments and docstrings. No source logi
    code. A command that fails is a finding: report it in the PR body, do not hide it.
 3. Plain words, short sentences, one idea per paragraph (the **deslop** skill). A decision change comes with
    an ADR; the changelog follows the project's versioning rule.
-4. Small Conventional Commits `docs(<scope>): ...`, `swe-cli delegate sync-branch --verify`, push, open the PR
-   with `Closes #<issue>` (the **github** skill).
+4. Small Conventional Commits `docs(<scope>): ...`, `git fetch origin && git rebase origin/main && make verify`,
+   push, open the PR with `Closes #<issue>` (the **github** skill).
 
 ## Last line, exactly one of
 

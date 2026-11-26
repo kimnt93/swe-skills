@@ -62,15 +62,15 @@ Router rule: Go unless the task is ML or data (Python) or a measured hot path (R
 | Formatting and lint | gofmt + goimports + golangci-lint; ruff and PEP 8 (79); rustfmt + clippy `-D warnings`; ESLint | language skills |
 | Tests | tests first for bugs; Go `testing`, pytest, `cargo test`, Vitest + Testing Library, Playwright | `tdd` |
 | Money paths | replay of a recorded day against a golden file; formal checks for state machines | `replay-test`, `formal-verify` |
-| Review | a different model family reviews; findings are proven by a run | `interrogate` |
+| Review | an agent that wrote none of the change reviews (another model family when the table offers one); findings are proven by a run | `interrogate` |
 
 ## Agents
 
 | Concern | Choice |
 |---|---|
-| Harnesses | Claude Code, Codex, oh-my-pi as plugins; 52 more as plain skills (`make harness`) |
-| Project runner | `swe-cli`: YAML workflows, one agent per node, tmux or Orca, one git worktree per card |
-| Roles | manager, planner, developer, reviewer, documenter, intake, integrator, ci-fixer, verifier, scribe |
-| Agents | `{cli, model, reasoning}` per role in `config.yaml`: claude, codex, omp or opencode; strong for review and design, default for building, small for docs and changelog |
+| Orca | the one place agents run: workspaces, one git worktree per task, orchestration between bots and workers |
+| Orca bots | standing role holders (CTO/CEO, architect, developer, tester, devops, reviewer) that orchestrate and never do the task themselves |
+| Harnesses | the coding CLIs Orca runs agents in; the plugin installs into each (`make harness` lists them) |
+| Which agent | one agent table per team: harness, model and reasoning effort for `simple`, `medium`, `hard` and `planner/architect`; no default |
 
 Change this file in the same PR as the choice it describes.

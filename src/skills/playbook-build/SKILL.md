@@ -29,7 +29,7 @@ reviews no code by default.
 The reviewer's own fixes are **checked by nobody else** before `main`: that is the trade this playbook makes. The PASS
 names them, and a `risk:money-path` PR is never auto-merged.
 
-Commands: [orchestration](references/orchestration.md) (Orca `/orchestration`; outside Orca, the `delegate` skill). A
+Commands: [orchestration](references/orchestration.md) (Orca `/orchestration`). A
 full run, with a blocked package and a second wave: [example](references/example.md).
 
 Who may message whom is [bot-orchestration](../bot-orchestration/SKILL.md). Each role is held by a bot or by an agent;
@@ -139,7 +139,7 @@ every issue of a wave together. A wave is sent only after what it depends on is 
 
 ### Builder: build, open, hand over
 
-The builder bot gives the issue to one agent of its [tier](../bot-orchestration/references/routing.md), then **verifies
+The builder bot gives the issue to one agent on its [row](../bot-orchestration/references/routing.md) of the agent table, then **verifies
 the result itself** before the handover. The bot never codes.
 
 1. Steps 1 to 5 of [playbook-quick step 3](../playbook-quick/SKILL.md#3-developer-one-issue-one-worktree-one-pr): the

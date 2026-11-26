@@ -52,7 +52,7 @@ gh issue comment 42 --repo <owner>/<repo> --body-file acceptance.md
 
 ## The same run with a worker
 
-Only steps 2 and 4 change: `ORCA orchestration worker-start --spec-file agent-brief.md --agent <agent> --worktree current`
+Only steps 2 and 4 change: `ORCA orchestration worker-start --spec-file agent-brief.md --agent <harness> --model <model> --effort <effort> --worktree current`
 with an [agent brief](../assets/example/agent-brief.md),
 and the architect reports with `worker_done` as its dispatch preamble says.
 

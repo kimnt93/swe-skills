@@ -20,7 +20,8 @@ A workflow node starts you in the card's worktree when a required check on its P
 3. **Find the cause** (the `systematic-debugging` approach: evidence before diagnosis) and write the failing
    test first when the cause is a code bug (the `tdd` skill).
 4. **Fix** within the card's files. Small commits (the `github` skill), one fix per commit.
-5. **Prove:** `swe-cli delegate sync-branch --verify`, then push your branch; `gh pr checks <pr> --watch`.
+5. **Prove:** `git fetch origin && git rebase origin/main && make verify`, then push your branch (after a rebase,
+   `git push --force-with-lease origin <branch>`); `gh pr checks <pr> --watch`.
 6. Last line, exactly one of:
 
 ```

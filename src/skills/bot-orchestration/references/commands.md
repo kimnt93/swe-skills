@@ -22,15 +22,17 @@ A handoff returns nothing by itself: the receiving bot **must** send a status to
 ## bot → agent: brief and steer
 
 ```bash
-ORCA orchestration worker-start --item <n> --spec-file agent-brief.md --agent <agent> --model <model> --effort <effort> \
+ORCA orchestration worker-start --item <n> --spec-file agent-brief.md --agent <harness> --model <model> --effort <effort> \
     --worktree new-child --repo <repo> --name <id-lowercase>
 ORCA orchestration send --to dispatch:<dispatch_id> --subject "<ID>: <what changes>" --body-file steer.md
 ORCA orchestration reply --id <msg_id> --body-file answer.md          # answer its question
 ```
 
-Take `<agent>`, `<model>` and `<effort>` from the [tier table](routing.md); leave out what the table does not set.
-`--effort` works only together with `--model`. Some agents cannot take a model in a new worktree (OpenCode needs an
-existing one): create it first. `ORCA orchestration worker-start --help` says which. Start
+`<harness>`, `<model>` and `<effort>` are the three cells of the brief's row in the
+[agent table](routing.md); `python3 <this skill>/scripts/agent_table.py row <row>` prints them. Drop `--effort` only
+when the cell says `none`; `--effort` works only together with `--model`. Some harnesses cannot take a model in a new
+worktree (OpenCode needs an existing one): create it first; `ORCA orchestration worker-start --help` says which. If
+Orca cannot give the agent the row's model or effort, report `BLOCKED`; never start it on something else. Start
 independent agents together, up to about 4. `--item <n>` only when the bot tracks the job as an item.
 
 ## agent → bot: report

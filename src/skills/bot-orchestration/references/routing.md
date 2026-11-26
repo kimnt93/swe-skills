@@ -1,35 +1,47 @@
-# Pick the tier
+# Pick the row
 
-The bot rates the **issue**, picks the tier **before** it starts the agent, and writes the tier in the PR.
+Every agent runs on one row of the team's [agent table](../assets/agent-table.template.md). The row gives the harness,
+the model and the reasoning effort. **That table is the only place that sets them:** no skill, brief, config file or
+default adds another value.
 
-| Difficulty ([catalog](../../write-issue/references/catalog.md)) | Tier | Typical work |
-|---|---|---|
-| `simple` | **light** | rename, config, one small test, a docs line, a one-file fix |
-| `medium` | **standard** | a normal feature, API, refactor or migration across files; reproducing a bug |
-| `hard` | **strong** | open design inside the issue, concurrency, hard bugs |
+The CTO/CEO holds the table: the team's own filled copy, kept outside this plugin and every public repository. The bot
+that starts an agent reads the row **before** the start and copies it into the brief:
 
-**Always strong, whatever the label:** a money path, authentication or security, data that can be lost, a contract
-between repositories, or work that **failed twice** at a lower tier.
+```bash
+python3 <this skill>/scripts/agent_table.py row medium     # prints the Row and Run on lines of the brief
+python3 <this skill>/scripts/agent_table.py check          # every row is there and filled
+```
 
-## Which CLI and model is a tier
+## Which row
 
-This skill names **no CLI and no model**: they change. Each team keeps **one** table that says, for each tier, the Orca
-agent id, the model and the effort, and what to use when one is out of quota. Read it before every start: the team's
-routing table or model-routing skill, or the project's agent table (`swe-cli models show`; there `developer-junior` is
-light and standard work and `developer-senior` is strong).
+| The agent | Row |
+|---|---|
+| writes a plan or a set of issues | `planner/architect` |
+| builds, tests, deploys or reviews an issue labelled `simple` ([catalog](../../write-issue/references/catalog.md)) | `simple`: clear, small, no design choice |
+| the same for a `medium` issue | `medium`: several files, a complete rule list |
+| the same for a `hard` issue | `hard`: open design, concurrency, hard bugs |
 
-- No table, or a tier it does not cover: **ask the owner**. Never make up a model.
-- The agent cannot start, or is out of quota: use the table's fallback. No fallback: report `BLOCKED`. Never move a
-  strong job to a weaker tier to get it started.
-- Screens that must be looked at need an agent that can see them: use what the table names for UI work.
+**Always `hard`, whatever the label:** a money path, authentication or security, data that can be lost, or a contract
+between repositories. Only the planning agent takes `planner/architect`.
+
+A row is a rating of the work, not a promise about the agent. A team may put the same model on several rows, so never
+assume that harder work gets another model: the card, the checks and the review stay as strict on every row.
+
+## When the table does not answer
+
+- **No table, a missing row or an unfilled cell:** stop and ask the owner. There is no built-in default, and another
+  row is not a substitute. `agent_table.py` exits 1 and says what is missing.
+- **The row's agent cannot start, is out of quota, or Orca cannot give it the row's model or effort:** report
+  `BLOCKED`. Never swap the model, the effort or the row to get it started.
+- **Screens must be looked at and the row's agent cannot see them:** report `BLOCKED`.
 
 ## Escalate on evidence
 
 | What happened | Next |
 |---|---|
-| the connection or process dropped | the same brief, same tier |
-| out of context | a smaller slice, same tier |
-| wrong approach, or the evidence command still fails | one retry at the next tier, with the failure in the brief |
+| the connection or process dropped | the same brief, same row |
+| out of context | a smaller slice, same row |
+| wrong approach, or the evidence command still fails | one retry with the failure in the brief; rate the issue again only when the evidence shows it is harder than labelled |
 | two failures | stop, report to the delegating bot, re-plan |
 
 ## Never delegated to an agent a bot started

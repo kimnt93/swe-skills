@@ -6,7 +6,12 @@ Read this file fully, then `docs/README.md` (and `docs/runbooks.md` for operatio
 
 The source of a software-engineering plugin. `scripts/build.py` renders it into
 `dist/<PLUGIN_NAME>/` (default name `swe`): a complete plugin for Claude Code, Codex and omp, and
-plain skills for every other harness. Workflows are defined as structured **playbooks** (`playbook-*` skills) rather than CLI workflow DAGs; configuration lives in `config.json` (in the installed directory or `~/.config/@PLUGIN@/config.json`); implementation cards are delegated to worker agents via Orca CLI sessions, T3 Code threads, or headless CLI relays via the `delegate` skill. `cli/` is the `<name>-cli` command (`swe-cli`), supporting `swe-cli update` to update latest, `swe-cli playbooks`, `swe-cli delegate`, `swe-cli config`, and `swe-cli doctor`.
+plain skills for every other harness. The stack runs in **Orca**: Orca bots hold the roles and orchestrate, and Orca
+runs their agents in the harnesses, started with the `delegate` skill. Workflows are structured **playbooks**
+(`playbook-*` skills). Which harness, model and reasoning effort an agent runs on comes only from the team's **agent
+table** (`bot-orchestration`), kept outside this repository; `config.json` (`$SWE_CONFIG` or
+`~/.config/@PLUGIN@/config.json`) may name where it is. `cli/` is the `<name>-cli` command (`swe-cli`): `update`,
+`agents`, `delegate`, `playbooks`, `config`, `doctor`.
 
 ## Rules
 
@@ -22,9 +27,9 @@ plain skills for every other harness. Workflows are defined as structured **play
    `src/skills/router/` and is renamed to the plugin's name at build.
 4. **Every skill has `metadata.group`:** `start`, `process`, `language`, `data`, `platform` or
    `observability`. The router index and the plugin README group by it.
-5. **Harness-neutral text.** Say "start a subagent as agent A" (a name in `config.yaml`), never a tool name or a model slug.
-   The how-to lives in `src/skills/router/references/harness.md`. Model ids live only in
-   the project's `config.yaml`.
+5. **Harness-neutral text.** Say "start a subagent on a row of the agent table", never a harness's tool name or a
+   model id. The how-to lives in `src/skills/router/references/harness.md`. No tracked file names a model: harness,
+   model and effort live only in each team's own agent table.
 6. **Skills describe this stack only:** no repository, project or tool-specific names (the validator
    flags them), a `metadata.summary` of one line (it becomes the skill's row in the docs tables), and
    no `**x** skill` or `**x** principle` reference without a file, broken link, missing group or

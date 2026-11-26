@@ -18,8 +18,8 @@ git fetch origin
 git switch -c <type>/<issue>-<slug> origin/main      # feat/42-cancel-order, fix/57-dup-fills
 ```
 
-Types: `feat` `fix` `refactor` `perf` `test` `docs` `chore` `ci` `build`. One branch per issue. In
-a `swe-cli` run, the card's worktree branch is named the same way (`--branch feat/42-cancel-order`).
+Types: `feat` `fix` `refactor` `perf` `test` `docs` `chore` `ci` `build`. One branch per issue; an issue's
+Orca worktree gets a branch named the same way (`--branch feat/42-cancel-order`).
 
 ## Commit
 

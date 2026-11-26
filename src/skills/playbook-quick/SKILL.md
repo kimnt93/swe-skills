@@ -25,8 +25,7 @@ problem ─► CTO/CEO: one or more issues ─► send each to a developer
 ```
 
 This skill gives the **workflow**. How to send, track and answer is in [orchestration](references/orchestration.md),
-which uses the Orca `/orchestration` skill; load that skill before the first send. For a delegated agent outside Orca,
-use the `delegate` skill. A complete run is in [the example](references/example.md).
+which uses the Orca `/orchestration` skill; load that skill before the first send. A complete run is in [the example](references/example.md).
 
 Who may message whom is [bot-orchestration](../bot-orchestration/SKILL.md): when a bot holds the developer role,
 delegate to it; it runs its own agents.
@@ -97,7 +96,7 @@ only after the PRs it depends on are **merged**. Commands: [send the issues](ref
 
 ## 3. Developer: one issue, one worktree, one PR
 
-A developer **bot** rates the issue, starts one agent of that [tier](../bot-orchestration/references/routing.md) for it,
+A developer **bot** rates the issue, starts one agent on that [row](../bot-orchestration/references/routing.md) for it,
 verifies the agent's work itself and answers to the CTO/CEO. The **agent** does the steps below, opening the PR included:
 a bot never codes.
 
@@ -226,8 +225,7 @@ with its branch still there. **Refused: do not remove**; fix the reason or repor
 ORCA worktree rm --worktree path:<path>
 ```
 
-**Never `--force` and never `--delete-branch`.** A plain git worktree outside Orca: `git worktree remove <path>`, run
-from another checkout. Ignored files (build output, installed packages, local settings) go with the worktree, which is
+**Never `--force` and never `--delete-branch`.** Ignored files (build output, installed packages, local settings) go with the worktree, which is
 the point; copy out first anything in them you need.
 
 **A worker that runs inside the worktree reports first** ("check passed, removing now") and removes it as its very last

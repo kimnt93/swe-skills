@@ -27,7 +27,6 @@ All must hold; if one does not, change nothing and report it:
 ```bash
 git fetch origin <pr branch>
 ORCA worktree create --repo <repo> --name review-pr-<n> --branch review/pr-<n> --base-branch origin/<pr branch>
-# outside Orca: git worktree add -b review/pr-<n> <dir> origin/<pr branch>
 ```
 
 ## Each turn
@@ -92,7 +91,7 @@ After a confirmed merge or a `Stopped`:
 
 ```bash
 python3 <github skill>/scripts/pr_loop.py can-remove --worktree <path> --pr <n> --repo <owner>/<repo>
-ORCA worktree rm --worktree path:<path>          # outside Orca: git worktree remove <path>
+ORCA worktree rm --worktree path:<path>
 ```
 
 Refused: keep it and fix the reason. Never `--force` or `--delete-branch`. A worker running inside the worktree reports

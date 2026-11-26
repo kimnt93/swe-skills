@@ -537,4 +537,39 @@ if bad:
     raise SystemExit("; ".join(bad))
 PY
 pass "playbook skills: exactly five pipelines, valid metadata, their boundaries, examples and comment formats"
+
+# one agent table: it alone sets harness, model and effort, and the stack starts agents only through Orca
+python3 - "$root" <<'PY' || fail "one agent table"
+import re, sys
+from pathlib import Path
+root = Path(sys.argv[1]); skills = root / "src/skills"; bad = []
+sys.path.insert(0, str(skills / "bot-orchestration/scripts"))
+import agent_table as T
+template = T.parse((skills / "bot-orchestration/assets/agent-table.template.md").read_text(encoding="utf-8"))
+if tuple(template) != T.ROWS or any(x != ["<harness>", "<model>", "<effort>"] for x in template.values()):
+    bad.append("the shipped agent table must have the four rows, all unfilled (no harness, model or effort)")
+starts = 0
+for doc in sorted(skills.rglob("*.md")):
+    text = doc.read_text(encoding="utf-8")
+    for line in text.replace("\\\n", " ").splitlines():
+        if "worker-start" in line and "--agent " in line:
+            starts += 1
+            if not re.search(r"--agent <harness> --model <model> --effort <effort>(\s|`|$)", line):
+                bad.append(f"{doc.relative_to(skills)}: a documented worker-start must take harness, model and effort from the row: {line.strip()[:90]}")
+    old = re.search(r"\b(developer|reviewer)-(junior|senior)\b|\b(light|standard|strong)-tier\b|^Tier: (light|strong)|\btier table\b|config\.yaml", text, re.M)
+    if old:
+        bad.append(f"{doc.relative_to(skills)}: '{old.group(0)}' sets agents outside the agent table")
+if starts < 8:
+    bad.append(f"expected the playbooks' documented worker-start lines, found {starts}")
+for doc in sorted(skills.glob("*/assets/example/*.md")):
+    text = doc.read_text(encoding="utf-8")
+    if re.search(r"^Row: ", text, re.M) and not re.search(r"^Run on: harness example-harness, model example-[a-z-]*model, ", text, re.M):
+        bad.append(f"{doc.relative_to(skills)}: an example brief names placeholders only, from the table")
+cfg = (root / "config.example.json").read_text(encoding="utf-8")
+if set(__import__("json").loads(cfg)) != {"agent_table"}:
+    bad.append("config.example.json may only say where the agent table is")
+if bad:
+    raise SystemExit("; ".join(bad))
+PY
+pass "one agent table: unfilled template, every worker-start from its row, no tier or agent names"
 echo "all passed"

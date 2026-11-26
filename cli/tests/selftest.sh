@@ -33,20 +33,27 @@ pass "cli: playbooks lists the five pipelines, build as the default, quick only 
 cfg_file="$tmp/test_config.json"
 "$cli" config init "$cfg_file" >/dev/null || fail "config init"
 [ -f "$cfg_file" ] || fail "config init did not create file"
-grep -q "default_agent" "$cfg_file" || fail "config init contents invalid"
+grep -q '"agent_table"' "$cfg_file" || fail "config init contents invalid"
+! "$cli" config init "$cfg_file" >/dev/null 2>&1 || fail "config init overwrote an existing file"
 
 export SWE_CONFIG="$cfg_file"
 [ "$("$cli" config path)" = "$cfg_file" ] || fail "config path resolution with SWE_CONFIG"
-"$cli" config show | grep -q "default_agent" || fail "config show"
+"$cli" config show | grep -q "agent_table" || fail "config show"
 pass "cli: config show, path, and init work with config.json"
 
-# 4. Models and agents
-"$cli" models show | grep -q "developer-senior" || fail "models show"
-"$cli" models set developer-senior --model custom-model-v1 >/dev/null || fail "models set"
-grep -q "custom-model-v1" "$cfg_file" || fail "models set did not persist to config.json"
-[ "$("$cli" models subagent worker)" = "custom-model-v1" ] || fail "models subagent worker"
-[ "$("$cli" models subagent adversary)" = "claude-sonnet-5-5" ] || fail "models subagent adversary"
-pass "cli: models show, set, and subagent resolve and persist"
+# 4. The agent table: no table stops, a filled row answers, there is no models command
+unset AGENT_TABLE
+export XDG_CONFIG_HOME="$tmp/xdg"
+! "$cli" agents row medium >/dev/null 2>"$tmp/stop.txt" || fail "agents row without a table"
+grep -q "^STOP" "$tmp/stop.txt" || fail "agents row must say STOP"
+"$cli" agents init "$tmp/table.md" >/dev/null || fail "agents init"
+! "$cli" agents check --table "$tmp/table.md" >/dev/null 2>&1 || fail "an unfilled table must stop"
+sed -i -e 's/<harness>/harness-a/' -e 's/<model>/model-a/' -e 's/<effort>/high/' "$tmp/table.md"
+"$cli" agents check --table "$tmp/table.md" >/dev/null || fail "a filled table"
+"$cli" agents row medium --table "$tmp/table.md" | grep -qx "Run on: harness harness-a, model model-a, reasoning effort high" \
+  || fail "agents row"
+! "$cli" models show >/dev/null 2>&1 || fail "the removed models command still answers"
+pass "cli: agents reads only the team's table and stops without it"
 
 # 5. Doctor health check
 "$cli" doctor >"$tmp/doctor.txt" || fail "doctor"
@@ -55,9 +62,13 @@ pass "cli: doctor executes environment and tool discovery"
 
 # 6. Delegate command
 "$cli" delegate --self-test >/dev/null || fail "delegate --self-test"
-plan="$("$cli" delegate --agent codex --dry-run)"
-grep -q '"agent": "codex"' <<<"$plan" || fail "delegate dry-run"
-pass "cli: delegate self-test and dry-run execution plan"
+printf 'Row: medium\nbuild it\n' >"$tmp/brief.md"
+printf '#!/bin/sh\nexit 99\n' >"$tmp/orca-shim" && chmod +x "$tmp/orca-shim"  # a dry run starts nothing
+plan="$(ORCA_CLI_COMMAND="$tmp/orca-shim" "$cli" delegate --brief "$tmp/brief.md" --table "$tmp/table.md" --dry-run)"
+grep -q "orchestration worker-start .*--agent harness-a --model model-a --effort high" <<<"$plan" || fail "delegate dry-run"
+! ORCA_CLI_COMMAND="$tmp/orca-shim" "$cli" delegate --brief "$tmp/brief.md" --table "$tmp/none.md" --dry-run >/dev/null 2>&1 \
+  || fail "delegate ran without a table"
+pass "cli: delegate starts one Orca worker from the table's row, and nothing without a table"
 
 # 7. Update command dry-run
 up="$("$cli" update --dry-run)"

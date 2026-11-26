@@ -36,12 +36,14 @@ ORCA worktree create --repo <repo> --name <id-lowercase> --branch <id-lowercase>
 `--worktree current`), briefed with an [agent brief](../../bot-orchestration/assets/agent-brief.template.md):
 
 ```bash
-ORCA orchestration worker-start --spec-file agent-brief-<id>.md --agent <agent> \
+ORCA orchestration worker-start --spec-file agent-brief-<id>.md --agent <harness> --model <model> --effort <effort> \
     --worktree new-child --repo <repo> --name <id-lowercase>
 ```
 
 Start the issues of one wave together, up to about 4 at once (the `/orchestration` skill's parallel-start reference).
-`<agent>` and any model come from the team's [tier table](../../bot-orchestration/references/routing.md) or the human.
+`<harness>`, `<model>` and `<effort>` are the cells of the brief's row, the issue's difficulty, in the team's
+[agent table](../../bot-orchestration/references/routing.md) (drop `--effort` only when the cell says `none`); a missing row means stop
+and ask.
 Then **end your turn**; do not poll.
 
 **Waves as tasks (optional).** To see the waves of your own agents in one Run:
@@ -51,7 +53,7 @@ ORCA orchestration run-create --objective "<problem>"
 ORCA orchestration task-create --task-title "<ID1>" --spec-file agent-brief-<id1>.md
 ORCA orchestration task-create --task-title "<ID2>" --spec-file agent-brief-<id2>.md --deps '["<task_id of ID1>"]'
 ORCA orchestration task-list --ready --brief
-ORCA orchestration worker-start --task <task_id> --agent <agent> --worktree new-child --repo <repo> --name <id-lowercase>
+ORCA orchestration worker-start --task <task_id> --agent <harness> --model <model> --effort <effort> --worktree new-child --repo <repo> --name <id-lowercase>
 ```
 
 **A ready task is not a merged PR.** A task completes when its agent reports. Start a dependent task only after you

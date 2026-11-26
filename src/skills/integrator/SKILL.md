@@ -1,6 +1,6 @@
 ---
 name: integrator
-description: "How an agent brings an open pull request up to date with main and resolves its merge conflicts safely: rebase, resolve only inside files its own card owns, re-run make verify, get a fresh review of the resolution, and stop and hand over when a conflict touches another card's files or a hotspot. Use whenever a card's branch is behind or in conflict with main, `sync-branch` reported conflicts, or a merge was refused because the branch is behind."
+description: "How an agent brings an open pull request up to date with main and resolves its merge conflicts safely: rebase, resolve only inside files its own card owns, re-run make verify, get a fresh review of the resolution, and stop and hand over when a conflict touches another card's files or a hotspot. Use whenever a card's branch is behind or in conflict with main, a rebase reported conflicts, or a merge was refused because the branch is behind."
 metadata:
   group: process
   summary: "Integrator: rebase a PR on main, resolve conflicts only in its own files, re-verify, re-review"
@@ -14,10 +14,11 @@ card's worktree when the merge gate finds the branch behind `main` or in conflic
 
 ## Steps
 
-1. **Read the situation:** `swe-cli delegate status <project> <card> --fetch` (files, base, behind) and the
-   card's file list (`swe-cli delegate scope <project> <card>`).
-2. **Rebase:** `swe-cli delegate sync-branch`. It fetches, rebases on `origin/main` and aborts cleanly on a
-   conflict, naming the files. No conflict: go to step 5.
+1. **Read the situation:** `git fetch origin`, `git log --oneline HEAD..origin/main` (what is new on `main`),
+   `git diff --name-only origin/main...HEAD` (what the branch changes) and the card's file list (the *Owned files* of
+   its issue, `gh issue view <n>`).
+2. **Rebase:** `git rebase origin/main`. On a conflict, list the files (`git diff --name-only --diff-filter=U`) and
+   `git rebase --abort` until you know who owns each. No conflict: go to step 5.
 3. **Decide who owns each conflicting file.**
    - In the card's file list and not a hotspot: you may resolve it.
    - Outside the list, a hotspot (migrations, lockfiles, generated clients, route registries), or a file
@@ -27,7 +28,7 @@ card's worktree when the merge gate finds the branch behind `main` or in conflic
    - Keep both sides' intent: read the commits behind each side (`git log origin/main -- <file>`, the `why` skill).
    - Never drop `main`'s change to make the build pass, and never take "ours" or "theirs" wholesale.
    - A conflict you cannot explain in one sentence: stop and report it.
-5. **Prove:** `swe-cli delegate sync-branch --verify` (fetch again, `make verify`). A failing verify after a
+5. **Prove:** `git fetch origin && git rebase origin/main && make verify`. A failing verify after a
    clean rebase is a behaviour conflict: report it with the failing command; do not patch around it.
 6. **Push your own branch:** `git push --force-with-lease origin <branch>`. Never another branch, never `main`.
 7. The resolution is new code at a new SHA: the workflow sends it to the reviewer again; the old verdict

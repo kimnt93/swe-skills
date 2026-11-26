@@ -9,7 +9,7 @@ What the build does:
     entry command is /<name> (Claude Code), $<name>:<name> (Codex), /skill:<name> (omp), <name> (Hermes, ...)
   * fills @PLUGIN@, @DOMAIN@, @OWNER@ and @HOMEPAGE@ in every text file of the skills and the agents,
     and @SKILL_INDEX@ (grouped by metadata.group) in the router
-  * sets each Claude Code subagent's `model:` from the config.yaml template (`swe-cli models subagent <name>`)
+  * ships each Claude Code subagent without a `model:` line: only the team's agent table sets a model
   * renders the plugin manifests from src/manifests, dropping fields left empty
   * copies the installer, the validator and CHANGELOG.md, and writes build.json,
     LICENSE and README.md
@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import re
 import shutil
 import sys
@@ -69,14 +68,6 @@ def drop_empty(value):
     if isinstance(value, list):
         return [drop_empty(v) for v in value]
     return value
-
-
-def subagent_model(name: str) -> str:
-    fleet = ROOT / "cli" / "bin" / "main"
-    if not fleet.exists():
-        return "inherit"
-    result = subprocess.run([sys.executable, str(fleet), "models", "subagent", name], capture_output=True, text=True)
-    return result.stdout.strip() if result.returncode == 0 and result.stdout.strip() else "inherit"
 
 
 def description(skill_md: Path) -> str:
@@ -250,9 +241,7 @@ def main() -> int:
         for path in (dist / "agents").glob("*.md"):
             substitute(path, mapping)
             text = path.read_text(encoding="utf-8")
-            model = subagent_model(path.stem)
             text = re.sub(r"^model:.*\n", "", text, flags=re.M)
-            text = re.sub(r"^(name:.*\n)", rf"\1model: {model}\n", text, count=1, flags=re.M)
             path.write_text(text, encoding="utf-8")
 
     (dist / "scripts").mkdir()
@@ -264,9 +253,6 @@ def main() -> int:
             shutil.copytree(source, dist / extra)
         elif source.exists():
             shutil.copy2(source, dist / extra)
-    cfg_src = ROOT / "config.json" if (ROOT / "config.json").exists() else ROOT / "config.example.json"
-    if cfg_src.exists() and not (dist / "config.json").exists():
-        shutil.copy2(cfg_src, dist / "config.json")
 
     stack = {
         "name": name,

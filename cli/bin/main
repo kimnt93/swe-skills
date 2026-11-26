@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
-"""swe-cli: Developer automation CLI for AI coding agents and playbooks.
+"""swe-cli: Developer automation CLI for AI coding agents and playbooks. The stack runs in Orca.
 
 Commands:
     swe-cli update [harness...] [--no-pull] [--dry-run]
                                          Update latest code, rebuild plugin, and reinstall into harnesses
-    swe-cli delegate [options]           Delegate coding tasks via Orca, T3 Code, or direct CLI relays
+    swe-cli agents path|check|row <row>|init [file]
+                                         The team's agent table: harness, model and reasoning effort per row
+    swe-cli delegate --brief <file> [--row <row>] [--dry-run]
+                                         Start one Orca worker for a brief, on a row of the agent table
     swe-cli playbooks                    List available playbooks and their slash commands
     swe-cli config [show|path|init]      Inspect or initialize configuration at config.json
-    swe-cli doctor                       Health check for agent CLIs, Orca, T3 Code, git, and environment
-    swe-cli models show                  Display configured agents, CLIs, models, and reasoning
-    swe-cli models set <agent> [flags]   Configure an agent in config.json
-    swe-cli models subagent <name>       Subagent model resolution (used by build system)
+    swe-cli doctor                       Health check for git, gh, Orca, harness CLIs and the agent table
     swe-cli changelog show               Inspect project changelog history
     swe-cli changelog check <pr>         Verify that a PR includes a changelog entry
     swe-cli name                         Print the plugin name (default: swe)
 
 Configuration:
-    config.json resolution: $SWE_CONFIG -> ./config.json -> install_dir/config.json -> ~/.config/swe/config.json
+    config.json: $SWE_CONFIG, else ~/.config/swe/config.json (it may name the agent table: "agent_table")
 """
 
 from __future__ import annotations
@@ -44,58 +44,25 @@ def get_plugin_name() -> str:
                 return m.group(1)
     return "swe"
 
-def get_config_search_paths() -> List[Path]:
-    paths: List[Path] = []
-    name = get_plugin_name()
-    env_var = f"{name.upper()}_CONFIG"
-    if os.environ.get(env_var):
-        paths.append(Path(os.environ[env_var]))
-    if os.environ.get("SWE_CONFIG"):
-        paths.append(Path(os.environ["SWE_CONFIG"]))
-
-    paths.append(Path("./config.json"))
-    paths.append(ROOT_DIR / "config.json")
-    paths.append(ROOT_DIR / f"dist/{name}/config.json")
-    paths.append(ROOT_DIR / "config.example.json")
-
-    home = Path.home()
-    if sys.platform == "win32":
-        appdata = os.environ.get("APPDATA")
-        if appdata:
-            paths.append(Path(appdata) / name / "config.json")
-        paths.append(home / ".config" / name / "config.json")
-    elif sys.platform == "darwin":
-        paths.append(home / "Library" / "Application Support" / name / "config.json")
-        paths.append(home / ".config" / name / "config.json")
-    else:
-        xdg_config = os.environ.get("XDG_CONFIG_HOME")
-        if xdg_config:
-            paths.append(Path(xdg_config) / name / "config.json")
-        paths.append(home / ".config" / name / "config.json")
-    return paths
-
-def resolve_active_config_path() -> Optional[Path]:
-    for p in get_config_search_paths():
-        if p.is_file():
-            return p
-    return None
+def get_config_path() -> Path:
+    """The one config file, the same one agent_table.py reads."""
+    named = os.environ.get("SWE_CONFIG", "").strip()
+    if named:
+        return Path(named).expanduser()
+    base = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
+    return Path(base) / get_plugin_name() / "config.json"
 
 def load_config() -> Dict[str, Any]:
-    cfg_path = resolve_active_config_path()
-    if cfg_path and cfg_path.is_file():
+    path = get_config_path()
+    if path.is_file():
         try:
-            with open(cfg_path, "r", encoding="utf-8") as f:
+            with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception:
-            pass
+        except Exception as error:
+            print(f"Warning: {path} cannot be read: {error}", file=sys.stderr)
     return {}
 
-def save_config(data: Dict[str, Any], target_path: Optional[Path] = None) -> Path:
-    if target_path is None:
-        target_path = resolve_active_config_path()
-    if target_path is None:
-        name = get_plugin_name()
-        target_path = Path.home() / ".config" / name / "config.json"
+def save_config(data: Dict[str, Any], target_path: Path) -> Path:
     target_path.parent.mkdir(parents=True, exist_ok=True)
     with open(target_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
@@ -182,23 +149,21 @@ def cmd_update(argv: List[str]) -> int:
     print(f"✓ {name} successfully updated to latest version.")
     return 0
 
-def cmd_delegate(argv: List[str]) -> int:
-    script_candidates = [
-        ROOT_DIR / "src/skills/delegate/scripts/delegate.py",
-        ROOT_DIR / f"dist/{get_plugin_name()}/skills/delegate/scripts/delegate.py"
-    ]
-    script_path = None
-    for cand in script_candidates:
-        if cand.exists():
-            script_path = cand
-            break
-
-    if not script_path:
-        print("Error: delegate.py runner not found.", file=sys.stderr)
+def run_skill_script(skill: str, script: str, argv: List[str]) -> int:
+    path = ROOT_DIR / f"src/skills/{skill}/scripts/{script}"
+    if not path.exists():
+        path = ROOT_DIR / f"dist/{get_plugin_name()}/skills/{skill}/scripts/{script}"
+    if not path.exists():
+        print(f"Error: {script} not found.", file=sys.stderr)
         return 1
+    env = {**os.environ, "PLUGIN_NAME": get_plugin_name()}
+    return subprocess.run([sys.executable, str(path)] + argv, env=env).returncode
 
-    proc = subprocess.run([sys.executable, str(script_path)] + argv)
-    return proc.returncode
+def cmd_delegate(argv: List[str]) -> int:
+    return run_skill_script("delegate", "delegate.py", argv)
+
+def cmd_agents(argv: List[str]) -> int:
+    return run_skill_script("bot-orchestration", "agent_table.py", argv or ["check"])
 
 def cmd_playbooks() -> int:
     playbooks = [
@@ -220,31 +185,25 @@ def cmd_playbooks() -> int:
 
 def cmd_config(argv: List[str]) -> int:
     sub = argv[0] if argv else "show"
+    path = get_config_path()
     if sub == "path":
-        p = resolve_active_config_path()
-        if p:
-            print(p)
+        if path.is_file():
+            print(path)
             return 0
-        else:
-            print("No config.json found in search paths.", file=sys.stderr)
-            return 1
+        print(f"No config.json at {path}.", file=sys.stderr)
+        return 1
     elif sub == "init":
-        target = Path(argv[1]) if len(argv) > 1 else Path.home() / f".config/{get_plugin_name()}/config.json"
+        target = Path(argv[1]) if len(argv) > 1 else path
+        if target.exists():
+            print(f"{target} exists; nothing was overwritten.", file=sys.stderr)
+            return 1
         example = ROOT_DIR / "config.example.json"
-        default_data = {}
-        if example.exists():
-            try:
-                default_data = json.loads(example.read_text(encoding="utf-8"))
-            except Exception:
-                pass
-        saved_path = save_config(default_data, target)
-        print(f"✓ Initialized config at {saved_path}")
+        data = json.loads(example.read_text(encoding="utf-8")) if example.exists() else {"agent_table": ""}
+        print(f"✓ Initialized config at {save_config(data, target)}")
         return 0
     else:  # show
-        active_path = resolve_active_config_path()
-        cfg = load_config()
-        print(f"Active config path: {active_path or 'None (using defaults)'}")
-        print(json.dumps(cfg, indent=2))
+        print(f"Config path: {path}{'' if path.is_file() else ' (not there)'}")
+        print(json.dumps(load_config(), indent=2))
         return 0
 
 def cmd_doctor() -> int:
@@ -257,121 +216,17 @@ def cmd_doctor() -> int:
         status = f"✓ Found: {hit}" if hit else "✗ Missing"
         print(f"  • {tool:<10}: {status}")
 
-    # 2. Check orchestration engines
-    t3_hit = shutil.which("t3") or shutil.which("t3code") or (Path.home() / ".t3/bin/t3").exists()
-    print(f"  • {'t3 code':<10}: {'✓ Available' if t3_hit else '○ Not found (optional)'}")
+    # 2. Orca, which the stack runs in, and the harness CLIs Orca runs agents in
+    print("\nOrca and harness CLIs:", flush=True)
+    run_skill_script("delegate", "discover_agents.py", [])
 
-    orca_hit = shutil.which("orca-ide") or shutil.which("orca-dev") or os.environ.get("ORCA_CLI_COMMAND")
-    print(f"  • {'orca':<10}: {'✓ Available' if orca_hit else '○ Not found (optional)'}")
-
-    # 3. Check agent CLIs
-    script = ROOT_DIR / "src/skills/delegate/scripts/discover_agents.py"
-    if script.exists():
-        print("\nAgent CLIs:")
-        subprocess.run([sys.executable, str(script)])
+    # 3. The team's agent table: without it no agent starts
+    print("\nAgent table:", flush=True)
+    run_skill_script("bot-orchestration", "agent_table.py", ["check"])
 
     # 4. Check config
-    cfg_path = resolve_active_config_path()
-    print(f"\nConfiguration: {cfg_path or 'None found'}")
-    return 0
-
-def cmd_models(argv: List[str]) -> int:
-    sub = argv[0] if argv else "show"
-    if sub == "subagent":
-        agent_name = argv[1] if len(argv) > 1 else ""
-        cfg = load_config()
-        agents = cfg.get("agents", {})
-        if agent_name == "worker":
-            target = agents.get("worker") or agents.get("developer-senior") or agents.get("developer")
-            if isinstance(target, dict):
-                print(target.get("model", "claude-sonnet-5-5"))
-            elif isinstance(target, str):
-                print(target)
-            else:
-                print("claude-sonnet-5-5")
-        elif agent_name == "adversary":
-            target = agents.get("adversary") or agents.get("reviewer-senior") or agents.get("reviewer")
-            if isinstance(target, dict):
-                print(target.get("model", "claude-sonnet-5-5"))
-            elif isinstance(target, str):
-                print(target)
-            else:
-                print("claude-sonnet-5-5")
-        else:
-            if agent_name in agents and isinstance(agents[agent_name], dict):
-                print(agents[agent_name].get("model", "inherit"))
-            else:
-                print("inherit")
-        return 0
-
-    if sub == "set":
-        parser = argparse.ArgumentParser(description="Set agent parameters in config.json")
-        parser.add_argument("agent", help="Agent role name (e.g. developer-junior)")
-        parser.add_argument("--cli", "-c", help="CLI name (codex, claude, omp, etc.)")
-        parser.add_argument("--model", "-m", help="Model slug")
-        parser.add_argument("--reasoning", "-r", help="Reasoning effort")
-        args = parser.parse_args(argv[1:])
-
-        cfg = load_config()
-        agents = cfg.setdefault("agents", {})
-        agent_dict = agents.setdefault(args.agent, {})
-        if args.cli is not None:
-            agent_dict["cli"] = args.cli
-        if args.model is not None:
-            agent_dict["model"] = args.model
-        if args.reasoning is not None:
-            if args.reasoning == "":
-                agent_dict.pop("reasoning", None)
-            else:
-                agent_dict["reasoning"] = args.reasoning
-        saved = save_config(cfg)
-        print(f"✓ Updated agent '{args.agent}' in {saved}")
-        return 0
-
-    if sub == "cmd":
-        agent_name = argv[1] if len(argv) > 1 else "developer-junior"
-        cfg = load_config()
-        agents = cfg.get("agents", {})
-        spec = agents.get(agent_name, {})
-        cli = spec.get("cli", "codex")
-        model = spec.get("model", "o3-mini")
-        reasoning = spec.get("reasoning")
-        
-        args_out = [cli]
-        if cli == "codex":
-            args_out.extend(["exec", "--model", model])
-            if reasoning:
-                args_out.extend(["--reasoning-effort", reasoning])
-            args_out.append("--dangerously-skip-permissions")
-        elif cli == "claude":
-            args_out.extend(["-p", "--model", model])
-            if reasoning:
-                args_out.extend(["--effort", reasoning])
-            args_out.append("--permission-mode bypassPermissions")
-        elif cli == "omp":
-            args_out.extend(["--prompt", "--model", model])
-            if reasoning:
-                args_out.extend(["--thinking", reasoning])
-            args_out.append("--approval-mode yolo")
-        else:
-            args_out.extend(["-p", "--model", model])
-        for a in args_out:
-            print(a)
-        return 0
-
-    # show
-    cfg = load_config()
-    print("=== Configured Agents ===")
-    agents = cfg.get("agents", {})
-    if not agents:
-        print("No agents defined in config.json. Using defaults.")
-    else:
-        for name, spec in agents.items():
-            if isinstance(spec, dict):
-                cli = spec.get("cli", "auto")
-                m = spec.get("model", "default")
-                r = spec.get("reasoning", "none")
-                print(f"  • {name:<20}: cli={cli:<10} model={m:<24} reasoning={r}")
+    path = get_config_path()
+    print(f"\nConfiguration: {path if path.is_file() else f'{path} (not there)'}")
     return 0
 
 def cmd_changelog(argv: List[str]) -> int:
@@ -411,14 +266,14 @@ def main() -> int:
         return cmd_update(args)
     elif cmd == "delegate":
         return cmd_delegate(args)
+    elif cmd == "agents":
+        return cmd_agents(args)
     elif cmd in ("playbooks", "playbook", "list"):
         return cmd_playbooks()
     elif cmd == "config":
         return cmd_config(args)
     elif cmd == "doctor":
         return cmd_doctor()
-    elif cmd in ("models", "model"):
-        return cmd_models(args)
     elif cmd == "changelog":
         return cmd_changelog(args)
     else:

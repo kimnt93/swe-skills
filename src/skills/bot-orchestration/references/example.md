@@ -6,7 +6,7 @@ developer bot starts. Project, numbers and names are made up.
 | # | From → to | What | Message |
 |---|---|---|---|
 | 1 | CEO bot → developer bot | delegates issue #52, ends its turn | [delegate](../assets/example/delegate.md) |
-| 2 | developer bot → agent A | rates it `medium`, creates the worktree, briefs a standard-tier agent; ends its turn | [agent brief](../assets/example/agent-brief.md) |
+| 2 | developer bot → agent A | rates it `medium`, creates the worktree, briefs an agent on the `medium` row of the agent table; ends its turn | [agent brief](../assets/example/agent-brief.md) |
 | 3 | agent A → developer bot | reports once | [agent report](../assets/example/agent-report.md) |
 | 4 | developer bot | reruns the evidence command, reads the diff, checks the PR | |
 | 5 | developer bot → CEO bot | status, ends its turn | [bot report](../assets/example/bot-report.md) |
@@ -24,7 +24,7 @@ ORCA orchestration send --to "bot:<developer bot>" --chat new --type handoff --s
 # 2. developer bot
 python3 <github skill>/scripts/issue_gate.py issue 52 --repo <owner>/<repo>
 python3 <this skill>/scripts/message_lint.py agent-brief --body-file agent-brief.md
-ORCA orchestration worker-start --spec-file agent-brief.md --agent <agent> --model <model> --effort <effort> \
+ORCA orchestration worker-start --spec-file agent-brief.md --agent <harness> --model <model> --effort <effort> \
     --worktree new-child --repo <repo> --name ord-02
 
 # 4. developer bot, after the report woke it

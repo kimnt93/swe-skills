@@ -40,12 +40,13 @@ ORCA orchestration send --to "bot:<architect>" --chat new --type handoff \
 **B. Agent.** The spec file is an [agent brief](../../bot-orchestration/assets/agent-brief.template.md).
 
 ```bash
-ORCA orchestration worker-start --spec-file agent-brief.md --agent <agent> --worktree current
+ORCA orchestration worker-start --spec-file agent-brief.md --agent <harness> --model <model> --effort <effort> --worktree current
 ```
 
 `current` is right only when your workspace is a checkout of that repository. Otherwise use
-`--worktree new-child --repo <repo> --name <id-lowercase>-plan`. `<agent>` and any model come from the team's
-[tier table](../../bot-orchestration/references/routing.md) or the human, never from this skill. The architect does not
+`--worktree new-child --repo <repo> --name <id-lowercase>-plan`. `<harness>`, `<model>` and `<effort>` are the cells of the brief's row,
+`planner/architect`, in the team's [agent table](../../bot-orchestration/references/routing.md) (drop `--effort` only when the cell
+says `none`); never from this skill or a default, and a missing row means stop and ask. The architect does not
 edit tracked files in either case.
 
 After sending, **end your turn**. Do not poll and do not run a watch loop.

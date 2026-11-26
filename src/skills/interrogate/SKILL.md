@@ -20,9 +20,10 @@ findings; don't fix them.
 
 - **If you are an agent a bot briefed to start no helpers:** apply the lenses yourself, one after another.
 - **In one harness:** 2–3 adversaries (in Claude Code, `subagent_type: "@PLUGIN@:adversary"`), each
-  in its own worktree, on the `developer-senior` and `developer` agents.
-- **Cross-family (preferred for a PR):** the other CLI reviews (`swe-cli delegate review <project> <card>`, started by the project's manager).
-- **Wide or risky change:** both CLIs as adversaries on the same diff, each read-only.
+  in its own worktree, on the issue's [row](../bot-orchestration/references/routing.md) of the agent table.
+- **A second agent (preferred for a PR):** a bot starts an Orca worker on the same row to review in its own worktree
+  (the `delegate` skill). It is another model family only when the table's row gives one.
+- **Wide or risky change:** two adversaries on the same diff, each read-only.
 
 Brief each adversary with the scope, the intent, and:
 

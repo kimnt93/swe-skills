@@ -14,13 +14,13 @@ Skip it when the task was trivial or a skill was followed correctly. One-offs ar
    or write a tight digest of the session.
 2. **Three reviewers in parallel**, each with its prompt verbatim and the transcript path:
 
-   | Lens | Tier | Prompt |
+   | Lens | [Row](../bot-orchestration/references/routing.md) | Prompt |
    |---|---|---|
-   | judgment: decisions, missed rules, corrections | `top` | [judgment-reviewer](references/judgment-reviewer.md) |
-   | tooling: context the human had to paste that a command or skill could have fetched | `low` | [tooling-reviewer](references/tooling-reviewer.md) |
-   | divergent: what another approach would have done better | `top`, another family | [divergent-reviewer](references/divergent-reviewer.md) |
+   | judgment: decisions, missed rules, corrections | `hard` | [judgment-reviewer](references/judgment-reviewer.md) |
+   | tooling: context the human had to paste that a command or skill could have fetched | `simple` | [tooling-reviewer](references/tooling-reviewer.md) |
+   | divergent: what another approach would have done better | `hard` | [divergent-reviewer](references/divergent-reviewer.md) |
 
-3. **Synthesize** with the `developer-senior` agent with [synthesizer](references/synthesizer.md) and the three outputs:
+3. **Synthesize** with an agent on row `hard` with [synthesizer](references/synthesizer.md) and the three outputs:
    an Accepted / Rejected / Backlog list.
 4. **Structure before prose:** an accepted lesson that a lint, a validator check or a test would
    enforce better becomes a backlog item "build this check" (the **encode-lessons-in-structure** principle).

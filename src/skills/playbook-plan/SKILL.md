@@ -20,8 +20,7 @@ problem ─► CTO/CEO: planning card (issue) ─► send to architect (bot or d
 ```
 
 This skill gives the **workflow**. How to send, delegate and watch is in [orchestration](references/orchestration.md),
-which uses the Orca `/orchestration` skill; load that skill before the first send. For a delegated agent outside Orca, use
-the `delegate` skill. A complete run, from the problem to the acceptance, is in [the example](references/example.md).
+which uses the Orca `/orchestration` skill; load that skill before the first send. A complete run, from the problem to the acceptance, is in [the example](references/example.md).
 
 Who may message whom is [bot-orchestration](../bot-orchestration/SKILL.md): when an architect bot exists, delegate to it.
 

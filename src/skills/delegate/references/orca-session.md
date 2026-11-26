@@ -1,112 +1,41 @@
-# Orca CLI Session Orchestration Reference
+# The Orca worker
 
-This guide details how to orchestrate multi-agent tasks inside Orca (the Agent Development Environment desktop application) via its command-line interface.
+Load the Orca `/orchestration` skill first; the installed guide and `ORCA <command> --help` win over this page.
 
-Orca provides two superpowers for agent orchestration:
-1. **Isolated Git Worktrees**: Every agent can work on a separate branch in an isolated folder, preventing collision with the main working tree.
-2. **Interactive PTY Terminals**: Live terminal sessions with keystroke emulation, idle-state detection (`--for tui-idle`), and scrollback reading.
+## The executable
 
----
+`ORCA` is the executable that skill resolves to: `$ORCA_CLI_COMMAND` when set, else `orca-ide` (`orca-dev` in an Orca
+development checkout), and a bare `orca` **only inside an Orca terminal**. On Linux a bare `orca` elsewhere is the
+GNOME screen reader. `delegate.py` follows the same rule and stops when it finds none.
 
-## 1. Resolving the Executable
+## Start
 
-Never hardcode bare `orca` on Linux outside an active Orca-managed terminal, as `/usr/bin/orca` maps to GNOME's screen reader and will trigger speech synthesis.
-
-Use this resolution logic:
 ```bash
-if [ -n "$ORCA_CLI_COMMAND" ]; then
-  ORCA="$ORCA_CLI_COMMAND"
-elif [ -n "$ORCA_DEV_REPO_ROOT" ]; then
-  ORCA="orca-dev"
-elif [ -x "$HOME/.local/bin/orca-ide" ]; then
-  ORCA="$HOME/.local/bin/orca-ide"
-elif [ "$TERM_PROGRAM" = "Orca" ] || [ -n "$ORCA_AGENT_PANE" ]; then
-  ORCA="orca"
-else
-  ORCA="orca-ide"
-fi
+python3 <this skill's folder>/../bot-orchestration/scripts/agent_table.py row medium     # harness, model, effort
+ORCA orchestration worker-start --spec-file brief.md --agent <harness> --model <model> --effort <effort> \
+    --worktree new-child --repo <repo> --name <id-lowercase> --json
 ```
 
-Verify that Orca is running:
+`delegate.py` runs exactly the second command. The three values are the row's cells; drop `--effort` only when the
+cell says `none`. `ORCA orchestration worker-start --help` says which harness ids Orca knows and which take a model or
+an effort. When Orca cannot give a worker its row's values, report `BLOCKED`; do not start it on others.
+
+## While it works
+
 ```bash
-$ORCA status --json
+ORCA orchestration worker-list                                      # state of your workers
+ORCA orchestration send --to dispatch:<dispatch_id> --subject "<what changes>" --body-file steer.md
+ORCA orchestration reply --id <msg_id> --body-file answer.md        # answer its question
 ```
 
----
+## After it reports
 
-## 2. Managing Worktrees
+Check the diff and run the check in its worktree (`ORCA worktree ps` shows the path). Then:
 
-Create an isolated worktree for a delegated task:
 ```bash
-# List existing worktrees
-$ORCA worktree list --json
-
-# Create a dedicated worktree for a task
-$ORCA worktree create --repo id:<repoId> --name delegate-codex-task --json
+ORCA orchestration worker-release --dispatch <dispatch_id>          # closes its terminal, not its worktree
+ORCA worktree rm --worktree path:<path>                             # only when nothing in it is left to land
 ```
 
-The output returns the worktree ID and local directory path:
-```json
-{
-  "worktreeId": "wt_98fbc123-4567-89ab-cdef",
-  "path": "/home/user/workspaces/app/delegate-codex-task",
-  "branch": "delegate-codex-task"
-}
-```
-
----
-
-## 3. Terminal Lifecycle & Dispatching
-
-### Step 1: Create or Target a Terminal
-Spawn the agent CLI inside the active or newly created worktree:
-```bash
-$ORCA terminal create --worktree active --command "codex" --json
-```
-This returns a terminal handle (e.g. `term_3108a5c7-...`).
-
-### Step 2: Dispatch the Brief
-Inject the self-contained brief into the terminal:
-```bash
-$ORCA terminal send --worktree active --text "$BRIEF" --enter --json
-```
-
-Flags:
-- `--enter`: Appends a carriage return / newline to submit the prompt.
-- `--interrupt`: Sends `Ctrl+C` before sending text if previous command is stuck.
-
-### Step 3: Wait for Completion (`tui-idle`)
-Instead of guessing sleep timers, Orca provides native PTY state detection:
-```bash
-$ORCA terminal wait --for tui-idle --timeout-ms 300000 --json
-```
-- `--for tui-idle`: Blocks until the interactive CLI agent finishes its turn, stops emitting tokens/tool calls, and returns to the idle input prompt.
-- `--timeout-ms`: Maximum duration to wait before returning a timeout status.
-
-### Step 4: Read Output Buffer
-Read recent terminal lines to inspect output or error messages:
-```bash
-$ORCA terminal read --worktree active --lines 200 --json
-```
-
----
-
-## 4. Worktree Review & Cleanup
-
-After the agent finishes:
-1. Change directory to the worktree path:
-   ```bash
-   cd "$WORKTREE_PATH"
-   git status --short
-   git diff
-   ```
-2. Run project tests:
-   ```bash
-   make verify
-   ```
-3. Hand back to the user or orchestrator:
-   - If accepted: merge the worktree branch into main.
-   - If completed: delete the worktree:
-     ```bash
-     $ORCA worktree delete --worktree <worktreeId> --json
-     ```
+Before removing a worktree, make sure its work is committed and pushed, or already landed:
+`git -C <path> status --short` and `git -C <path> log --oneline @{upstream}..HEAD` print nothing. Never force it.

@@ -21,7 +21,7 @@ from pathlib import Path
 
 ASSETS = Path(__file__).resolve().parents[1] / "assets"
 KINDS = ("delegate", "agent-brief", "agent-report", "bot-report", "follow-up")
-CHOICES_RE = re.compile(r"^<([\w ]+(?: \| [\w ]+)+)>")
+CHOICES_RE = re.compile(r"^<([\w /]+(?: \| [\w /]+)+)>")
 PLACEHOLDER_RE = re.compile(r"<[^<>\n]+>")
 # a template placeholder left in a message; an example may still write <owner>/<repo> in a link
 UNFILLED_RE = re.compile(r"<[a-z][^<>\n]*[ |][^<>\n]*>|<url>|<ID[^<>]*>")
@@ -86,7 +86,11 @@ def self_test() -> int:
     brief = good["agent-brief"]
     without = "\n".join(x for x in brief.splitlines() if not x.startswith("Message no other"))
     assert "rule line" in lint("agent-brief", without)[0], "an agent must be told to message nobody else"
-    assert any("Tier" in x for x in lint("agent-brief", re.sub(r"(?m)^Tier: .*$", "Tier: huge", brief)))
+    assert any("Row" in x for x in lint("agent-brief", re.sub(r"(?m)^Row: .*$", "Row: huge", brief)))
+    assert lint("agent-brief", re.sub(r"(?m)^Row: .*$", "Row: planner/architect", brief)) == []
+    assert any("Run on" in x for x in lint("agent-brief", re.sub(r"(?m)^Run on: .*\n", "", brief))), "a brief names its agent"
+    unsourced = "\n".join(x for x in good["delegate"].splitlines() if not x.startswith("Agents: "))
+    assert any("agent table" in x for x in lint("delegate", unsourced)), "a handoff takes its agents from the table"
     assert any("Evidence command" in x for x in lint("agent-brief", re.sub(r"(?m)^Evidence command: .*$", "", brief)))
     nowhere = re.sub(r"(?m)^Return to: .*$", "Return to: me", good["delegate"])
     assert any("address" in x for x in lint("delegate", nowhere)), "a handoff without a return address is lost"

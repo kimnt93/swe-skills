@@ -38,7 +38,7 @@ when to use it, what to say, what happens, what you get, and its files.
 | [changelog](process.md#changelog) | Change logs: a CHANGELOG.md entry in every PR, plus the project's changelog/ directory |
 | [ci-fixer](process.md#ci-fixer) | CI fixer: reproduce a red check locally, fix the cause in the card's files, never weaken the check |
 | [correct](process.md#correct) | Make a repeated agent mistake impossible with a check, not a sentence |
-| [delegate](process.md#delegate) | Delegate coding tasks to AI agent CLIs via Orca sessions, T3 Code threads, or CLI relays |
+| [delegate](process.md#delegate) | One task to one Orca worker, on a row of the team's agent table; check before landing |
 | [deslop](process.md#deslop) | Clean a diff before review: debug output, dead code, noisy comments |
 | [developer](process.md#developer) | Developer: one card in one worktree, test first, verify on the head, push and open the PR |
 | [docs-sync](process.md#docs-sync) | Docs sync: compare a change with docs/, update the README index and references, hand back |
@@ -51,7 +51,7 @@ when to use it, what to say, what happens, what you get, and its files.
 | [interrogate](process.md#interrogate) | Adversarial review where only findings proven by a run survive |
 | [ketchup](process.md#ketchup) | Plain-words catch-up on what changed and what waits on you |
 | [manager](process.md#manager) | Manager: pick the playbook (build by default), orchestrate only, delegate by role, verify, report |
-| [planner](process.md#planner) | Planner: split a goal into PR-sized cards with disjoint files, risks and agents, as a JSON plan |
+| [planner](process.md#planner) | Planner: split a goal into PR-sized cards with disjoint files, risks and difficulty, as a JSON plan |
 | [principles](process.md#principles) | 22 engineering principles; the router opens the ones that apply (money-path, idempotency, ...) |
 | [project](process.md#project) | Run a project's docs, GitHub repo setup, backlog and status |
 | [reflect](process.md#reflect) | Turn a long task's lessons into approved skill edits or new checks |

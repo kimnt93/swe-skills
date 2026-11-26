@@ -114,11 +114,12 @@ proof), `correct` (a repeated mistake becomes a check), `reflect` (capture what 
 
 ## Subagents
 
-- **Pick an agent, never a model:** `developer-senior`, `developer-junior`, `documenter` ([models](references/models.md));
-  [harness](references/harness.md) says how in this harness.
-- `developer-junior` is the default for code. `developer-senior` for money-path, cross-service design, concurrency, a bug
-  with no repro. `documenter` only for mechanical work with a deterministic check.
-- **A second opinion is the same brief on another agent** (a `reviewer-senior` review).
+- **Pick a row, never a model:** `simple`, `medium`, `hard` or `planner/architect` of the team's agent table
+  ([which row](../bot-orchestration/references/routing.md)); [harness](references/harness.md) says how in this harness. A missing
+  row means stop and ask.
+- The row is the issue's difficulty. Money paths, authentication or security, data loss and cross-repo contracts are
+  always `hard`; `planner/architect` is only for planning.
+- **A second opinion is the same brief to a second agent.**
 - **You own every subagent's work.** Read its diff; write your own summary.
 - **Fresh subagents by default**, with the original brief, every later directive and the prior
   report. Reuse one only for state that lives in it (an uncommitted checkout, a running process).

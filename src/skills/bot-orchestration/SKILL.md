@@ -1,6 +1,6 @@
 ---
 name: bot-orchestration
-description: "How standing bots and the agents they start work together: who may message whom (bot to agent, agent back to its own bot, bot to bot to delegate and to report), never agent to agent. The CEO or CTO bot only orchestrates: it writes the issue and delegates it to the bot of its role (architect, developer, tester, devops, reviewer); the developer bot rates it simple, medium or hard, starts an agent of the matching tier that builds it and opens the PR, verifies the work and reports back. Use before delegating a job to another bot, before starting any agent as a bot, and when reporting back."
+description: "How standing bots and the agents they start work together: who may message whom (bot to agent, agent back to its own bot, bot to bot to delegate and to report), never agent to agent. The CEO or CTO bot only orchestrates: it writes the issue and delegates it to the bot of its role (architect, developer, tester, devops, reviewer); the developer bot rates it simple, medium or hard, starts an agent on that row of the team's agent table, which builds it and opens the PR, then verifies the work and reports back. Use before delegating a job to another bot, before starting any agent as a bot, and when reporting back."
 metadata:
   group: process
   summary: "Bots delegate to bots and run their own agents; agents report only to their bot"
@@ -18,7 +18,7 @@ metadata:
 **The bot is the orchestrator. Agents do separate work and never talk to each other.**
 
 **A bot never does the task itself.** Code, tests, deployment work, a review and its fixes, a plan's analysis: each goes
-to the bot that holds the role, or to the bot's own agent of the right [tier](references/routing.md). The bot's own work is
+to the bot that holds the role, or to the bot's own agent on the right [row](references/routing.md). The bot's own work is
 to decide, delegate, **verify** (run the evidence command, read the result) and report; where its playbook gives it the
 issue, the decision comment or the merge, it does those itself.
 
@@ -53,6 +53,22 @@ python3 <this skill>/scripts/message_lint.py <delegate|agent-brief|agent-report|
 ```
 
 Commands: [commands](references/commands.md). A full run: [example](references/example.md).
+
+## One agent table
+
+The CTO/CEO holds the team's [agent table](assets/agent-table.template.md): the rows `simple`, `medium`, `hard` and
+`planner/architect`, each with a harness, a model and a reasoning effort. It is the only place that sets them. Every
+brief copies its row, every handoff tells the receiving bot to start its agents from the table, and a missing row means
+**stop and ask**. [Which row](references/routing.md).
+
+## Short replies
+
+A reply or a status report is short: the result, the evidence, the head and what is left, and nothing the reader does
+not need to act. Long explanation belongs only in the planner/architect's plans and issues, or where somebody asked for
+it.
+
+- **Good:** `PR READY API-03: head <sha>; make verify passed; nothing left.`
+- **Bad:** a status that retells the whole run: every file read, every dead end, then the result in the last line.
 
 ## Delegate a bot's job to that bot
 
@@ -89,7 +105,7 @@ state of its issues, not to build them.
 
 1. **CEO bot** writes the issue (`write-issue`), checks the [merge rules](../github/references/pull-requests.md#merge-rules) allow it,
    **delegates** it to the developer bot with its own return address, and **ends its turn**.
-2. **Developer bot** (the tester bot for a `test` lane issue, the devops bot for an `ops` one) runs the gate, [rates the issue and picks the tier](references/routing.md), creates the issue's
+2. **Developer bot** (the tester bot for a `test` lane issue, the devops bot for an `ops` one) runs the gate, [rates the issue and reads that row of the agent table](references/routing.md), creates the issue's
    worktree, and **briefs one agent** per issue. Independent issues run in parallel, each with its own agent.
 3. **Agent** does its slice, pushes it and opens the PR when its brief says so, and **reports to its bot only**.
 4. **Developer bot verifies**: runs the evidence command itself and reads the diff against the owned files. A claim is
@@ -111,8 +127,8 @@ state of its issues, not to build them.
 
 ## Names
 
-The brief gives the agent its name; commits are authored by it and texts end `Created: <name>`. The PR says which tier
-did the work.
+The brief gives the agent its name; commits are authored by it and texts end `Created: <name>`. The PR says which row of the agent
+table did the work.
 
 | The bot that starts the agent | The agent's name |
 |---|---|
@@ -130,8 +146,8 @@ is a different writer from its developer agent.
 
 ## One good, one bad
 
-- **Good:** the CEO hands issue `API-03` to the developer bot and ends its turn; the developer bot starts a standard-tier
-  agent, reruns its test, opens the PR and sends `PR READY`.
+- **Good:** the CEO hands issue `API-03` to the developer bot and ends its turn; the developer bot starts an agent on the
+  `medium` row, reruns its test, opens the PR and sends `PR READY`.
 - **Bad:** the CEO starts five developer agents itself, nudges each one and collects their reports, while the developer
   bot sits idle; or it reads the diff and runs the tests to judge a PR, which is the reviewer's job.
 

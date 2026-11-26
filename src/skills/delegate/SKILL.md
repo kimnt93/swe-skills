@@ -1,91 +1,57 @@
 ---
 name: delegate
-description: "Delegate implementation tasks to AI agent CLIs (Codex, Claude, OMP, Pi, Devin, Antigravity) via Orca sessions, T3 Code threads, or direct CLI execution. Parses target agent and model, runs in isolated worktrees, and verifies diffs before committing."
+description: "Give one coding task to one Orca worker: write a self-contained brief, start it with `orca orchestration worker-start` on the harness, model and reasoning effort of a row of the team's agent table, then read the diff and run the check before anything lands. Use when a bot or a person hands a single task to a coding agent."
 metadata:
   group: process
-  summary: "Delegate coding tasks to AI agent CLIs via Orca sessions, T3 Code threads, or CLI relays"
+  summary: "One task to one Orca worker, on a row of the team's agent table; check before landing"
 ---
 
 # Delegate
 
-Delegate implementation cards and tasks to standalone AI agent CLIs—leveraging **Orca CLI sessions**, **T3 Code threads**, or falling back to **direct headless CLI relays**.
+One task goes to one coding agent, which Orca runs in a worktree. **Review first:**
 
-Delegation follows the **Review-First Philosophy**:
-1. Formulate a self-contained, unambiguous brief.
-2. The implementer CLI executes in an isolated session or worktree.
-3. The orchestrator inspects the resulting diff and runs verification commands.
-4. Review and land changes—**never blind auto-commits**.
-
----
+1. Write a brief that stands alone: the worker has none of your chat.
+2. Start the worker on a row of the team's agent table.
+3. Read its diff and run the check yourself. Nothing lands because the worker said so.
 
 **Standing bots:** who delegates to whom, who may start agents and how they report is the
-[bot-orchestration](../bot-orchestration/SKILL.md) skill. It comes first; this skill is how one task reaches one coding
-CLI.
+[bot-orchestration](../bot-orchestration/SKILL.md) skill. It comes first; this skill is how one task reaches one
+worker.
 
-## 1. Trigger & Modes
+## 1. The brief
 
-Trigger delegation from chat or playbooks:
+An agent that a bot runs in a playbook gets the
+[agent brief](../bot-orchestration/assets/agent-brief.template.md), and commits under the name in it. For a one-off
+task whose change you land yourself, use the [brief templates](examples/brief-templates.md): objective, files, the
+check command and **no commits**.
 
-```text
-/delegate codex: implement table view pagination
-/delegate claude --model claude-3-7-sonnet --reasoning high: refactor authentication
-/delegate fix the race condition in cache eviction
-```
+Every brief names its **row** (`Row: medium`). [Which row](../bot-orchestration/references/routing.md).
 
-### Supported Execution Engines
-- **Orca CLI Session**: Runs in an isolated Git worktree with interactive PTY terminal and idle-state detection. See the [Orca Session Reference](references/orca-session.md).
-- **T3 Code Thread**: Runs via `t3 thread start` with worktree isolation and structured JSON output. See the [T3 Code Session Reference](references/t3-session.md).
-- **Direct CLI Relay**: Headless non-interactive execution (`codex exec`, `claude -p`, `omp`, `pi -p`). See the [Direct CLI Reference](references/direct-cli.md).
+## 2. Start the worker
 
-Outputs adhere to the [Schema Specification](references/schemas.md).
-
----
-
-## 2. Delegation Workflow
-
-```mermaid
-flowchart TD
-    A["Receive Task or Card"] --> B["Formulate Structured Brief"]
-    B --> C{"Select Engine"}
-    C -- "Orca" --> D["Orca Worktree &amp; Terminal"]
-    C -- "T3 Code" --> E["T3 Code Thread"]
-    C -- "Direct CLI" --> F["Headless CLI Relay"]
-    D --> G["Wait for Completion"]
-    E --> G
-    F --> G
-    G --> H["Inspect Diff &amp; Run Test Gates"]
-    H --> I["Review &amp; Land Changes"]
-```
-
-### Step 1: Formulate the Task Brief
-Because delegated agents run in a separate session without active chat history, the brief must be self-contained. See [Brief Templates](examples/brief-templates.md) for standard formats:
-- Objective and scope of target files
-- Hard constraint for a one-off delegation where you land the change yourself: NO COMMITS (leave changes in the working
-  tree). An agent that a bot runs in a playbook gets the
-  [agent brief](../bot-orchestration/assets/agent-brief.template.md) instead, and commits under the name in it.
-- Verification test command
-
-### Step 2: Dispatch Delegation
-Use the companion helper script:
 ```bash
-python3 src/skills/delegate/scripts/delegate.py \
-  --agent codex \
-  --brief "brief.md" \
-  --verify "make verify" \
-  --json
+python3 <this skill>/scripts/delegate.py --brief brief.md --repo <repo> --name <id-lowercase> --dry-run
+python3 <this skill>/scripts/delegate.py --brief brief.md --repo <repo> --name <id-lowercase>
 ```
 
-Discover installed coding agents on the current host:
-```bash
-python3 src/skills/delegate/scripts/discover_agents.py
-```
+The script reads the row from the team's
+[agent table](../bot-orchestration/assets/agent-table.template.md) and runs `orca orchestration worker-start` with
+that row's harness, model and effort. It has no option to choose any of them. **A missing table or row stops it: ask
+the owner.** It never falls back to another row, a default or another way of starting an agent.
 
-### Step 3: Inspect Diff & Verification
-Check touched files and verification test output:
+`--worktree current` is only for a worker that edits no tracked file, or when your workspace is the task's own. The
+commands by hand, steering and cleanup: [the Orca worker](references/orca-session.md). Which harness CLIs this machine
+has: `python3 <this skill>/scripts/discover_agents.py`.
+
+## 3. Wait, then check
+
+**End your turn.** Orca wakes you with the worker's `worker_done`, question or escalation; do not poll. Then, in the
+worker's worktree:
+
 ```bash
 git status --short
-git diff --stat
-make verify
+git diff origin/main...HEAD --stat
+make verify        # or the check the brief named
 ```
 
-Hand back results for review before landing.
+Report what you verified, then release the worker.

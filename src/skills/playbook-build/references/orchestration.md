@@ -51,9 +51,12 @@ in it. **Your own agent, only when no bot can take the issue**, gets one new wor
 [agent brief](../../bot-orchestration/assets/agent-brief.template.md):
 
 ```bash
-ORCA orchestration worker-start --spec-file agent-brief-developer.md --agent <agent> \
+ORCA orchestration worker-start --spec-file agent-brief-developer.md --agent <harness> --model <model> --effort <effort> \
     --worktree new-child --repo <repo> --name <id-lowercase>
 ```
+
+`<harness>`, `<model>` and `<effort>` are the cells of the brief's row, the issue's difficulty, in the team's
+[agent table](../../bot-orchestration/references/routing.md); drop `--effort` only when the cell says `none`.
 
 Send every issue of a wave together, up to about 4 at once. **Do not send an issue whose `Depends on` names an unmerged
 PR**: it goes with the next wave. Then **end your turn**; do not poll.
@@ -85,13 +88,14 @@ ORCA orchestration send --to "bot:<reviewer>" --chat new --type handoff \
 [agent brief](../../bot-orchestration/assets/agent-brief.template.md):
 
 ```bash
-ORCA orchestration worker-start --spec-file agent-brief-reviewer.md --agent <agent> \
+ORCA orchestration worker-start --spec-file agent-brief-reviewer.md --agent <harness> --model <model> --effort <effort> \
     --worktree new-child --repo <repo> --name review-pr-<n>
 ```
 
 An agent started this way is in a new worktree: it brings the PR branch into it
-(`git fetch origin <branch> && git switch -c review/pr-<n> origin/<branch>`). Pick the agent from the
-[tier table](../../bot-orchestration/references/routing.md), from another model family than the author when there is one.
+(`git fetch origin <branch> && git switch -c review/pr-<n> origin/<branch>`). It runs on the issue's
+[row](../../bot-orchestration/references/routing.md) of the agent table, and it is never the agent that built the PR. It is of another
+model family than the author only where the table gives one; never go around the table to get one.
 Then **end your turn**; do not poll.
 
 ## 6. The reviewer reports back
