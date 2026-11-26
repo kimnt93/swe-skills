@@ -29,6 +29,9 @@ reviews no code by default.
 The reviewer's own fixes are **checked by nobody else** before `main`: that is the trade this playbook makes. The PASS
 names them, and a `risk:money-path` PR is never auto-merged.
 
+**Asking** follows [the asking rule](../principles/references/never-block-on-the-human.md); the stops this playbook
+names stay.
+
 Commands: [orchestration](references/orchestration.md) (Orca `/orchestration`). A
 full run, with a blocked package and a second wave: [example](references/example.md).
 
@@ -54,8 +57,9 @@ python3 <github skill>/scripts/pr_loop.py state --pr <pr> --repo <owner>/<repo>
 | a card, no plan comment | 2 | send it to the architect, or the architect is still working |
 | a plan comment, no decision, or `Changes required by` as the latest | 2 | check and decide, or the architect revises |
 | `Accepted by` the latest plan version, no package issues | 3 | create the package issues |
-| a package issue the gate refuses as not approved (an outsider's) | 3 | ask the owner, with the one-line command; end your turn |
+| a package issue the gate refuses as not approved (an outsider's) | 3 | ask the owner, with the one-line command; send the others, end your turn |
 | an approved package, no PR, what it depends on not merged | 3 | it waits for that merge (stage 4) |
+| a package or step the acceptance says waits for the owner, no answer yet | 3 | it waits; the others go on |
 | an approved package, no PR, nothing unmerged before it | 3 | send it to its builder, or the builder is working |
 | a PR, handed over, no verdict on its head | 4 | send it to the reviewer, or the reviewer is working |
 | `Verdict: PASS` on the head | 4 | merge and confirm |
@@ -96,8 +100,8 @@ The CTO/CEO creates the card: [playbook-plan step 1](../playbook-plan/SKILL.md#1
 the **architect** (its own agent only when no bot has the role) and ends its turn; the architect analyses the code,
 posts the plan comment and sends it back. The CTO/CEO **checks the plan against the card** (the
 [plan check](../playbook-plan/SKILL.md#5-ctoceo-confirm-then-stop): the `Goal` met, every scope line covered, a real
-rejected approach, every open question answered, each gate a command) and accepts it or asks for changes. A careful plan
-is what lets the code go in without the owner reviewing it.
+rejected approach, every choice decided or open as the asking rule allows, each gate a command) and accepts it or asks
+for changes. A careful plan is what lets the code go in without the owner reviewing it.
 
 **Do not stop at the acceptance.** Coding starts only after it, and the `Accepted by` comment says the packages are built
 now under this playbook; then go on to stage 3. A request that already has an accepted plan starts at stage 3.
@@ -119,7 +123,8 @@ the repository (role admin, maintain or write) is approved, agent-signed or not,
 gate still refuses a closed, refused or refusing-board issue.
 
 Only an issue the gate refuses **as not approved**, such as one an outsider or a read-only member opened, waits for the
-owner. Give them its link and one line that works in any shell, then end your turn; never post it yourself:
+owner. Give them the links, in one message, each with one line that works in any shell, and your recommendation. Send
+the packages that can go, then end your turn; never post the line yourself:
 
 ```bash
 gh issue comment <number> -R <owner>/<repo> --body "Accepted by owner."

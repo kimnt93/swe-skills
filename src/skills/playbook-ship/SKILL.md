@@ -24,6 +24,9 @@ that wrote none of it. A project whose rules reserve the merge for a person wins
 Your own fixes are **checked by nobody else** before `main`. The PASS names them. A bot that has a reviewer bot beside it
 [delegates](../bot-orchestration/SKILL.md#delegate-a-bots-job-to-that-bot) the whole playbook to it.
 
+**Asking** follows [the asking rule](../principles/references/never-block-on-the-human.md); the stops this playbook
+names stay.
+
 ## 1. Check that it may be shipped
 
 ```bash

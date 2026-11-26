@@ -134,9 +134,8 @@ proof), `correct` (a repeated mistake becomes a check), `reflect` (capture what 
 
 ## Autonomy
 
-- Reversible work proceeds without asking.
-- **Always pause** for irreversible writes: force-push to shared branches, deploys, production data,
-  messages to customers, and any merge of a money-path change.
+- **When to ask** is [one rule for every role and playbook](../principles/references/never-block-on-the-human.md):
+  decide and record what is reversible; always pause for what it lists under *Still ask*.
 - "Don't stop" or "going to bed" means keep going until the predicate is met.
 - Give your real judgment; push back when a request doesn't earn its place.
 

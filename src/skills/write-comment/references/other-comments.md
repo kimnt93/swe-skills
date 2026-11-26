@@ -56,7 +56,8 @@ On a plan (an issue) it is short, and covers one plan version:
 
 ```text
 Accepted by CTO (<name>). Plan v1. <what happens now: build wave 1 (IDs) with <owner>, or stays in the backlog>.
-- <answer to each open question>
+- <each open question: your answer where the asking rule lets you give it, else: waits for the owner, with the
+  recommendation>
 
 Created: <author>
 ```

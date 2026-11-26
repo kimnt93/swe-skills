@@ -93,6 +93,16 @@ it.
 - **Good:** `PR READY API-03: head <sha>; make verify passed; nothing left.`
 - **Bad:** a status that retells the whole run: every file read, every dead end, then the result in the last line.
 
+## Questions
+
+Every role follows [the asking rule](../principles/references/never-block-on-the-human.md). A question takes the routes
+above, up to the CTO/CEO: an agent asks only its bot (`ask`); a bot answers what the rule lets it and sends the rest to
+the bot that delegated the job (`question`, or `Needs` in its status), never around it to the owner.
+
+- **Good:** the architect decides the row cap in its plan, with the reason, and sends the CTO bot one open item, a
+  production write, with its recommendation.
+- **Bad:** a developer bot asks the owner which of two helper names to use, and waits.
+
 ## Delegate a bot's job to that bot
 
 **Roles, not names.** The skills of this plugin name roles only, never a bot. Which bot holds which role is each team's
@@ -108,7 +118,7 @@ A bot starts agents for **its own** job only. Only when no bot has the role may 
 | **Architect** | the plan: analysis, the plan comment, sending it back | accept its own plan, build |
 | **Developer** | the code job: difficulty, agents, worktrees, verification, the PR, the report | write the code itself, design or priority calls, review of its own PR, the merge |
 | **Tester** | a `test` lane issue: tests and verification work, built and reported like the developer's; a [playbook-test](../playbook-test/SKILL.md) run: test as a user, report, fix nothing | judge a PR as its reviewer, the merge |
-| **Devops** | an `ops` lane issue: deployment, CI and infrastructure work, built and reported like the developer's | deploy or touch production without the owner's go, the merge |
+| **Devops** | an `ops` lane issue: deployment, CI and infrastructure work, built and reported like the developer's | deploy, write on a server or touch production without the owner's go (a staging deploy through the project's normal pipeline, within its deploy rules, needs none), the merge |
 | **Reviewer** | the verdict on a PR it did not write, drafted by its own agents, with its [security and outbound-data check](../reviewer/SKILL.md#security-and-outbound-data); in `build` and `ship` also the fixes and the check against the accepted plan, and in `ship` the merge; a [playbook-security](../playbook-security/SKILL.md) audit: proven findings, change nothing | build the PR it judges; take part in `quick`, which has no check |
 
 Each role is the same rule: the bot that holds it does the job through its own agents. With no tester or devops bot, the

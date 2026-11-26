@@ -24,6 +24,9 @@ problem ─► CTO/CEO: one or more issues ─► send each to a developer
                                                                 (the PR and branch stay on GitHub)
 ```
 
+**Asking** follows [the asking rule](../principles/references/never-block-on-the-human.md); the stops this playbook
+names stay.
+
 This skill gives the **workflow**. How to send, track and answer is in [orchestration](references/orchestration.md),
 which uses the Orca `/orchestration` skill; load that skill before the first send. A complete run is in [the example](references/example.md).
 
@@ -78,8 +81,8 @@ How to split:
 **Then run the gate on every issue** to be built:
 `python3 <github skill>/scripts/issue_gate.py issue <n> --repo <owner>/<repo>`. As shipped, an issue opened by an account with write
 access is approved ([merge rules](../github/references/pull-requests.md#merge-rules)). Only an issue it refuses **as not approved**,
-such as an outsider's, waits for the owner: give them its link and one line that works in any shell, then end your turn,
-and never post it yourself:
+such as an outsider's, waits for the owner: give them the links, in one message, each with one line that works in any
+shell, and your recommendation. Send the issues the gate allows, then end your turn; never post the line yourself:
 
 ```bash
 gh issue comment <number> -R <owner>/<repo> --body "Accepted by owner."

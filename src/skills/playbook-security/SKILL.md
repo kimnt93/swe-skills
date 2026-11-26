@@ -13,7 +13,7 @@ file. Auditing only: **no code is changed**, no branch, no PR, no verdict, **not
 
 ```text
 request ─► CTO/CEO ─► reviewer: scan ─► outbound paths ─► topics ─► prove each finding ─► report
-STOP ◄─ report and decisions for the owner ◄─ CTO/CEO runs each finding's proof again ◄───┘
+STOP ◄──────────── report to the owner ◄────── CTO/CEO runs each finding's proof again ◄───┘
 ```
 
 Messages and a run: [example](references/example.md). What to check and how to prove it:
@@ -22,6 +22,9 @@ Messages and a run: [example](references/example.md). What to check and how to p
 
 This is not the check a pull request needs to merge: [every review](../reviewer/SKILL.md#security-and-outbound-data)
 (`playbook-review`, `playbook-ship`, `playbook-build`) has that, in its verdict. This is the audit somebody asks for.
+
+**Asking** follows [the asking rule](../principles/references/never-block-on-the-human.md); this playbook still only
+audits.
 
 ## Roles
 
@@ -90,7 +93,8 @@ Run each finding's proof again yourself, in a clean checkout of that SHA. One th
 to the owner and **stop**. While a pull request has a proven finding of this audit that it brings in, **do not merge
 it**, whatever verdict it has; the finding goes to whoever reviews or fixes it under that pipeline.
 
-**File an issue only when the owner asks.** On a **public** repository, an unfixed vulnerability is not filed, commented
+**File an issue only when the owner asks.** Don't end by asking whether to file: the issues are ready in the report.
+On a **public** repository, an unfixed vulnerability is not filed, commented
 or published without the owner's decision, which names how it is to be handled. A fix is a new request under the
 pipeline it names (`playbook-build` by default).
 

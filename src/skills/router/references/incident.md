@@ -10,7 +10,8 @@
    (`/healthz` of the dependencies).
 4. Reduce it to a repro you can run locally or on staging. If you can't, add the missing
    instrumentation in its own small PR and wait for the next occurrence.
-5. Mitigate only with reversible steps (roll back, a feature flag); a deploy needs a human go.
+5. Mitigate only with reversible steps (roll back, a feature flag). A production change, a deploy or rollback included,
+   needs a human go; a staging deploy through the project's normal pipeline, within its deploy rules, does not.
 6. Fix through the [bug-fix](bug-fix.md) playbook, with the repro as the failing test.
 
 **Reply:** the timeline, the cause (or the strongest hypothesis, labelled), mitigation, the fix plan.

@@ -18,6 +18,6 @@ Which sketch became the base and why; what was taken from the other.
 
 At least one concrete alternative shape and the one-line reason it lost.
 
-## Risks and open questions
+## Risks
 
 What could make this shape wrong, and how you would notice.

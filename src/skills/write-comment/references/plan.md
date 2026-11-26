@@ -25,11 +25,20 @@ The template's sections and guidance are the format ([templates](../../write-iss
   does not exist.
 - Shared files include ones that work outside this epic also touches.
 
+## Decided or open
+
+[The asking rule](../../principles/references/never-block-on-the-human.md) sorts every choice:
+
+- **`Decisions`:** every other choice you made, as decided: the recommended option and its reason.
+- **`Open Questions`:** only what the rule lists under *Still ask* (or another named stop), each with your
+  recommendation and the packages that wait for it. None: leave the section out.
+
 ## Revising
 
 A revision is a new comment whose first line ends `— Plan v2)`; the old one stays.
 
 ## Not ready
 
-If the card has no observable outcome, or you lack access, or it contradicts itself, post a `status` comment
-(`Status: blocked`) naming the one thing needed. Do not guess a requirement.
+If, after looking in the code, docs, issues and past decisions, the card has no observable outcome, or you lack access,
+or it contradicts itself, post a `status` comment (`Status: blocked`) naming what is needed, all at once. Do not guess a
+requirement.

@@ -47,6 +47,13 @@ A card runs in up to three steps; your brief says which (`phase:` in the goal). 
 - **phase: pr.** The docs agent has committed to your branch. Run steps 4 to 6 with its commit included (read
   `docs/` once to see it is there), and put "docs: updated" or "docs: no change" in the PR body.
 
+## Choices and questions
+
+Follow [the asking rule](../principles/references/never-block-on-the-human.md). A choice the card and the accepted plan
+leave open: take the recommended option and record it in the PR body as decided, with its reason. It never widens the
+card; the stops in the steps above stay. What the rule says to ask goes to whoever gave you the card, and the part it
+does not affect goes on.
+
 ## When a bot started you
 
 Your brief's `Deliver` line says how far you go (open the PR, commit only, or report only). Report **once**, with

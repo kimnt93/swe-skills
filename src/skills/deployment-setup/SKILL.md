@@ -91,7 +91,9 @@ For an authorized rollout, verify the exact revision and image digest, running t
 completion, the route (`Host` header hit, unknown host, backend failure) and application behavior.
 Distinguish configuration intent, observed infrastructure and functional acceptance. Report checks
 performed and missing evidence; never claim an unverified rollout. A setup request covers repository
-changes and local verification; execute a rollout only when the user authorized that target.
+changes and local verification. A staging deploy through the project's normal pipeline needs no further question, within
+the project's own deploy rules; execute any other rollout only when the user authorized that target
+([the asking rule](../principles/references/never-block-on-the-human.md)).
 
 ## Language stacks
 

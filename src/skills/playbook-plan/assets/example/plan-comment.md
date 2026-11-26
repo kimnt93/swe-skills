@@ -25,8 +25,8 @@ move between pages while it runs.
 - **A large export holds a database connection:** row cap and statement timeout.
 - **Gates:** `make verify` + `cd web && npm run check` + an independent review of `EXPORT-00a`.
 
-### Open Questions
-1. The row cap. Recommendation: 50,000.
-2. Whether the customer's email is a column. Recommendation: no, until someone needs it.
+### Decisions
+1. The row cap: 50,000. Reason: recommended; it is one constant to raise, and a larger export holds the connection longer.
+2. The customer's email as a column: no. Reason: the issue does not ask for it, and adding it later is small.
 
 Created: Architect (example)

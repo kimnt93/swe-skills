@@ -44,8 +44,13 @@ The plan file (path in your brief):
 
 For a goal that touches several repos, plan one card per repo from the Map: give each card its `repo`, write the
 interface between a provider and its consumers once and paste it into both goals, and set the consumer's
-`waits_for` to the provider's card (the Map's `depends_on`). Do not ask the human anything: an unknown becomes
-a stated assumption in the goal.
+`waits_for` to the provider's card (the Map's `depends_on`).
+
+Decide as [the asking rule](../principles/references/never-block-on-the-human.md) says: look it up, else take the
+recommended option and write it in the card's goal as decided, with the reason; an unknown you cannot settle becomes a
+stated assumption there. You ask nobody directly. Only what the rule says to ask stays open: put it, with your
+recommendation, in a `"kind": "design"` card (the human approves it), and put every card that needs the answer `after`
+that card. Other cards do not wait.
 
 `after` holds a card back until the other card is finished (built, checked, reviewed). `waits_for` is for the
 `delivery` workflow, where a card in one repo needs a card in another repo **merged to main**: both cards start at

@@ -17,9 +17,10 @@ Read-only. Assume the human remembers their last message and nothing after it.
 3. **What happened:** under 100 words. One plain line per thing they asked for: what came of it and
    whether it is done, running, failed or not checked. "The orders API now rejects over-limit orders",
    not "PR 42: done". Name bugs found and fixed on the way.
-4. **Decisions waiting on them:** for each, the call (merge, approve, choose), your pick, what it
-   changes for users, the evidence, and the risk (always say it, even "low: only the docs change").
-   For a choice between options, each option's gain and cost.
+4. **Decisions waiting on them:** only what [the asking rule](../principles/references/never-block-on-the-human.md) says
+   to ask; a choice already taken goes under *What happened*, with its reason. For each, the call (merge, approve,
+   choose), your pick, what it changes for users, the evidence, and the risk (always say it, even "low: only the docs
+   change"). For a choice between options, each option's gain and cost.
 5. **Pictures only when they help:** a screenshot of a changed page, a Mermaid diagram of a PR stack
    or a data flow (at most six boxes). Never a picture of something you didn't capture.
 

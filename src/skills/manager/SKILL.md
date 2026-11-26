@@ -29,6 +29,9 @@ Decide per message, before anything else:
 
 A question never starts a run, and work never starts without an acceptance done-predicate.
 
+**Asking** follows [the asking rule](../principles/references/never-block-on-the-human.md); your roles' questions come
+to you.
+
 ---
 
 ## Agents: one table
@@ -51,7 +54,9 @@ its row. A missing table or row: **stop and ask the owner**; there is no default
    ```bash
    @PLUGIN@-cli doctor
    ```
-3. Restate the goal and its done-predicate (the command that proves it) in one line. No predicate, no run: ask the requester for it.
+3. Restate the goal and its done-predicate (the command that proves it) in one line. Not given: take it from
+   the issue, the docs, past decisions and the project's verify command, and record it. Only when these give none, ask
+   the requester: no predicate, no run.
 
 ---
 
@@ -95,4 +100,5 @@ When executing a playbook with multiple cards or subtasks:
 
 ## Reply
 
-State what landed against the goal, each PR or commit link, test verification results, and any decisions waiting on the human (following the `ketchup` skill structure).
+State what landed against the goal, each PR or commit link, test verification results, what you decided and why, and
+what waits on the human, if anything (following the `ketchup` skill structure).

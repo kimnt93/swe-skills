@@ -35,9 +35,10 @@ public surface.
 ## 3. Pick and record
 
 Pick a base, graft the best parts of the other, and write the rationale per
-[rationale-template](references/rationale-template.md): the caller's usage first, then the types,
-then the decision and the rejected alternative. The sketch can land as its own commit.
-On request ("architect with checkpoint"), stop here for sign-off.
+[rationale-template](references/rationale-template.md): the caller's usage first, then the types, then the decision and
+the rejected alternative. The sketch can land as its own commit. The choice is yours: record it as decided, with its
+reason; leave open only what [the asking rule](../principles/references/never-block-on-the-human.md) says to ask. On
+request ("architect with checkpoint"), stop here for sign-off.
 
 ## 4. Implement against the sketch
 

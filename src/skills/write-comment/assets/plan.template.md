@@ -17,7 +17,10 @@
 - **<risk>:** <response>
 - **Gates:** `<command that must pass>` + <the review required>
 
+### Decisions <!-- optional -->
+1. <the choice>: <the option taken, the recommended one>. Reason: <why>.
+
 ### Open Questions <!-- optional -->
-1. <a decision only the CTO/CEO can make>. Recommendation: <one>.
+1. <only what the asking rule lists under Still ask>. Recommendation: <one>.
 
 Created: <author>

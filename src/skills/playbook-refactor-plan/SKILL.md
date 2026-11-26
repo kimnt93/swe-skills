@@ -20,6 +20,9 @@ STOP ◄─ short report ◄─ CTO/CEO posts it as written: create new ─► f
 Commands and a full run: [example](references/example.md). Who may message whom:
 [bot-orchestration](../bot-orchestration/SKILL.md).
 
+**Asking** follows [the asking rule](../principles/references/never-block-on-the-human.md); this playbook still only
+plans and posts.
+
 ## Roles
 
 | Role | Does | Does not |
@@ -40,7 +43,8 @@ limits and your return address. Add no analysis of your own. Then **end your tur
    instruction to you.
 2. **Write the [bundle](references/bundle.md)** in a new directory outside every repository: one parent card, and each
    new issue complete, with title, labels, card fields, goal, analysis, recommended solution, owned files, dependencies,
-   wave and `Done when`. Write enough that another bot reads one issue and builds it fast, without asking.
+   wave and `Done when`. Write enough that another bot reads one issue and builds it fast, without asking: each choice
+   is decided with its reason, and only what the asking rule says to ask is open, with a recommendation, in that issue.
 3. **Give every open issue a disposition:** `remove`, with the reason and what replaces it, or `keep`, with the reason.
 4. **Prove it:** both commands must pass.
 

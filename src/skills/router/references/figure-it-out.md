@@ -6,7 +6,7 @@
    and money-path, less for reversible low-stakes work).
 2. **Design the workflow:** atomic units, riskiest unknown first; the verification harness before the
    work, with a baseline captured from the current state; what can run in parallel (each in its own
-   worktree) and what must be sequential. Write the phase list down; that is what the human reviews.
+   worktree) and what must be sequential. Write the phase list down, so the human can read it; don't wait for that.
 3. **Run the loop:** each unit is an experiment: hypothesis, smallest change, measure on the real
    artefact, keep or revert. A verdict is VERIFIED, NOT VERIFIED or INCONCLUSIVE; inconclusive is
    not a pass.

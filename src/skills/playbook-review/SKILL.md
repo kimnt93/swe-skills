@@ -16,6 +16,9 @@ PR ─► read PR, issue, diff ─► safe to run? ─► review the head SHA �
 
 A bot that has a reviewer bot beside it [delegates](../bot-orchestration/SKILL.md#delegate-a-bots-job-to-that-bot) the review to it and ends its turn until the report arrives.
 
+**Asking** follows [the asking rule](../principles/references/never-block-on-the-human.md); this playbook still only
+comments.
+
 ## Steps
 
 1. **Take the PR** (a number or URL; ask which repository only if you cannot tell). A PR you wrote is not yours to

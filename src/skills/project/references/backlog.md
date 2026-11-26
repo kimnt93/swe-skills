@@ -6,9 +6,10 @@
   creates the card (the `github` skill's issues reference has the commands).
 - **Milestones** group issues for a release or a goal; a goal from the human becomes a milestone with
   its issues.
-- **Triage** (daily, or when the root profile routes a request): dedupe against open issues
-  (`gh issue list --search "<words>"`), ask for the missing acceptance criteria only if no experiment
-  can settle them, then create the issue and its card.
+- **Triage** (daily, or when the root profile routes a request): dedupe against open issues (`gh issue list --search
+  "<words>"`), ask for the missing acceptance criteria only if the code, docs, issues, past decisions and an experiment
+  cannot settle them ([the asking rule](../../principles/references/never-block-on-the-human.md)), then create the issue
+  and its card.
 - **Blocked:** label `blocked`, a comment with the reason, the card blocked with the same reason.
 - **Done:** the PR merged closes the issue; the manager checks the acceptance against the merged
   `main` before closing the card's parent goal.

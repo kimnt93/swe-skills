@@ -29,7 +29,8 @@ network call to every request.
 - **Memory grows with keys:** idle buckets are dropped after 10 minutes.
 - **Gates:** `make verify` + `make load-test`.
 
-### Open Questions
-1. The production limit. Recommendation: 600 a minute with a burst of 100.
+### Decisions
+1. The production limit: 600 a minute with a burst of 100. Reason: recommended; above today's busiest key, and a setting
+   that is easy to change. Rolling it out to production is not part of this decision.
 
 Created: Architect (example)

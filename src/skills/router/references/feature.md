@@ -20,4 +20,4 @@
    it yourself for a small change. Other repos read `docs/README.md` first, so the usage lives there and in `docs/references/`.
 8. If the design is contested, run the **interrogate** skill. Then [opening-a-pr](opening-a-pr.md).
 
-**Reply:** what you built, the decisions and why, the proof, open questions.
+**Reply:** what you built, the decisions and why, the proof, and what waits on the owner, if anything.

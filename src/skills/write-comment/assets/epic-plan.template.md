@@ -22,4 +22,10 @@
 ### Risks & Mitigations
 - **<risk>:** <response, and the review every PR needs>
 
+### Decisions <!-- optional -->
+1. <the choice>: <the option taken, the recommended one>. Reason: <why>.
+
+### Open Questions <!-- optional -->
+1. <only what the asking rule lists under Still ask>. Recommendation: <one>.
+
 Created: <author>

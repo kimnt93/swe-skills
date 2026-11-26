@@ -8,7 +8,7 @@ The owner asks the CTO bot to audit a service before partners get access. The na
 | 2 | reviewer bot → its agent | briefs an agent on the `hard` row | [agent brief](../assets/example/agent-brief.md) |
 | 3 | agent → reviewer bot | scans, lists the outbound paths, proves its findings locally, writes the report | `worker_done`, the [report](../assets/example/report.md) |
 | 4 | reviewer bot → CTO bot | runs each proof again, then reports | [return report](../assets/example/return-report.md) |
-| 5 | CTO bot → owner | runs the proofs, reports, asks about filing, and stops | findings, outbound paths, [an issue ready to file](../assets/example/issue-order-owner.md) |
+| 5 | CTO bot → owner | runs the proofs, reports, and stops with nothing filed | findings, outbound paths, [an issue ready to file](../assets/example/issue-order-owner.md) |
 
 ## The auditor's commands
 

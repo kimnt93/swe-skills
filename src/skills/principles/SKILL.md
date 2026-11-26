@@ -48,7 +48,7 @@ Open a principle when its "applies" text matches the task, then follow it. Name 
 | Principle | Applies |
 |---|---|
 | [guard-the-context-window](references/guard-the-context-window.md) | Apply when output is large: long logs, big files, many search results, profiles, fan-out planning. |
-| [never-block-on-the-human](references/never-block-on-the-human.md) | Apply when tempted to ask "should I do X?" about reversible work. |
+| [never-block-on-the-human](references/never-block-on-the-human.md) | Apply before you ask a question, end a turn to wait for an answer, or record a decision as open. |
 | [encode-lessons-in-structure](references/encode-lessons-in-structure.md) | Apply when the same instruction is written a second time, or the same correction is made twice. |
 
 ## Domain

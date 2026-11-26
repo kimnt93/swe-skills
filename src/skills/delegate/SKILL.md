@@ -45,6 +45,9 @@ has: `python3 <this skill>/scripts/discover_agents.py`.
 
 ## 3. Wait, then check
 
+A worker's question follows [the asking rule](../principles/references/never-block-on-the-human.md): answer it, or send
+it up to the CTO/CEO.
+
 **End your turn.** Orca wakes you with the worker's `worker_done`, question or escalation; do not poll. Then, in the
 worker's worktree:
 

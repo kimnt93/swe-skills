@@ -19,6 +19,9 @@ problem ─► CTO/CEO: planning card (issue) ─► send to architect (bot or d
                      └─ changes required ─► architect posts plan v2 ─► sends back again
 ```
 
+**Asking** follows [the asking rule](../principles/references/never-block-on-the-human.md); this playbook still stops at
+the accepted plan.
+
 This skill gives the **workflow**. How to send, delegate and watch is in [orchestration](references/orchestration.md),
 which uses the Orca `/orchestration` skill; load that skill before the first send. A complete run, from the problem to the acceptance, is in [the example](references/example.md).
 
@@ -71,26 +74,32 @@ AGENT_NAME="<agent name>" python3 <work-package skill>/scripts/package_lint.py c
 gh issue comment <n> --repo <owner>/<repo> --body-file plan.md      # prints the comment URL
 ```
 
-The plan is complete when a developer could start every package without asking a design question.
+The plan is complete when a developer could start every package without asking a design question: its choices are
+[decided or open](../write-comment/references/plan.md#decided-or-open).
 
 ## 4. Architect: send it back to the CTO/CEO
 
 **Posting the comment is not the end of your job.** An architect **bot** sends the
 [return report](assets/example/return-report.md) to the return address in the handoff; an **agent** reports only to the
-bot that started it, which checks the comment first. The report gives the verdict line (`PLAN READY` or `PLAN BLOCKED`), the comment URL, the recommendation, and
-the decisions waiting. How: [send it back](references/orchestration.md#3-send-the-plan-back). Then end your turn.
+bot that started it, which checks the comment first. The report gives the verdict line (`PLAN READY` or `PLAN BLOCKED`),
+the comment URL, the recommendation, and what is open for the owner, if anything. How:
+[send it back](references/orchestration.md#3-send-the-plan-back). Then end your turn.
 
-If the card is not ready (no observable outcome, missing access, a contradiction), comment what is missing and send back
-`PLAN BLOCKED` with that one need. Never guess a requirement, and never stay silent.
+If the card is not ready after you looked in the code, docs, issues and past decisions (no observable outcome, missing
+access, a contradiction), comment what is missing and send back `PLAN BLOCKED` with everything needed, in one batch.
+Never guess a requirement, and never stay silent.
 
 ## 5. CTO/CEO: confirm, then stop
 
-Read the **comment on the issue**, not only the report. Check it against the card: the `Goal` is met, every scope line is
-covered or explicitly dropped, the rejected approach is a real one, every open question has an answer, and each gate is a
-command. Post **one** `decision` comment ([format](../write-comment/references/other-comments.md#decision-ctoceo)):
+Read the **comment on the issue**, not only the report. Check it against the card: the `Goal` is met, every scope line
+is covered or explicitly dropped, the rejected approach is a real one, every choice is decided with its reason or open
+as the asking rule allows, and each gate is a command. Post **one** `decision` comment
+([format](../write-comment/references/other-comments.md#decision-ctoceo)):
 
-- **`Accepted by CTO (<name>).`** the plan version, the answers to the open questions, and what happens to the packages
-  (build now or backlog). A decision the human has not delegated to you goes to the human first.
+- **`Accepted by CTO (<name>).`** the plan version, your answer to each open question the asking rule lets you answer,
+  and what happens to the packages (build now or backlog). Never answer for the owner: take their questions to them in
+  one batch. Accept before the reply only when the design does not depend on it; the acceptance names each question and
+  the packages or steps that wait, and none of those starts until the owner answers.
 - **`Changes required by CTO (<name>):`** concrete changes only. Send them to the same architect; it posts a new comment (`Plan v2`),
   leaves the old one, and sends it back. Repeat from step 4.
 

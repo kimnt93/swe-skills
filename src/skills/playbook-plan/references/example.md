@@ -9,7 +9,7 @@ up; the shape is what to copy. `ORCA` is as in [orchestration](orchestration.md)
 | 2 | CTO/CEO | sends the brief to the architect, ends the turn | [brief](../assets/example/architect-brief.md) |
 | 3 | Architect | analyses and posts one plan comment on the issue | [plan comment](../assets/example/plan-comment.md) |
 | 4 | Architect | sends the result back to the CTO/CEO | [return report](../assets/example/return-report.md) |
-| 5 | CTO/CEO | reads the comment, answers the open questions, accepts, **stops** | [acceptance](../assets/example/acceptance.md) |
+| 5 | CTO/CEO | reads the comment, checks its decisions, accepts, **stops** | [acceptance](../assets/example/acceptance.md) |
 
 ## The issue afterwards
 
