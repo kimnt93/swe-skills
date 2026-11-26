@@ -1,0 +1,66 @@
+{
+  "environment": "local",
+  "target": "http://127.0.0.1:PORT/",
+  "functions": [
+    {
+      "id": "quote",
+      "name": "Get a price quote",
+      "steps": [
+        {"action": "goto", "url": "/", "expect": {"text": "Fixture shop"}},
+        {"action": "type", "on": {"label": "Quantity"}, "value": "3"},
+        {"action": "click", "on": {"role": "button", "name": "Get quote"},
+         "expect": {"text": "Total: 29.97", "in": "#quote", "status": 200, "request": "/api/quote"}}
+      ]
+    },
+    {
+      "id": "coupon",
+      "name": "Apply a coupon",
+      "steps": [
+        {"action": "goto", "url": "/", "expect": {"text": "Fixture shop"}},
+        {"action": "type", "on": {"label": "Coupon code"}, "value": "SAVE10"},
+        {"action": "click", "on": {"role": "button", "name": "Apply coupon"},
+         "expected": "The coupon is applied", "expect": {"text": "Coupon applied: 10% off", "in": "#coupon"},
+         "timeout_ms": 3000}
+      ]
+    },
+    {
+      "id": "report",
+      "name": "Build the sales report",
+      "steps": [
+        {"action": "goto", "url": "/", "expect": {"text": "Fixture shop"}},
+        {"action": "click", "on": {"role": "button", "name": "Build report"},
+         "expect": {"text": "Report ready: 12 orders", "in": "#report"}, "max_ms": 2000, "timeout_ms": 9000}
+      ]
+    },
+    {
+      "id": "newsletter",
+      "name": "Subscribe to the newsletter",
+      "steps": [
+        {"action": "goto", "url": "/", "expect": {"text": "Fixture shop"}},
+        {"action": "type", "on": {"label": "Email"}, "value": "ada.lovelace@example.com"},
+        {"action": "click", "on": {"role": "button", "name": "Subscribe"},
+         "expect": {"text": "Check your inbox", "in": "#newsletter"}, "timeout_ms": 3000}
+      ]
+    },
+    {
+      "id": "signin",
+      "name": "Sign in with the Enter key",
+      "steps": [
+        {"action": "goto", "url": "/", "expect": {"text": "Signed out"}},
+        {"action": "type", "on": {"label": "User"}, "env": "SHOP_USER"},
+        {"action": "type", "on": {"label": "Password"}, "secret": "SHOP_PASSWORD"},
+        {"action": "press", "on": {"label": "Password"}, "key": "Enter",
+         "expect": {"text": "Signed in as", "in": "#session"}}
+      ]
+    },
+    {
+      "id": "desk",
+      "name": "Say hello on the live desk (websocket)",
+      "steps": [
+        {"action": "goto", "url": "/", "expect": {"text": "Live: subscribed"}},
+        {"action": "click", "on": {"role": "button", "name": "Say hello"},
+         "expect": {"text": "Desk said: ack hello", "in": "#chat"}, "timeout_ms": 3000}
+      ]
+    }
+  ]
+}

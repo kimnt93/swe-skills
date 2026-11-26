@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Fixture shop</title>
+<style>
+  body { font: 16px/1.5 system-ui, sans-serif; max-width: 640px; margin: 24px auto; padding: 0 16px; }
+  section { border: 1px solid #bbb; border-radius: 8px; padding: 12px 16px; margin: 12px 0; }
+  h2 { font-size: 18px; margin: 0 0 8px; }
+  input { font: inherit; padding: 4px 8px; }
+  button { font: inherit; padding: 4px 14px; }
+  output { display: block; margin-top: 8px; min-height: 24px; font-weight: 600; }
+</style>
+<h1>Fixture shop</h1>
+
+<section>
+  <h2>Price quote</h2>
+  <label>Quantity <input id="qty" inputmode="numeric"></label>
+  <button id="get-quote">Get quote</button>
+  <output id="quote"></output>
+</section>
+
+<section>
+  <h2>Coupon</h2>
+  <label>Coupon code <input id="code"></label>
+  <button id="apply">Apply coupon</button>
+  <output id="coupon">No coupon applied</output>
+</section>
+
+<section>
+  <h2>Sales report</h2>
+  <button id="build">Build report</button>
+  <output id="report"></output>
+</section>
+
+<section>
+  <h2>Newsletter</h2>
+  <label>Email <input id="email" type="email"></label>
+  <button id="subscribe">Subscribe</button>
+  <output id="newsletter"></output>
+</section>
+
+<section>
+  <h2>Live desk</h2>
+  <button id="hello">Say hello</button>
+  <output id="chat">Connecting…</output>
+</section>
+
+<section>
+  <h2>Sign in</h2>
+  <form id="signin">
+    <label>User <input id="user" autocomplete="off"></label>
+    <label>Password <input id="password" type="password"></label>
+    <button>Sign in</button>
+    <button type="button" id="reveal">Show password</button>
+  </form>
+  <output id="session">Signed out</output>
+</section>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const post = (url, body) => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+
+  $("get-quote").onclick = async () => {
+    $("quote").textContent = "Working…";
+    const response = await fetch("/api/quote?qty=" + encodeURIComponent($("qty").value));
+    const data = await response.json();
+    $("quote").textContent = response.ok ? "Total: " + data.total : data.error;
+  };
+
+  // The planted fault: the server answers 500, the page only logs it and shows nothing new.
+  $("apply").onclick = async () => {
+    const response = await post("/api/coupon", { code: $("code").value });
+    if (!response.ok) { console.error("coupon failed with status " + response.status); return; }
+    $("coupon").textContent = "Coupon applied: 10% off";
+  };
+
+  // Works, but takes seconds.
+  $("build").onclick = async () => {
+    $("report").textContent = "Building…";
+    const data = await (await fetch("/api/report")).json();
+    $("report").textContent = "Report ready: " + data.orders + " orders";
+  };
+
+  // #subscribe has no handler: the button is dead.
+
+  const desk = new WebSocket("ws://" + location.host + "/ws");
+  desk.onopen = () => desk.send("subscribe");
+  desk.onmessage = (event) => { $("chat").textContent = event.data === "ack subscribe" ? "Live: subscribed" : "Desk said: " + event.data; };
+  $("hello").onclick = () => desk.send("hello");
+
+  $("reveal").onclick = () => { $("password").type = "text"; };
+
+  $("signin").onsubmit = async (event) => {
+    event.preventDefault();
+    const response = await post("/api/signin", { user: $("user").value, password: $("password").value });
+    $("session").textContent = response.ok ? "Signed in as " + (await response.json()).user : "Sign-in failed";
+  };
+</script>
+</html>

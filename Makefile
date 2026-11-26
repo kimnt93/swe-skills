@@ -61,6 +61,7 @@ test:
 	bash tests/enforcement_test.sh
 	bash tests/harness_test.sh
 	bash tests/frontend_test.sh
+	bash tests/testing_skills_test.sh
 	bash cli/tests/selftest.sh
 	bash cli/tests/install_test.sh
 

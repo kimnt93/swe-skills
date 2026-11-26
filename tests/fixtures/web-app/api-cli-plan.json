@@ -1,0 +1,29 @@
+{
+  "environment": "local",
+  "target": "http://127.0.0.1:PORT/",
+  "allow_programs": ["python3"],
+  "functions": [
+    {"id": "api-quote", "name": "API: price quote", "steps": [
+      {"kind": "http", "method": "GET", "path": "/api/quote?qty=3", "expect": {"status": 200, "json": {"quantity": 3, "total": "29.97"}}},
+      {"kind": "http", "method": "GET", "path": "/api/quote?qty=-1", "expected": "A bad quantity is refused", "expect": {"status": 400, "contains": "quantity must be 1 to 999"}}
+    ]},
+    {"id": "api-me", "name": "API: who am I, with a token from the environment", "steps": [
+      {"kind": "http", "method": "GET", "path": "/api/me", "headers": {"Authorization": "Bearer ${secret:SHOP_TOKEN}"}, "expect": {"status": 200, "json": {"user": "demo"}}}
+    ]},
+    {"id": "api-coupon", "name": "API: apply a coupon", "steps": [
+      {"kind": "http", "method": "POST", "path": "/api/coupon", "json": {"code": "SAVE10"}, "effect": "write", "expect": {"status": 200}}
+    ]},
+    {"id": "api-report", "name": "API: sales report", "steps": [
+      {"kind": "http", "method": "GET", "path": "/api/report", "max_ms": 2000, "timeout_ms": 9000, "expect": {"status": 200, "json": {"orders": 12}}}
+    ]},
+    {"id": "cli-total", "name": "CLI: total", "steps": [
+      {"kind": "cli", "argv": ["python3", "-B", "shop_cli.py", "total", "3"], "expect": {"exit": 0, "stdout_contains": "Total: 29.97"}}
+    ]},
+    {"id": "cli-coupon", "name": "CLI: coupon", "steps": [
+      {"kind": "cli", "argv": ["python3", "-B", "shop_cli.py", "coupon", "SAVE10"], "expect": {"exit": 0, "stdout_contains": "10% off"}}
+    ]},
+    {"id": "cli-report", "name": "CLI: report", "steps": [
+      {"kind": "cli", "argv": ["python3", "-B", "shop_cli.py", "report"], "max_ms": 500, "timeout_ms": 9000, "expect": {"exit": 0, "stdout_contains": "12 orders"}}
+    ]}
+  ]
+}
