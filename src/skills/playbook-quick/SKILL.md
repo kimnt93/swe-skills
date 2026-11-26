@@ -224,6 +224,7 @@ A developer cancelled before it opened a PR pushes its branch, then runs `can-re
 | `Accepted` names the head | merge and confirm (step 6) |
 | merged, issue closed | the developer removes the worktree; when all are done, close the parent |
 | `Stopped` | the developer removes the worktree; the PR, branch and issue stay for the human |
+| closed without a merge or a `Stopped` decision | keep the branch and worktree; report it to the human |
 
 ## One good, one bad
 
