@@ -24,10 +24,11 @@ Refused (done, not planned, duplicate or not approved): change nothing and repor
    Money-path cards also get a replay test (**replay-test**).
 3. Small Conventional Commits (the **github** skill), one feature function, a small diff. Run **deslop** before
    the last commit.
-4. Before the PR: `swe-cli delegate sync-branch --verify` (fetch, rebase on the latest `origin/main`, `make
-   verify`). On conflicts it aborts; stop and report the files, do not resolve them (the integrator does).
-5. Done means `make verify` exits 0 on the committed head and `swe-cli delegate scope <project> <card>` reports
-   nothing outside the file list.
+4. Before the PR: fetch, rebase on the newest `origin/main` under your name
+   (`agent_identity.py git --author "<your name>" -- rebase origin/main`), then run the project's verify command. On a
+   conflict, stop and report the files; do not resolve it (the integrator does).
+5. Done means the verify command (`make verify`, or the issue's `Done when`) exits 0 on the committed head and
+   `git diff --name-only origin/main...HEAD` lists nothing outside the card's files.
 6. Push the branch and open the PR (`Closes #<issue>`), lint it (`pr_lint.py`), check the result (**github**).
    A rebased, already-pushed branch is pushed with `--force-with-lease`, your branch only.
 7. When your brief carries review findings or a failing check, fix exactly those, on the same branch, and
@@ -41,6 +42,13 @@ A card runs in up to three steps; your brief says which (`phase:` in the goal). 
   The docs agent follows your change next, in this worktree.
 - **phase: pr.** The docs agent has committed to your branch. Run steps 4 to 6 with its commit included (read
   `docs/` once to see it is there), and put "docs: updated" or "docs: no change" in the PR body.
+
+## When a bot started you
+
+Your brief's `Deliver` line says how far you go (open the PR, commit only, or report only). Report **once**, with
+`worker_done` to that bot, in the [agent report](../bot-orchestration/assets/agent-report.template.md) format; put the PR
+URL under `Did`. Message nobody else and start no helpers ([bot-orchestration](../bot-orchestration/SKILL.md)). The last
+line below is for workflow nodes.
 
 ## Last line, exactly one of
 

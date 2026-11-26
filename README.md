@@ -57,6 +57,20 @@ Exactly five. Pick by what you have and who should judge the code.
 In `complete` and `ship`, nobody else checks the reviewer's own fixes before `main`. The final `PASS` names those
 commits, and a `risk:money-path` pull request is never auto-merged ([fix loop](src/skills/reviewer/references/fix-loop.md)).
 
+### Bots and agents
+
+A **bot** is a standing member; an **agent** is a coding CLI that a bot starts for one job. The bot orchestrates:
+
+```text
+CEO bot ─ issue ─► developer bot ─ brief ─► agent (one issue, own worktree)
+   ▲                  │    ▲                  │
+   └──── status ──────┘    └──── report ──────┘        agents never message each other
+```
+
+Bots delegate with a handoff and report back with a status. The developer bot picks the agent by difficulty, checks its
+work and opens the pull request. Rules, message templates and a linter:
+[bot-orchestration](src/skills/bot-orchestration/SKILL.md).
+
 ### Merge rules: only approved work
 
 Nothing is built or merged unless the pull request links an issue of the same repository and **every linked issue is

@@ -185,6 +185,41 @@ for name, state in (("verdict-fail.md", pull(first, [dev])), ("verdict-pass.md",
     bad += [f"playbook-complete {name}: {x}" for x in G.check_decision(past, body, 54, state)]
     past += G.decisions([{"body": body, "authorAssociation": "OWNER", "at": str(len(past))}], 54)
 bad += [f"playbook-complete can-merge: {x}" for x in G.merge_problems(past, pull(last, [dev, rev]))]
+# every message between bots and agents in a playbook example follows its template
+sys.path.insert(0, str(skills / "bot-orchestration/scripts"))
+import message_lint as ML
+for path, kind in (("playbook-plan/assets/example/architect-brief.md", "delegate"),
+                   ("playbook-plan/assets/example/return-report.md", "bot-report"),
+                   ("playbook-quick/assets/example/developer-brief.md", "delegate"),
+                   ("playbook-quick/assets/example/return-report.md", "bot-report"),
+                   ("playbook-complete/assets/example/developer-brief.md", "delegate"),
+                   ("playbook-complete/assets/example/reviewer-brief.md", "delegate"),
+                   ("playbook-complete/assets/example/return-report.md", "bot-report"),
+                   ("playbook-complete/assets/example/review-report.md", "bot-report"),
+                   ("playbook-plan/assets/example/agent-brief.md", "agent-brief"),
+                   ("playbook-quick/assets/example/agent-brief.md", "agent-brief"),
+                   ("playbook-complete/assets/example/agent-brief-developer.md", "agent-brief"),
+                   ("playbook-complete/assets/example/agent-brief-reviewer.md", "agent-brief"),
+                   ("playbook-quick/assets/example/cleanup-merged.md", "follow-up"),
+                   ("playbook-quick/assets/example/cleanup-stopped.md", "follow-up"),
+                   ("playbook-quick/assets/example/cleanup-report.md", "bot-report")):
+    bad += [f"{path}: {x}" for x in ML.lint(kind, (skills / path).read_text(encoding="utf-8"))]
+# an agent is started from an agent brief, never from a bot's handoff
+for doc in sorted([*skills.glob("playbook*/**/*.md"), *(skills / "bot-orchestration").rglob("*.md")]):
+    for line in doc.read_text(encoding="utf-8").replace("\\\n", " ").splitlines():
+        for spec in re.findall(r"(?:worker-start|task-create)\b.*?--spec-file (\S+?\.md)", line):
+            if "agent-brief" not in spec and spec != "accept.md":
+                bad.append(f"{doc.relative_to(skills)}: starts an agent from {spec}; use an agent brief")
+# a bot delegates with a handoff and reports with a status; a question hands over no job
+for doc in sorted(skills.glob("playbook*/**/*.md")):
+    for line in doc.read_text(encoding="utf-8").replace("\\\n", " ").splitlines():
+        if re.search(r'--to "bot:.*--type question\b.*--subject "(PLAN|BUILD|REVIEW|PR|MERGED|STOPPED|<ID)', line):
+            bad.append(f"{doc.relative_to(skills)}: delegates with a question; use handoff, and report with status: {line.strip()}")
+text_of = (skills / "bot-orchestration/SKILL.md").read_text(encoding="utf-8")
+for needle in ("Agents do separate work and never talk to each other", "agent → agent", "Do not start that role's agents yourself",
+               "--type handoff", "--type status", "An agent starts **no helpers**", "**ends its turn**"):
+    if needle not in text_of:
+        bad.append(f"bot-orchestration: missing {needle!r}")
 # no playbook command or message removes a worktree by force or deletes its branch
 for doc in sorted([*skills.glob("playbook*/**/*.md"), *(skills / "reviewer").rglob("*.md")]):
     for line in doc.read_text(encoding="utf-8").splitlines():

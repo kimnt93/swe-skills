@@ -18,8 +18,9 @@ Decide per message, before anything else:
 |---|---|
 | A question: how something works, why it is so, what changed, what is running (`how`, `why`, `ketchup`, `interrogate`) | Answer directly with read-only skills. No edits, no delegations. |
 | A problem to plan or design | Run `playbook-plan`; it stops at the accepted plan. |
-| Work that changes code | Run the chosen playbook: `quick`, `complete` or `ship`; coordinate with `delegate`. |
+| Work that changes code | Run the chosen playbook: `quick`, `complete` or `ship`; hand each job to the bot that holds its role, else coordinate your own agents with `delegate`. |
 | A pull request to look at | Run `playbook-review`; it only comments. |
+| A job another bot's role owns | Delegate it to that bot ([bot-orchestration](../bot-orchestration/SKILL.md)); do not start its agents yourself. |
 | Request to change agents or engines | Update `config.json` (`swe-cli config`). |
 
 A question never starts a run, and work never starts without an acceptance done-predicate.
@@ -81,6 +82,10 @@ There is no other playbook. An open design question goes to `plan` first.
 ---
 
 ## Delegating Cards via the `delegate` Skill
+
+**First:** when a bot holds the role (developer, reviewer, architect), delegate the job to that bot
+([bot-orchestration](../bot-orchestration/SKILL.md)) and start none of its agents. The steps below are for your own
+agents, when no bot has the role.
 
 When executing a playbook with multiple cards or subtasks:
 1. Decompose the goal using `planner`.

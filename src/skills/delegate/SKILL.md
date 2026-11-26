@@ -18,6 +18,10 @@ Delegation follows the **Review-First Philosophy**:
 
 ---
 
+**Standing bots:** who delegates to whom, who may start agents and how they report is the
+[bot-orchestration](../bot-orchestration/SKILL.md) skill. It comes first; this skill is how one task reaches one coding
+CLI.
+
 ## 1. Trigger & Modes
 
 Trigger delegation from chat or playbooks:
@@ -56,7 +60,9 @@ flowchart TD
 ### Step 1: Formulate the Task Brief
 Because delegated agents run in a separate session without active chat history, the brief must be self-contained. See [Brief Templates](examples/brief-templates.md) for standard formats:
 - Objective and scope of target files
-- Hard constraint: NO COMMITS (leave changes in working tree)
+- Hard constraint for a one-off delegation where you land the change yourself: NO COMMITS (leave changes in the working
+  tree). An agent that a bot runs in a playbook gets the
+  [agent brief](../bot-orchestration/assets/agent-brief.template.md) instead, and commits under the name in it.
 - Verification test command
 
 ### Step 2: Dispatch Delegation

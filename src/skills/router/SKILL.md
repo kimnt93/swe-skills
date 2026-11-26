@@ -94,7 +94,7 @@ These are methods, not CTO pipelines; use one inside a pipeline when the task ne
 | change a skill or prompt | [eval](references/eval.md) | blind A/B result |
 | a repo's `docs/` is stale or missing | the `docs-sync` skill (`follow` the changes, or `rewrite` from the code) | every command in it runs |
 
-Skills for any playbook: `github` (branches, PRs, issues, merges), `project` (a project's docs,
+Skills for any playbook: `bot-orchestration` (which bot or agent does the job, and who reports to whom), `github` (branches, PRs, issues, merges), `project` (a project's docs,
 repo and backlog), `interrogate` (break a diff), `blast-radius` (what else breaks),
 `replay-test` and `formal-verify` (money-path), `verify-create` and `verify-maintain` (the project's
 proof), `correct` (a repeated mistake becomes a check), `reflect` (capture what a task taught).

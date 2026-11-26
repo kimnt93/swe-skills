@@ -34,15 +34,15 @@ gh issue create --repo <owner>/<repo> --title "EXPORT-00: Export the filtered or
 # 2. CTO/CEO
 ORCA bot list
 ORCA bot chats                     # note the id on the "(this chat)" line and put it in the brief
-ORCA orchestration send --to "bot:<architect>" --type question \
-    --subject "PLAN EXPORT-00: export the filtered order list" --body-file brief.md
+ORCA orchestration send --to "bot:<architect>" --chat new --type handoff \
+    --subject "PLAN EXPORT-00: export the filtered order list" --body-file delegate.md
 
 # 3. Architect
 python3 <work-package skill>/scripts/package_lint.py comment --kind plan --body-file plan.md
 gh issue comment 42 --repo <owner>/<repo> --body-file plan.md
 
-# 4. Architect: answer the question it was sent
-ORCA orchestration reply --id <msg_id> --body-file report.md
+# 4. Architect: send its status to the return address
+ORCA orchestration send --to "bot:<cto>" --chat <return chat id> --type status --subject "PLAN READY EXPORT-00" --body-file report.md
 
 # 5. CTO/CEO
 gh issue view 42 --repo <owner>/<repo> --comments
@@ -52,7 +52,8 @@ gh issue comment 42 --repo <owner>/<repo> --body-file acceptance.md
 
 ## The same run with a worker
 
-Only steps 2 and 4 change: `ORCA orchestration worker-start --spec-file brief.md --agent <agent> --worktree current`,
+Only steps 2 and 4 change: `ORCA orchestration worker-start --spec-file agent-brief.md --agent <agent> --worktree current`
+with an [agent brief](../assets/example/agent-brief.md),
 and the architect reports with `worker_done` as its dispatch preamble says.
 
 ## A parent issue (epic)

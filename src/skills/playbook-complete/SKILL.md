@@ -27,6 +27,9 @@ names them, and a `risk:money-path` PR is never auto-merged.
 Commands: [orchestration](references/orchestration.md) (Orca `/orchestration`; outside Orca, the `delegate` skill). A
 full run: [example](references/example.md).
 
+Who may message whom is [bot-orchestration](../bot-orchestration/SKILL.md): the developer and reviewer are **bots** when those bots exist, and each
+runs its own agents. The CTO/CEO never starts a developer or reviewer agent while that bot exists.
+
 ## Roles
 
 | Role | Does | Does not |
@@ -35,7 +38,7 @@ full run: [example](references/example.md).
 | **Developer** | builds one issue in its own worktree, opens the PR, hands it over, removes its worktree | merge, fix after the handover |
 | **Reviewer** (a different agent, from a different model family when the project has one) | reviews the PR, **fixes its findings**, passes or stops it | judge code it wrote first, merge, change the issue |
 
-The developer, the reviewer and the CTO/CEO sign with different agent names.
+The developer, the reviewer and the CTO/CEO sign with different [names](../bot-orchestration/SKILL.md#names).
 
 ## When to use it
 
@@ -54,10 +57,14 @@ one issue. **Run the gate on every issue** and send only what it allows; for the
 
 ## 2. CTO/CEO: send each issue to a developer
 
-The [developer brief](assets/example/developer-brief.md), with the developer's name and your return address. A wave is
+The developer **bot** gets a [handoff](assets/example/developer-brief.md) with your return address; your own agent (no
+developer bot) gets an [agent brief](assets/example/agent-brief-developer.md), which also gives its author name. A wave is
 sent only after what it depends on is **merged**. Then end your turn.
 
 ## 3. Developer: build, open, hand over
+
+A developer bot gives the issue to one agent of its [tier](../bot-orchestration/references/routing.md), then **verifies
+the result itself** before the handover.
 
 1. Steps 1 to 5 of [playbook-quick step 3](../playbook-quick/SKILL.md#3-developer-one-issue-one-worktree-one-pr): the
    gate first, **its own worktree**, owned files, test first, commits under its name, the linters, the PR, green checks.
@@ -67,7 +74,8 @@ sent only after what it depends on is **merged**. Then end your turn.
    python3 <github skill>/scripts/pr_loop.py can-remove --worktree <path> --pr <n> --repo <owner>/<repo> --handover
    ```
 
-3. Send the [handover report](assets/example/return-report.md) and remove the worktree
+3. An agent reports only to the bot that started it; that bot verifies, and a developer bot sends the CTO/CEO the
+   [handover report](assets/example/return-report.md). Then the worktree is removed
    (`ORCA worktree rm --worktree path:<path>`; refused: keep it, do not force it). A worker inside it reports
    first and removes it last.
 
@@ -76,18 +84,25 @@ The developer is then finished. Cancelled or `PR BLOCKED` before that: report an
 ## 4. CTO/CEO: hand the PR to a reviewer
 
 Do **not** read the diff or run the commands: that is the reviewer's job. Send the
-[reviewer brief](assets/example/reviewer-brief.md) to an agent that wrote none of the PR, then end your turn.
+reviewer **bot** a [handoff](assets/example/reviewer-brief.md) (or, with no such bot, your own agent that wrote none of
+the PR an [agent brief](assets/example/agent-brief-reviewer.md)), then end your turn.
 
 ## 5. Reviewer: review and fix
 
+A reviewer bot may give the loop to its own agent of another model family. The agent signs with the **reviewer bot's**
+name, and the bot checks the verdict before it reports.
+
 Follow the [review and fix loop](../reviewer/references/fix-loop.md): own worktree on the PR branch, a
 `FAIL ... Round k of 3.` before each fix, **at most 3 rounds**, then a PASS that names its own commits, or
-`Stopped by reviewer`. Send the CTO/CEO the [review report](assets/example/review-report.md): `REVIEW PASSED` or
-`REVIEW STOPPED`, the PR, the head SHA, the verdict link, rounds used and the commits it pushed.
+`Stopped by reviewer`. An agent reports only to the bot that started it. A reviewer **bot** sends the CTO/CEO the
+[review report](assets/example/review-report.md): `REVIEW PASSED` or `REVIEW STOPPED`, the PR, the head SHA, the verdict link, rounds used and the commits it pushed.
 
 ## 6. CTO/CEO: trust the verdict, merge, confirm
 
-**Trust it: do not review again.** Check only that it is a real verdict on what you are about to merge:
+**Trust it: do not review again.** A reviewer bot has already checked its agent's work. With **no reviewer bot** the
+verdict is your own agent's, and you are the bot that must verify it: run its evidence command once on that head before
+you rely on it. That checks the claim; it is not a second review. Then check that it is a real verdict on what you are
+about to merge:
 
 ```bash
 python3 <github skill>/scripts/pr_loop.py can-merge --pr <n> --repo <owner>/<repo>   # PASS on this head, not the writer's

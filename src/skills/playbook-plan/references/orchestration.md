@@ -21,72 +21,61 @@ If somebody is already planning the card, send to that chat or worker. Never sta
 
 ## 2. Send the card to the architect
 
+The messages and their templates are [bot-orchestration](../../bot-orchestration/SKILL.md#the-four-messages).
+
 | Who plans | Pick it when | The plan comes back as |
 |---|---|---|
-| **A. a standing architect bot** | `bot list` shows an architect for this project | the answer to your `question`; it wakes you |
-| **B. a supervised worker** | no such bot | the worker's `worker_done`; it wakes you |
+| **A. the architect bot** | `bot list` shows an architect for this project | its `status` to your return address |
+| **B. a supervised agent** | no bot has the role | the agent's `worker_done` |
 
-**A. Bot.** Use `question`: the planning card stays your job, and the answer returns to you.
+**A. Bot.** Delegate with a `handoff`, from the [delegate template](../../bot-orchestration/assets/delegate.template.md):
 
 ```bash
-ORCA orchestration send --to "bot:<architect>" --type question \
-    --subject "PLAN <ID>: <outcome>" --body-file brief.md
+ORCA orchestration send --to "bot:<architect>" --chat new --type handoff \
+    --subject "PLAN <ID>: <outcome>" --body-file delegate.md
 ```
 
-Add `--chat new` for a chat of its own, or `--chat <id>` to continue an earlier one.
+`--chat <id>` continues an earlier chat. A handoff returns nothing by itself, so the brief carries your return address.
 
-**B. Worker.** The spec file is the same brief.
+**B. Agent.** The spec file is an [agent brief](../../bot-orchestration/assets/agent-brief.template.md).
 
 ```bash
-ORCA orchestration worker-start --spec-file brief.md --agent <agent> --worktree current
+ORCA orchestration worker-start --spec-file agent-brief.md --agent <agent> --worktree current
 ```
 
 `current` is right only when your workspace is a checkout of that repository. Otherwise use
-`--worktree new-child --repo <repo> --name <id-lowercase>-plan`. `<agent>` and any model come from the project's agent
-table or from the human, never from this skill. The architect does not edit tracked files in either case.
-
-The three message types are different promises:
-
-| Type | What happens | Use it here for |
-|---|---|---|
-| `question` | the receiver answers you by mail and that wakes you; you finish the job | **the plan request** |
-| `handoff` | the receiver takes over; **nothing comes back by itself** | passing the whole job on, or a return to a chat that asked by handoff |
-| `status` | information only: no job, nothing back | telling a third party the plan was accepted |
-
-```bash
-ORCA orchestration send --to "bot:<name>" --type status --subject "<news>" --body "<what it means for its work>"
-```
+`--worktree new-child --repo <repo> --name <id-lowercase>-plan`. `<agent>` and any model come from the team's
+[tier table](../../bot-orchestration/references/routing.md) or the human, never from this skill. The architect does not
+edit tracked files in either case.
 
 After sending, **end your turn**. Do not poll and do not run a watch loop.
 
 ## 3. Send the plan back
 
-The architect uses the route the request came by:
-
-| The request came as | Send back with |
+| You are | Send back with |
 |---|---|
-| a `question` | the reply the incoming message names: `ORCA orchestration reply --id <msg_id> --body-file report.md` |
-| a worker dispatch | `worker_done`, exactly as the dispatch preamble says, with the report as its body (`--outcome failed` for `PLAN BLOCKED`) |
-| a `handoff` | a new message to the return address, below |
+| the architect **bot** | a `status` to the return address, in the [bot report](../../bot-orchestration/assets/bot-report.template.md) format |
+| an **agent** | `worker_done` to the bot that started you, as the dispatch preamble says (`--outcome failed` when blocked) |
 
 ```bash
-ORCA orchestration send --to "bot:<cto>" --chat <return chat id> --type handoff \
-    --subject "PLAN READY <ID>: accept or request changes" --body-file report.md
+ORCA orchestration send --to "bot:<cto>" --chat <return chat id> --type status \
+    --subject "PLAN READY <ID>" --body-file report.md
 ```
 
-A `handoff` return gives the CTO/CEO the next job, which is to confirm. Without `--chat` it lands in that bot's Home
-Chat, which may not be the one that asked. A worker that needs an answer in the middle uses `ORCA orchestration ask`, as
-its preamble says, and ends its turn.
+Without `--chat` it lands in that bot's Home Chat, which may not be the one that asked. An agent that needs an answer in
+the middle uses `ORCA orchestration ask`, as its preamble says, and ends its turn. A bot that needs one sends a
+`question`.
 
 ## 4. Changes required
 
 ```bash
-ORCA orchestration send --to "bot:<architect>" --chat <id> --type question \
-    --subject "PLAN <ID> v2: changes required" --body-file changes.md
+ORCA orchestration send --to "bot:<architect>" --chat <id> --type handoff \
+    --subject "PLAN <ID> v2: changes required" --body-file follow-up.md
 ORCA orchestration send --to dispatch:<id> --subject "PLAN <ID> v2: changes required" --body-file changes.md
 ```
 
-The first line is for a bot, the second for a worker. A finished worker takes it as a follow-up task.
+The first line is for a bot, with a [follow-up](../../bot-orchestration/assets/follow-up.template.md) that links the
+decision comment; the second is for your own agent. A finished agent takes it as a follow-up task.
 
 ## 5. When you need to look
 

@@ -23,6 +23,8 @@ This skill gives the **workflow**. How to send, delegate and watch is in [orches
 which uses the Orca `/orchestration` skill; load that skill before the first send. For a delegated agent outside Orca, use
 the `delegate` skill. A complete run, from the problem to the acceptance, is in [the example](references/example.md).
 
+Who may message whom is [bot-orchestration](../bot-orchestration/SKILL.md): when an architect bot exists, delegate to it.
+
 ## Roles
 
 | Role | Does | Does not |
@@ -43,8 +45,9 @@ before sending it.
 
 ## 2. CTO/CEO: send it to the architect
 
-Pick the architect: a standing bot for this project if one exists, otherwise a delegated worker. Send a brief in the
-[brief format](assets/example/architect-brief.md): the issue URL, what to answer, the limits, and **the return address**
+Pick the architect: the architect bot when one exists, otherwise your own agent. An architect bot gets a
+[handoff](assets/example/architect-brief.md); your own agent gets an [agent brief](assets/example/agent-brief.md). Either
+carries the issue URL, what to answer, the limits, and **the return address**
 (who gets the result, and which chat). Then **end your turn**; the result comes to you. Commands:
 [send the card](references/orchestration.md#2-send-the-card-to-the-architect).
 
@@ -70,8 +73,9 @@ The plan is complete when a developer could start every package without asking a
 
 ## 4. Architect: send it back to the CTO/CEO
 
-**Posting the comment is not the end of your job.** Send the [return report](assets/example/return-report.md) to the
-return address in the brief: the verdict line (`PLAN READY` or `PLAN BLOCKED`), the comment URL, the recommendation, and
+**Posting the comment is not the end of your job.** An architect **bot** sends the
+[return report](assets/example/return-report.md) to the return address in the handoff; an **agent** reports only to the
+bot that started it, which checks the comment first. The report gives the verdict line (`PLAN READY` or `PLAN BLOCKED`), the comment URL, the recommendation, and
 the decisions waiting. How: [send it back](references/orchestration.md#3-send-the-plan-back). Then end your turn.
 
 If the card is not ready (no observable outcome, missing access, a contradiction), comment what is missing and send back

@@ -15,7 +15,7 @@ when to use it, what to say, what happens, what you get, and its files.
 ## Skills
 
 <!-- skills:start -->
-52 skills in 6 groups. Click a skill for its detail.
+53 skills in 6 groups. Click a skill for its detail.
 
 ### Start here
 
@@ -34,6 +34,7 @@ when to use it, what to say, what happens, what you get, and its files.
 |---|---|
 | [architect](process.md#architect) | Sketch types and module shape twice, pick one, then implement against it |
 | [blast-radius](process.md#blast-radius) | Find what a change could break elsewhere, and prove why it is safe |
+| [bot-orchestration](process.md#bot-orchestration) | Bots delegate to bots and run their own agents; agents report only to their bot |
 | [changelog](process.md#changelog) | Change logs: a CHANGELOG.md entry in every PR, plus the project's changelog/ directory |
 | [ci-fixer](process.md#ci-fixer) | CI fixer: reproduce a red check locally, fix the cause in the card's files, never weaken the check |
 | [correct](process.md#correct) | Make a repeated agent mistake impossible with a check, not a sentence |

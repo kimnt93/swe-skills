@@ -300,6 +300,9 @@ def self_test() -> int:
     assert "name them under Residual" in check_decision([], text("PASS", b), 54, fixed)[0]
     assert check_decision([], text("PASS", b, more=f"fixed by the reviewer: {b[:7]}"), 54, fixed) == []
     assert "Created" in approval_problems("Verdict: PASS at x", pull(a))[0]
+    own = {"state": "OPEN", "headRefOid": a, "body": "x\n\nCreated: Boss (CTO) / developer\n",
+           "commits": [{"oid": a, "authors": [{"name": "Boss (CTO) / developer"}]}]}
+    assert approval_problems(text("Accepted", a, by=boss), own) == [], "a CTO judges the PR of its own developer agent"
 
     passed = decisions([say("PASS", a)], 54)
     assert merge_problems(passed, pull(a)) == []

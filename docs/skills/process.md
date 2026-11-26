@@ -215,6 +215,15 @@ finding.
 A workflow (`workflows/*.yaml`) starts one agent per node. Each role loads only the skills listed for it in
 `roles.yaml`; the role skills below say how that agent works and how it ends (one outcome line, a report).
 
+### bot-orchestration
+
+**What it is.** How standing bots and the agents they start work together. **Rules.** A bot delegates a job to another bot
+with a handoff and gets a status back; a bot briefs its own agents; an agent reports only to the bot that started it.
+No agent messages another agent. When a bot has a role, nobody else starts that role's agents. **Flow.** CEO bot → issue
+→ developer bot → agents by difficulty tier → verified PR → status to the CEO bot. **Files.** `references/routing.md`
+(tiers; the CLI and model come from the team's table), `references/commands.md`, an example, five editable message
+templates and `scripts/message_lint.py`.
+
 ### delegate
 
 **What it is.** Universal task delegation to AI agent CLIs (Codex, Claude, OMP, Pi, Devin, Antigravity) via Orca sessions, T3 Code threads, or direct CLI relays. **What happens.** Formulates self-contained briefs, executes in isolated worktrees, runs verification test commands, and inspects diffs before landing. **When.** Delegating implementation cards or subtasks to specialized coding agents.

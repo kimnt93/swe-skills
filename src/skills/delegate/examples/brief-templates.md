@@ -7,6 +7,10 @@ under that name and signs with `Created: <agent name>` (the `github` skill).
 
 ---
 
+
+These are for a **one-off delegation** where you land the change yourself. An agent that a bot runs in a playbook gets
+the [agent brief](../../bot-orchestration/assets/agent-brief.template.md) instead, and commits.
+
 ## 1. Feature Implementation
 
 ```markdown

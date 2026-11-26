@@ -12,6 +12,14 @@ merges it.
 | `/swe:playbook-review` | **Review** | comment on one existing PR; changes nothing | a PR |
 | `/swe:playbook-ship` | **Ship** | take one existing PR to `main` and close its issue | a PR |
 
+## Bots and agents
+
+A **bot** is a standing member that orchestrates; an **agent** is a coding CLI a bot starts for one job. Bots delegate to
+bots with a handoff and report back with a status. Agents report only to their bot and never to each other. When a bot
+has a role (developer, reviewer, architect), the job goes to that bot, and it runs its own agents. The CEO bot → developer
+bot → agents → pull request → status flow, the message templates and the linter are in
+[bot-orchestration](../src/skills/bot-orchestration/SKILL.md).
+
 ## DAGs
 
 ```text

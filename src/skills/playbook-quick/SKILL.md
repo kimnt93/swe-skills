@@ -29,12 +29,14 @@ This skill gives the **workflow**. How to send, track and answer is in [orchestr
 which uses the Orca `/orchestration` skill; load that skill before the first send. For a delegated agent outside Orca,
 use the `delegate` skill. A complete run is in [the example](references/example.md).
 
+Who may message whom is [bot-orchestration](../bot-orchestration/SKILL.md): when a developer bot exists, delegate to it; it runs its own agents.
+
 ## Roles
 
 | Role | Does | Does not |
 |---|---|---|
 | **CTO/CEO** (owns the problem) | writes the issues, sends them, checks every PR, gives feedback, **merges or stops**, confirms, tells the developer to clean up | write or edit the code, merge a PR it authored |
-| **Developer** (a standing bot or a delegated worker) | builds one issue in its own worktree, opens its PR, **sends it back**, fixes what is asked, **removes the worktree** when told | merge, close the PR, delete the branch on GitHub, touch files the issue does not own, change the issue |
+| **Developer** (the developer bot and the agents it runs; your own agent only when there is no developer bot) | builds one issue in its own worktree, opens its PR, **sends it back**, fixes what is asked, **removes the worktree** when told | merge, close the PR, delete the branch on GitHub, touch files the issue does not own, change the issue |
 
 Every issue, comment and PR body ends with `Created: <agent name>`; every commit is authored by the developer's name.
 
@@ -77,11 +79,16 @@ only the issues the gate allows.
 
 ## 2. CTO/CEO: send each issue to a developer
 
-One brief per issue in the [brief format](assets/example/developer-brief.md): the issue URL, the developer's author
-name, the limits and **the return address**. Send every issue of wave 1, then **end your turn**. A later wave is sent
+One message per issue. The developer **bot** gets a [handoff](assets/example/developer-brief.md): the issue URL, the
+limits and **the return address**. Your own agent (no developer bot) gets an
+[agent brief](assets/example/agent-brief.md), which also gives its author name. Send every issue of wave 1, then **end your turn**. A later wave is sent
 only after the PRs it depends on are **merged**. Commands: [send the issues](references/orchestration.md#2-send-the-issues).
 
 ## 3. Developer: one issue, one worktree, one PR
+
+A developer **bot** rates the issue, starts one agent of that [tier](../bot-orchestration/references/routing.md) for it,
+verifies the agent's work itself and answers to the CTO/CEO. Whoever codes, the agent or a bot coding itself, does the
+steps below, opening the PR included.
 
 **Every issue has its own worktree**, never shared with another issue or with the main checkout
 ([create it](references/orchestration.md#2-send-the-issues)). Use the `developer` skill and the language skill:
@@ -99,8 +106,9 @@ only after the PRs it depends on are **merged**. Commands: [send the issues](ref
 
 ## 4. Developer: send it back to the CTO/CEO
 
-**Opening the PR is not the end of your job.** Send the [return report](assets/example/return-report.md): `PR READY` or
-`PR BLOCKED`, the issue, the PR URL, the full head SHA, the verify result, the check state and what you did not do.
+**Opening the PR is not the end of the job.** An **agent** reports only to the bot that started it
+([agent report](../bot-orchestration/assets/agent-report.template.md)). That bot verifies the head; a developer **bot** then
+sends the CTO/CEO the [return report](assets/example/return-report.md): `PR READY` or `PR BLOCKED`, the issue, the PR URL, the full head SHA, the verify result, the check state and what you did not do.
 One report for each head you want checked. How: [send it back](references/orchestration.md#3-send-the-pr-back). Then end your turn.
 
 ## 5. CTO/CEO: check the head, at most 3 rounds of feedback

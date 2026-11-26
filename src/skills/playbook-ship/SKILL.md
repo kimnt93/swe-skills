@@ -1,6 +1,6 @@
 ---
 name: playbook-ship
-description: "Take one existing pull request to main: one agent, the reviewer, reviews it, fixes what it finds on the PR branch, reviews again for at most 3 rounds, then merges it and confirms the linked issue closed, or stops it with final feedback, leaving the PR open. Only for a PR whose issue is approved by the merge rules and that the reviewer did not write. Use when asked to ship, finish or land a PR. For a comment-only review use playbook-review."
+description: "Take one existing pull request to main: the reviewer (a bot with its agents, or one agent a person asked) reviews it, fixes what it finds on the PR branch, reviews again for at most 3 rounds, then merges it and confirms the linked issue closed, or stops it with final feedback, leaving the PR open. Only for a PR whose issue is approved by the merge rules and that the reviewer did not write. Use when asked to ship, finish or land a PR. For a comment-only review use playbook-review."
 metadata:
   group: start
   summary: "Ship: review a PR, fix and re-review (3 rounds), merge it and close its issue, or stop"
@@ -16,10 +16,13 @@ PR ─► merge rules ─► review ⇄ fix (≤3 rounds) ─► PASS ─► mer
         │ refused: report, change nothing      └─► still wrong ─► Stopped (PR and branch stay) ─► remove worktree
 ```
 
-**You are the reviewer:** you review, fix and merge. Asking for this playbook gives you the merge of this PR. If you wrote
-any of it, you cannot ship it: hand it to another agent. A project whose rules reserve the merge for a person wins.
+**You are the reviewer:** you review, fix and merge. A reviewer **bot** may give the review and the fixes to its own
+agent, but **the bot merges**; a single agent a person asked directly does all of it. Asking for this playbook gives you
+the merge of this PR. If you wrote any of it, you cannot ship it: tell whoever asked, and the bot gives it to a reviewer
+that wrote none of it. A project whose rules reserve the merge for a person wins.
 
-Your own fixes are **checked by nobody else** before `main`. The PASS names them.
+Your own fixes are **checked by nobody else** before `main`. The PASS names them. A bot that has a reviewer bot beside it
+[delegates](../bot-orchestration/SKILL.md#delegate-a-bots-job-to-that-bot) the whole playbook to it.
 
 ## 1. Check that it may be shipped
 
@@ -33,7 +36,7 @@ python3 <github skill>/scripts/issue_gate.py pr <n> --repo <owner>/<repo>
 | merged, closed or a draft | report it; change nothing |
 | the gate refuses (no linked issue, not approved, done, not planned, duplicate) | change nothing; report the reason and, if approval is all that is missing, the owner's [acceptance comment](../github/references/issues.md#before-any-work) |
 | a fork or an outside contributor | do not run or fix it; suggest `playbook-review` and ask the human |
-| you wrote some of it, or its author is still working on it | stop: another agent ships it, after the handover |
+| you wrote some of it, or its author is still working on it | stop and tell whoever asked: a reviewer that wrote none of it ships it, after the handover |
 | `risk:money-path` | review and fix, but **do not merge**: after the PASS, ask the human |
 
 ## 2. Review and fix until PASS

@@ -18,6 +18,7 @@ findings; don't fix them.
 
 ## Fan out
 
+- **If you are an agent a bot briefed to start no helpers:** apply the lenses yourself, one after another.
 - **In one harness:** 2–3 adversaries (in Claude Code, `subagent_type: "@PLUGIN@:adversary"`), each
   in its own worktree, on the `developer-senior` and `developer` agents.
 - **Cross-family (preferred for a PR):** the other CLI reviews (`swe-cli delegate review <project> <card>`, started by the project's manager).

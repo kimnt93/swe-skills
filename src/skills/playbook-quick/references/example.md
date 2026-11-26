@@ -50,7 +50,7 @@ gh issue create --repo <owner>/<repo> --title "ORD-02: Show order times in the l
     --label bug --label frontend --label simple --body-file issue-web.md
 
 # 2. CTO/CEO, after PR #53 is merged
-ORCA orchestration worker-start --spec-file brief-ord-02.md --agent <agent> \
+ORCA orchestration worker-start --spec-file agent-brief-ord-02.md --agent <agent> \
     --worktree new-child --repo <repo> --name ord-02
 
 # 3. Developer

@@ -1,6 +1,7 @@
-PLAN READY: EXPORT-00, Plan v1
-Comment: https://github.com/<owner>/<repo>/issues/42#issuecomment-<id>
-Recommendation: stream the CSV from the API using the list's own query; no new dependency.
-Packages: EXPORT-00a (backend), then EXPORT-00b (web).
-Decisions for you: row cap (recommend 50,000); email column (recommend no).
-Next: confirm on the issue (accept, or list the changes). Nothing has been built.
+PLAN READY: EXPORT-00, plan v1
+Ask: plan issue 42
+Did: analysed the code and posted one plan comment; a light-tier agent traced the list query
+Result: https://github.com/<owner>/<repo>/issues/42#issuecomment-<id>; recommends streaming the CSV from the list's own query; packages EXPORT-00a then EXPORT-00b
+Caveats: nothing was built or run
+Needs: your decision on the row cap (recommend 50,000) and the email column (recommend no)
+From: bot:Architect (example), chat 8c1d0e22-aaaa-bbbb-cccc-ddddeeeeffff

@@ -14,6 +14,8 @@ A pull request goes in; **one verdict comment** comes out. **Nothing else change
 PR ─► read PR, issue, diff ─► safe to run? ─► review the head SHA ─► one verdict comment ─► stop
 ```
 
+A bot that has a reviewer bot beside it [delegates](../bot-orchestration/SKILL.md#delegate-a-bots-job-to-that-bot) the review to it and ends its turn until the report arrives.
+
 ## Steps
 
 1. **Take the PR** (a number or URL; ask which repository only if you cannot tell). A PR you wrote is not yours to

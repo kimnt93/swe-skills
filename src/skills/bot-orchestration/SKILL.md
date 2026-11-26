@@ -1,0 +1,124 @@
+---
+name: bot-orchestration
+description: "How standing bots and the agents they start work together: who may message whom (bot to agent, agent back to its own bot, bot to bot to delegate and to report), never agent to agent. The CEO bot writes the issue and delegates it to the developer bot; the developer bot rates it simple, medium or hard, starts an agent of the matching tier that builds it and opens the PR, verifies the work and reports back. Use before delegating a job to another bot, before starting any agent as a bot, and when reporting back."
+metadata:
+  group: process
+  summary: "Bots delegate to bots and run their own agents; agents report only to their bot"
+---
+
+# Bot orchestration
+
+| | **Bot** | **Agent** |
+|---|---|---|
+| What it is | a standing member with a name, a role, memory and chats | a sub-process of any coding CLI that a bot starts for one job |
+| Lives | across jobs | until its job is done |
+| Orchestrates | yes: its own agents, and delegates to other bots | **no** |
+| Talks to | other bots, and the agents it started | **only the bot that started it** |
+
+**The bot is the orchestrator. Agents do separate work and never talk to each other.**
+
+```text
+CEO bot ── issue ──► developer bot ──┬─ brief ─► agent A (issue 1, own worktree)
+   ▲                  ▲     │        └─ brief ─► agent B (issue 2, own worktree)
+   │                  └─────┼───────────── report ─┘   (each agent only to its bot)
+   │                        │ verify, PR
+   └────── status ──────────┘
+```
+
+## The messages
+
+| From → to | Use it to | Orca | Template |
+|---|---|---|---|
+| bot → bot | **delegate** a job | `send --to "bot:<name>" --type handoff` | [delegate](assets/delegate.template.md) |
+| bot → its agent | **brief** it, then steer it | `worker-start`, then `send --to dispatch:<id>` | [agent brief](assets/agent-brief.template.md) |
+| agent → its bot | **report** the result, or ask | `worker_done`, `ask`, `escalation` | [agent report](assets/agent-report.template.md) |
+| bot → bot | **status** when done or blocked | `send --to "bot:<name>" --chat <id> --type status` | [bot report](assets/bot-report.template.md) |
+| bot → bot | **follow up** on a delegated job: changes, merged, stopped | `send --to "bot:<name>" --chat <id> --type handoff` | [follow-up](assets/follow-up.template.md) |
+
+A message to **your own** agent after its brief (`send --to dispatch:<id>`) is free text: it comes from its bot.
+An agent is never given a bot's handoff: it gets an agent brief.
+
+A short question between bots, with no job handed over, uses `--type question`. Every other route is **forbidden**:
+agent → agent, agent → another bot, agent → a bot that did not start it, and a bot steering another bot's agent.
+
+Check each message before you send it; the linter reads the template, so editing a template changes the rule:
+
+```bash
+python3 <this skill>/scripts/message_lint.py <delegate|agent-brief|agent-report|bot-report|follow-up> --body-file msg.md
+```
+
+Commands: [commands](references/commands.md). A full run: [example](references/example.md).
+
+## Delegate a bot's job to that bot
+
+**Look first** (`ORCA bot list`). When a bot has the role, hand it the job. **Do not start that role's agents yourself.**
+A bot starts agents for **its own** job only. Only when no bot has the role may the delegating bot start the agent.
+
+| Role bot | Owns | Does not |
+|---|---|---|
+| **CEO / CTO** | the issue and its priority, delegating, the decision, the merge its playbook gives it | start developer or reviewer agents when those bots exist; write the code |
+| **Developer** | the code job: difficulty, agents, worktrees, verification, the PR, the report | design or priority calls, review of its own PR, the merge |
+| **Reviewer** | the verdict on a PR it did not write, drafted by its own agents; in `ship` and `complete` also the fixes, and in `ship` the merge | build the PR it judges |
+
+**The role bot does not answer** (for example out of quota: Orca says it ended its turn without a reply): the job is
+still **that bot's**. Do not redo it, call it dropped, or start its role's agents. Tell the owner which bot, which job
+and why, and let them decide.
+
+An analysis, a check or a search that is part of a bot's own job may use its own agent: a CEO may start one to read the
+state of its issues, not to build them.
+
+## The build flow
+
+1. **CEO bot** writes the issue (`write-issue`), gets it approved (the [merge rules](../github/references/pull-requests.md#merge-rules)),
+   **delegates** it to the developer bot with its own return address, and **ends its turn**.
+2. **Developer bot** runs the gate, [rates the issue and picks the tier](references/routing.md), creates the issue's
+   worktree, and **briefs one agent** per issue. Independent issues run in parallel, each with its own agent.
+3. **Agent** does its slice, pushes it and opens the PR when its brief says so, and **reports to its bot only**.
+4. **Developer bot verifies**: runs the evidence command itself and reads the diff against the owned files. A claim is
+   not proof. It also checks that the PR is open and its checks are green.
+5. **Developer bot** sends the CEO bot a **status** and ends its turn.
+6. **CEO bot** continues its playbook: `playbook-quick` (it checks and merges) or `playbook-complete` (it delegates the
+   review to the reviewer bot, which reports back the same way). Feedback goes bot to bot; the developer bot gives it to
+   the same agent, or a new one.
+
+## Agents separate their work
+
+- **One agent, one slice, one worktree at a time.** Two agents never write in the same worktree or own the same file.
+- One issue normally takes one agent. Split it only into slices that run **one after another** in that worktree, or that
+  are really separate issues.
+- An agent starts **no helpers**, even where its launch text offers it: say so in the brief.
+- What one agent needs from another goes **through the bot**: the bot reads the first report and writes it into the
+  second brief.
+
+## Names
+
+The brief gives the agent its name; commits are authored by it and texts end `Created: <name>`. The PR says which tier
+did the work.
+
+| The bot that starts the agent | The agent's name |
+|---|---|
+| holds the role (the developer bot starts a developer agent) | **the bot's name** |
+| does not, because no bot has the role (a CTO starts a developer or reviewer agent) | `<bot name> / <role>`, such as `CTO (example) / developer` |
+
+So whoever judges a PR never has the writer's name: a CTO can accept its own developer agent's PR, and its reviewer agent
+is a different writer from its developer agent.
+
+## Done
+
+- The delegating bot received one status with the result and its evidence.
+- Every agent of the job has settled and is released; its worktree is removed when the playbook says so.
+- No message went between two agents, or from an agent to anyone but its bot.
+
+## One good, one bad
+
+- **Good:** the CEO hands issue `API-03` to the developer bot and ends its turn; the developer bot starts a standard-tier
+  agent, reruns its test, opens the PR and sends `PR READY`.
+- **Bad:** the CEO starts five developer agents itself, nudges each one and collects their reports, while the developer
+  bot sits idle.
+
+## Never
+
+- Start another role bot's agents, or take over its job, while that bot exists.
+- Let an agent message another agent or another bot, or start its own helpers.
+- Report an agent's claim you did not verify, or let an agent a bot started decide, accept or merge.
+- Poll a healthy agent or bot: end your turn; Orca wakes you.
