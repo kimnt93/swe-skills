@@ -32,8 +32,8 @@ Never start a new HTTP API in Python or Rust without a reason written in the PR.
 1. **In your own words first.** Before any edit, state the goal, the smallest change you expect to
    meet it, and the **done-predicate**: a command and its expected output. Don't wait for
    confirmation. If the evidence rules out the requested change, show it and stop.
-2. **Pick one pipeline** (`build`, `quick`, `plan`, `refactor-plan`, `review` or `ship`) from the table below: the one
-   the request names, else `build`. Open a todo list whose first items are its steps.
+2. **Pick one pipeline** (`build`, `quick`, `plan`, `refactor-plan`, `review`, `ship` or `test`) from the table below: the
+   one the request names, else `build`. Open a todo list whose first items are its steps.
 3. **Load the domain skill** before you write code. It carries the code standard and tested templates.
 4. **Principles.** Read the `principles` index; open each one whose "applies" line matches; name in
    your reply each one that changed a decision. `money-path` always applies to orders, fills,
@@ -52,9 +52,9 @@ Never start a new HTTP API in Python or Rust without a reason written in the PR.
     comment and PR body; branch from `main`, small Conventional Commits, a PR linked to
     its issue, merge only through the gate (the `github` skill).
 
-## Pipelines: exactly six
+## Pipelines: exactly seven
 
-Every request that plans, builds or judges a change is one of these; there is no seventh. Every one that builds ends with
+Every request that plans, builds, judges or tests is one of these; there is no eighth. Every one that builds ends with
 the merge.
 
 | Pipeline | Use it for | Flow |
@@ -65,9 +65,10 @@ the merge.
 | `playbook-refactor-plan` | a refactoring plan is asked for | request → planner/architect reads every repository and issue and writes the new issues and what happens to each open one → CTO/CEO posts them unchanged: new first, then the replaced ones closed as not planned → stop, nothing built |
 | `playbook-review` | comment on one existing PR | read → one PASS or FAIL comment → stop, nothing changed or merged |
 | `playbook-ship` | take one existing PR to `main` | reviewer reviews and fixes, ≤3 rounds → merges and closes the issue, or stops |
+| `playbook-test` | test software as its user does | request → tester writes the expected results, uses the app, API or CLI, confirms each failure → short report: pass or fail per function, evidence, bugs ready to file → stop, no code fixed, nothing merged |
 
 **Choosing.** A request that names a playbook follows it. A CTO/CEO told none uses `playbook-build`; `ship` or `review`
-for an existing PR; `plan` when only a plan is wanted; `refactor-plan` when a refactoring plan is asked for. A question is answered read-only, with no pipeline. Nobody picks
+for an existing PR; `plan` when only a plan is wanted; `refactor-plan` when a refactoring plan is asked for; `test` when the request is to test or find bugs, not to change anything. A question is answered read-only, with no pipeline. Nobody picks
 `playbook-quick` by itself. Quick named for work with an open design question, or not safe for it (hard, security, a
 money path): say so and ask; do not switch silently.
 

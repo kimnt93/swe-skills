@@ -173,6 +173,7 @@ def cmd_playbooks() -> int:
         ("playbook-refactor-plan", "Refactoring plan only: architect writes the issues, CTO posts them unchanged"),
         ("playbook-review", "Review one PR and post one verdict comment; changes nothing"),
         ("playbook-ship", "One PR: review and fix (3 rounds), merge and close its issue, or stop"),
+        ("playbook-test", "Test as a user: pass or fail per function, evidence, bugs; fixes nothing"),
     ]
     name = get_plugin_name()
     print(f"=== Available Playbooks (invoke via /{name}:<playbook>) ===")
