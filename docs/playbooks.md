@@ -39,6 +39,10 @@ tester (`test` lane issues), devops (`ops` lane issues: deployment and operation
 flow, the message templates and the linter are in [bot-orchestration](../src/skills/bot-orchestration/SKILL.md).
 Replies and status reports are short.
 
+**One child chat per parent chat and receiving bot.** The first delegation from a chat to a bot opens a new chat there
+under the parent chat's name; the sender records its id, and every later message from that chat to that bot goes to it,
+never to the bot's Home Chat ([the rule](../src/skills/bot-orchestration/SKILL.md#one-child-chat-per-parent-chat-and-bot)).
+
 **One agent table** sets the harness, model and reasoning effort of every agent, by row: `simple`, `medium`, `hard` and
 `planner/architect`. The CTO/CEO holds it; each team fills in its own copy of the
 [template](../src/skills/bot-orchestration/assets/agent-table.template.md) outside any public repository. A missing table

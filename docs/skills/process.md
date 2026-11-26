@@ -245,7 +245,8 @@ role skills below say how an agent in each role works and what it reports.
 with a handoff and gets a status back; a bot briefs its own agents; an agent reports only to the bot that started it.
 No agent messages another agent. When a bot has a role, nobody else starts that role's agents. The CEO or CTO only
 orchestrates: it writes the issues and runs the playbook, and never plans, codes, tests, deploys or reviews code.
-Replies and status reports are short and carry only what the reader needs.
+Replies and status reports are short and carry only what the reader needs. Delegated work from one chat to one bot stays in
+one child chat on that bot, opened under the parent chat's name; its recorded id is used for every later message.
 **Roles.** Architect (plans), developer, tester (`test` lane), devops (`ops` lane: deployment and operations), reviewer
 (code review). The skills name roles only; which bot holds which role is each team's own mapping skill, kept outside
 this repository: the orchestrating bot reads it, and otherwise the bot list. **Flow.** CEO bot → issue → the builder bot
