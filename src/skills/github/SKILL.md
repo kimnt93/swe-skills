@@ -48,7 +48,8 @@ issue #N ─► branch <type>/N-<slug> ─► small commits ─► push ─► P
   account with write access (role admin, maintain or write) is approved, and so is an outsider's issue the owner accepted. Never write the
   owner's acceptance.
 - **Merging** belongs to the role the playbook names (`playbook-build` and `playbook-quick`: the CTO/CEO;
-  `playbook-ship`: the reviewer), never to the PR's author. A reviewer who pushed fixes under the
+  `playbook-ship`: the reviewer), never to the PR's author (the one exception is `playbook-solo`, only when a request
+  names it, where the one agent merges its own PR after a self-check). A reviewer who pushed fixes under the
   [fix loop](../reviewer/references/fix-loop.md) is not its author. Merge only the checked SHA, with
   `--match-head-commit`, green required checks and no admin override ([merge](references/pull-requests.md#merge)).
 - **Never** push to `main`, force-push a branch someone else pushed to, delete a branch you did not

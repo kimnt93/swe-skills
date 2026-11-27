@@ -32,7 +32,7 @@ Never start a new HTTP API in Python or Rust without a reason written in the PR.
 1. **In your own words first.** Before any edit, state the goal, the smallest change you expect to
    meet it, and the **done-predicate**: a command and its expected output. Don't wait for
    confirmation. If the evidence rules out the requested change, show it and stop.
-2. **Pick one pipeline** (`build`, `quick`, `plan`, `refactor-plan`, `review`, `ship`, `test` or `security`) from the table below: the
+2. **Pick one pipeline** (`build`, `quick`, `solo`, `plan`, `refactor-plan`, `review`, `ship`, `test` or `security`) from the table below: the
    one the request names, else `build`. Open a todo list whose first items are its steps.
 3. **Load the domain skill** before you write code. It carries the code standard and tested templates.
 4. **Principles.** Read the `principles` index; open each one whose "applies" line matches; name in
@@ -52,15 +52,16 @@ Never start a new HTTP API in Python or Rust without a reason written in the PR.
     comment and PR body; branch from `main`, small Conventional Commits, a PR linked to
     its issue, merge only through the gate (the `github` skill).
 
-## Pipelines: exactly eight
+## Pipelines: exactly nine
 
-Every request that plans, builds, judges, tests or audits is one of these; there is no ninth. Every one that builds ends with
+Every request that plans, builds, judges, tests or audits is one of these; there is no tenth. Every one that builds ends with
 the merge.
 
 | Pipeline | Use it for | Flow |
 |---|---|---|
 | `playbook-build` | **the default**: any request to build that names no playbook | issue → architect plan → CTO/CEO checks it against the card and accepts → code → a PR each → the reviewer checks it against the plan and fixes, ≤3 rounds → CTO/CEO trusts the PASS and merges |
 | `playbook-quick` | **only when the request names it**; no plan, **no check** | CTO/CEO issues → code → a PR each → CTO/CEO merges on mechanical conditions only (merge rules, required checks, the reported head, not behind, not a money path) |
+| `playbook-solo` | **only when the request names it**; one agent asked directly, **no independent review** | that agent writes the issues → each in dependency order: own worktree, code with its tests, one PR, self-check, merge, confirm, close, remove the worktree → one report; it starts no other agent or bot |
 | `playbook-plan` | only a plan is wanted | issue → architect plan comment → back to the CTO/CEO → accepts → stop, nothing built |
 | `playbook-refactor-plan` | a refactoring plan is asked for | request → planner/architect reads every repository and issue and writes the new issues and what happens to each open one → CTO/CEO posts them unchanged: new first, then the replaced ones closed as not planned → stop, nothing built |
 | `playbook-review` | comment on one existing PR | read → one PASS or FAIL comment → stop, nothing changed or merged |
@@ -70,12 +71,17 @@ the merge.
 
 **Choosing.** A request that names a playbook follows it. A CTO/CEO told none uses `playbook-build`; `ship` or `review`
 for an existing PR; `plan` when only a plan is wanted; `refactor-plan` when a refactoring plan is asked for; `test` when the request is to test or find bugs, not to change anything; `security` when an audit for leaks or vulnerabilities is asked for. A question is answered read-only, with no pipeline. Nobody picks
-`playbook-quick` by itself. Quick named for work with an open design question, or not safe for it (hard, security, a
+`playbook-quick` by itself, nor `playbook-solo`. Quick named for work with an open design question, or not safe for it (hard, security, a
 money path): say so and ask; do not switch silently.
 
 **Every pull request that is reviewed gets a security check too** (the `security-review` skill), besides the check that
 it is correct: data going out that its accepted issue does not ask for is a FAIL, a proven finding blocks the merge, and
 a PASS without the verdict's security section is refused. `playbook-quick` has no check at all, this one included.
+In `playbook-solo` the author runs it on its own diff: a self-check, not an independent review.
+
+**A developer delivers the complete issue in one PR:** the feature, unit tests and functional tests
+([the rule](../developer/SKILL.md#what-you-deliver)). **The tester gets work only when a request asks for testing by
+name** ([the rule](../bot-orchestration/SKILL.md#the-tester-only-on-request)).
 
 **The weight is on the plan.** By default the owner approves and reviews no code: the architect plans carefully, the
 CTO/CEO checks the plan against the card before accepting it, and in `build` and `ship` the reviewer checks the code
@@ -83,7 +89,8 @@ against the accepted plan; a departure from it is a finding. A `risk:money-path`
 and a project's own approval rules still apply.
 
 The CTO/CEO only orchestrates: it never plans, codes, tests, deploys or reviews code, in any pipeline; each of those jobs
-goes to the role that holds it ([bot-orchestration](../bot-orchestration/SKILL.md)). Issues are written with
+goes to the role that holds it ([bot-orchestration](../bot-orchestration/SKILL.md)). So no bot runs `playbook-solo`:
+one agent a person asked directly does. Issues are written with
 `write-issue`, comments with `write-comment`, PRs with `work-package`. Anything built or merged passes the
 [merge rules](../github/references/pull-requests.md#merge-rules): as shipped, an issue opened by an account with write access
 (role admin, maintain or write) or the owner's comment approves it. Only the role the playbook names merges, at the SHA it

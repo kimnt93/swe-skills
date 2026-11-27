@@ -29,6 +29,7 @@ live system, a real account, real funds or someone else's host
 3. Read the diff against each [topic](#topics) it touches. Also read what the diff removes.
 4. Prove each suspicion. Unproven is not a finding. What you could not check goes under `Not checked`.
 5. Write the `## Security` section of the verdict ([comment template](../write-comment/assets/pr-comment.template.md)).
+   `playbook-solo` has no verdict: its author records the result in the PR body, as a self-check.
 
 ## The scan
 

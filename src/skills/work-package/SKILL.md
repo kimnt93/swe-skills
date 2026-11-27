@@ -28,10 +28,12 @@ package issue "API-03: title" ─► branch api-03/<slug> ─► commits "feat(a
 
 1. **One ID per package**: `<AREA>-<NN>`, with one optional letter for a planned child (`API-04a`). The ID appears in the
    issue title, the branch, every commit scope and the PR title, and nowhere else changes.
-2. **The issue is the contract**: a `package` issue with a closed *Owned files* list and runnable *Done when* commands.
+2. **The issue is the contract**: a `package` issue with a closed *Owned files* list and runnable *Done when* commands,
+   for its unit tests and its functional tests too.
 3. **Labels route it**: one type, one lane, one difficulty, from the catalog.
 4. **Branch** `<id-lowercase>/<slug>` from the newest `main`; **commits** `<type>(<id-lowercase>): <summary>`; **PR
-   title** has the shape of a commit subject. One package, one PR, to `main`; the author **does not merge**.
+   title** has the shape of a commit subject. One package, one PR, to `main`; the author **does not merge** (the one
+   exception is [playbook-solo](../playbook-solo/SKILL.md), only when a request names it).
 5. **PR body** is the one [PR template](assets/pr.template.md), ends with `Created: <author>` and carries no tool footer.
    and, last, `Created: <agent name>`.
 6. **Your name**: commits go through the `github` skill's `agent_identity.py`; every text is signed.

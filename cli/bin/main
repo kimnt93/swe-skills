@@ -169,6 +169,7 @@ def cmd_playbooks() -> int:
     playbooks = [
         ("playbook-build", "DEFAULT. Issue, architect plan, PRs, reviewer checks them against the plan and fixes, CTO merges"),
         ("playbook-quick", "Only when named. Issues, PRs, CTO merges on mechanical checks only; no review"),
+        ("playbook-solo", "Only when named. One agent from issues to merged PRs, self-checked; no review"),
         ("playbook-plan", "CTO card, architect plan comment, sent back to CTO, accept, stop (nothing built)"),
         ("playbook-refactor-plan", "Refactoring plan only: architect writes the issues, CTO posts them unchanged"),
         ("playbook-review", "Review one PR and post one verdict comment; changes nothing"),

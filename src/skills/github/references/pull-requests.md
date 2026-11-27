@@ -110,7 +110,11 @@ python3 <github skill>/scripts/issue_gate.py pr <number> --repo <owner>/<repo>  
 
 Who merges is the playbook's choice: in `playbook-build` the CTO/CEO on the reviewer's PASS; in `playbook-quick` the
 CTO/CEO on the mechanical conditions alone, with no check of the code; in `playbook-ship` the reviewer after its PASS;
-`playbook-plan` and `playbook-review` merge nothing. Never the PR's author. A project whose rules reserve the merge for a person wins.
+`playbook-plan` and `playbook-review` merge nothing. Never the PR's author, with one exception that runs only when a request
+names it: in [playbook-solo](../../playbook-solo/SKILL.md#3-self-check-then-merge) the one agent merges its own PR after
+its self-check, which is not an independent review and posts no verdict. `can-merge` is unchanged and has no form for
+that merge, so none of its refusals protects it: solo's own steps check the money path, the judgments and the head.
+A project whose rules reserve the merge for a person wins.
 
 Before: the [merge rules](#merge-rules) allow it, the checked SHA is still the head, required checks are green, the branch is
 not behind `main`.
