@@ -33,6 +33,7 @@ Build settings live in `plugin.env`. Put private values (your real domain, owner
 | security and outbound data on every reviewed PR: the verdict's `## Security` section, no unasked outbound path | `work-package/scripts/package_lint.py`, `github/scripts/pr_loop.py`, `issue_gate.py asked`; their self-tests and `tests/enforcement_test.sh` |
 | the security scan: sends nothing, prints no secret, never reads a broken diff as clean | `security-review/scripts/security_scan.py --self-test`; the fixture diffs in `tests/fixtures/security-diffs` |
 | a test run: allowed targets, production approvals, secrets and evidence outside repositories | `web-testing/scripts/testkit.py`, `web_test.py`, `api-cli-testing/scripts/io_test.py`; their self-tests and `tests/testing_skills_test.sh` |
+| heavy builds share one FIFO queue of build slots: order, dead waiters, nested calls, killed wrappers | `build-slot/scripts/build-slot.py`; `tests/build_slot_test.py` (Linux, macOS and Windows in `.github/workflows/build-slot.yml`) |
 
 ## Make targets
 
@@ -46,7 +47,7 @@ Build settings live in `plugin.env`. Put private values (your real domain, owner
 | `make skills` | list the skills |
 | `make <harness> REMOVE=1` | uninstall (only what this tool installed) |
 | `make cli` | link the `<name>-cli` command into `~/.local/bin` |
-| `make test` | build, enforcement, harness, frontend, testing-skill and cli tests |
+| `make test` | build, enforcement, harness, frontend, testing-skill, build-slot and cli tests |
 | `make docs` | regenerate `docs/skills.md`, `docs/harnesses.md` and the index in `docs/skills/README.md` |
 | `make package` | `dist/<name>-<version>.zip` |
 | `make publish` | release `dist/<name>/` into a publish repo, commit and tag (`PUSH=1` pushes) |

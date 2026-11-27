@@ -111,6 +111,19 @@ Per surface the lever includes: Go `golangci-lint`, `go test -race`, `structchec
 evaluation against a floor; Rust `fmt`, `clippy -D warnings`, tests; frontends `tsc`, `eslint`, `vitest`,
 build, Playwright.
 
+### build-slot
+
+**What it is.** One shared FIFO queue of build slots per user and machine, so agents building at once in separate
+worktrees do not exhaust CPU and memory. **Use it when** you run a heavy build: Cargo `build`, `check`, `clippy` and the
+compile of `cargo test`, `maturin`, `docker build`, native C/C++ extensions; Go and large TypeScript builds only when
+measured heavy. **Say.** `python3 "<skill-dir>/scripts/build-slot.py" cargo test --workspace --no-run`, then
+`cargo test --workspace` outside the slot. **What happens.** The command waits in arrival order for one of 2 slots
+(`BUILD_SLOT_SLOTS`), with its queue position on stderr, gets `CARGO_BUILD_JOBS=6` when unset (`BUILD_SLOT_JOBS`), runs
+as given with no shell and returns its exit code. A dead or interrupted waiter leaves the queue, a nested call reuses
+the outer slot, and `BUILD_SLOT_TIMEOUT` exits 75 without running. The queue lives in `~/.cache/build-slot`
+(`BUILD_SLOT_DIR`), shared by every installed copy. **You get** at most that many heavy builds at once.
+**Files.** `scripts/build-slot.py` (standard library only), tested by `tests/build_slot_test.py`.
+
 ### verify-maintain
 
 **What it is.** Keeps the verify skill and its feature map true. **Use it when** periodically and after
