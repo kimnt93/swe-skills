@@ -113,8 +113,8 @@ build, Playwright.
 
 ### build-slot
 
-**What it is.** One shared FIFO queue of build slots per user and machine, for heavy builds of any language, so agents
-building at once in separate worktrees do not exhaust CPU and memory. **Use it when** you run a heavy build, `make`
+**What it is.** A limit on how many heavy builds of any language run at once on a machine where several workers
+build: one shared FIFO queue of build slots per user and machine. **Use it when** you run a heavy build, `make`
 target or build script: Cargo and maturin, Go, CMake, make and ninja, large TypeScript builds, Python packages that
 compile, Gradle and Maven, `docker build`. **Say.** `swe-build-slot cargo test --workspace --no-run`, then
 `cargo test --workspace` outside the slot; `swe-build-slot make build`; `BUILD_SLOT=swe-build-slot make verify` for a
@@ -122,7 +122,9 @@ Makefile with the `BUILD_SLOT ?=` prefix variable. **What happens.** The command
 slots (`SWE_BUILD_SLOT_MAX`), with its queue position on stderr, runs as given with no shell and returns its exit code.
 `CARGO_BUILD_JOBS`, `CMAKE_BUILD_PARALLEL_LEVEL` and Go's `-p` in `GOFLAGS` get `SWE_BUILD_SLOT_JOBS` (6) unless you
 set them; `GOMAXPROCS` and `MAKEFLAGS` are never set. A dead or interrupted waiter leaves the queue, a nested call
-reuses the outer slot and `SWE_BUILD_SLOT_TIMEOUT` exits 75 without running. The queue lives in `~/.cache/build-slot`
+reuses the outer slot and `SWE_BUILD_SLOT_TIMEOUT` exits 75 without running. To cancel, stop the background task or
+`kill` the wrapper (SIGTERM or SIGHUP): it stops only the build it started (SIGKILL after `SWE_BUILD_SLOT_GRACE`, 10
+seconds) and frees the slot once the build is gone; after a `kill -9` of the wrapper, `--status` shows the build's pid. The queue lives in `~/.cache/build-slot`
 (`SWE_BUILD_SLOT_DIR`), readable by you only, and records the program's name, never its arguments. `make install` puts
 the command in `~/.local/bin` (`BIN_DIR`; a `.cmd` launcher on Windows). **You get** at most that many heavy builds at
 once. **Files.** `scripts/swe-build-slot.py` (standard library only), tested by `tests/build_slot_test.py`.
