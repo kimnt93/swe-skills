@@ -957,4 +957,49 @@ for template in plan epic-plan; do
     || fail "$template template has no Decisions section"
 done
 pass "one rule for asking: linked by the roles and all nine playbooks, written once; plans record decisions"
+rule=principles/references/business-rules.md
+for skill in manager reviewer deployment-setup playbook-build playbook-quick playbook-ship playbook-solo; do
+  grep -qF "](../$rule)" "src/skills/$skill/SKILL.md" || fail "$skill does not link the rule for business rules ($rule)"
+done
+for page in never-block-on-the-human money-path; do
+  grep -qF '](business-rules.md)' "src/skills/principles/references/$page.md" || fail "$page does not link business-rules.md"
+done
+python3 - "$root" <<'PY' || fail "business rules"
+import re, sys
+from pathlib import Path
+root = Path(sys.argv[1]); bad = []
+page = root / "src/skills/principles/references/business-rules.md"
+text = " ".join(page.read_text(encoding="utf-8").split())
+for needle in ("project's own agents file (such as `AGENTS.md`) or the operator's instructions",
+               "blocked deploy or merge windows and which paths are high risk", "**Read them before a merge or a deploy, and obey them.**",
+               "never the pull request's own copy", "the stricter holds", "**Wait a blocked window out**, unless those rules or the person allow the step.",
+               "**With none stated, there is no window.**", "may add paths and never remove a built-in one",
+               "held as a [money path](money-path.md), with all of its rules and its `risk:money-path` label",
+               "No business rule makes a safeguard, gate or playbook stop weaker."):
+    if needle not in text:
+        bad.append(f"business-rules.md: missing {needle!r}")
+# the example is placeholders only: no hour, day or time zone that somebody could take for a rule
+real = re.compile(r"\d{1,2}:\d{2}|\b\d{1,2} ?(?:am|pm)\b|\b(?:UTC|GMT)\b|\b(?:Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day\b|\bweekends?\b", re.I)
+bad += [f"business-rules.md: a real time in the rule: {x.group(0)!r}" for x in real.finditer(text)]
+if "<start>" not in text or "<end>" not in text or "<time zone>" not in text:
+    bad.append("business-rules.md: the example must leave start, end and time zone as placeholders")
+# no skill or page states one business's trading policy or instruments as its own
+domain = re.compile(r"trading[ -](?:window|hours?|session|day)s?|market[ -](?:hours?|open|close)\b|\bUTC\+7\b|\bVN30\w*|\bVWAP\b", re.I)
+for doc in sorted([*(root / "src").rglob("*"), *(root / "docs").rglob("*.md"), root / "README.md", root / "STACK.md"]):
+    if doc.is_file() and doc.suffix in ("", ".md", ".py", ".json", ".ts", ".tsx", ".go", ".rs", ".toml", ".yaml", ".yml"):
+        for number, line in enumerate(doc.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
+            hit = domain.search(line)
+            if hit and "node_modules" not in doc.parts:
+                bad.append(f"{doc.relative_to(root)}:{number}: '{hit.group(0)}' belongs in a project's own agents file")
+# a project only adds high-risk paths: the built-in money-path list is untouched
+money = " ".join((root / "src/skills/principles/references/money-path.md").read_text(encoding="utf-8").split())
+for needle in ("orders, fills, executions, positions, balances, margin, risk limits, fees or P&L", "**No auto-merge.**",
+               "**Prove it on a replay, not only on unit tests.**", "They remove nothing named here."):
+    if needle not in money:
+        bad.append(f"money-path.md: missing {needle!r}")
+if bad:
+    print("\n".join(bad[:30])); sys.exit(1)
+PY
+[ "$(grep -rlF 'With none stated, there is no window' src | wc -l)" = 1 ] || fail "the rule for business rules is written once, in $rule: link it, don't copy it"
+pass "business rules: the project's own, linked by the roles and every merging playbook, no window or domain policy of the plugin"
 echo "all passed"
