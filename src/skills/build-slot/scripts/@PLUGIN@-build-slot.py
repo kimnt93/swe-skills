@@ -1,17 +1,28 @@
 #!/usr/bin/env python3
-"""Run a heavy build command in one of a few shared build slots, waiting in a FIFO queue.
+"""@PLUGIN@-build-slot: run a heavy build command of any language in one of a few shared build slots.
 
-    python3 build-slot.py <command> [args...]    # run the command when a slot is free
-    python3 build-slot.py --status               # print the slots and the queue
+    @PLUGIN@-build-slot <command> [args...]    run the command (as given, no shell) when a slot is free
+    @PLUGIN@-build-slot --status               print the slots and who waits
+    @PLUGIN@-build-slot --help                 print this help
 
-Every copy of this script on a machine shares one queue per user: the directory
-BUILD_SLOT_DIR (default ~/.cache/build-slot). Standard library only.
+Callers wait in arrival order (FIFO). Every copy on a machine shares one queue per user.
 
-Environment:
-    BUILD_SLOT_SLOTS    number of slots (default 2); every agent on a queue should use the same value
-    BUILD_SLOT_JOBS     CARGO_BUILD_JOBS given to the command when it is not set already (default 6)
-    BUILD_SLOT_TIMEOUT  seconds to wait for a slot, then exit 75 without running the command (default: no limit)
-    BUILD_SLOT_DIR      the queue directory (default ~/.cache/build-slot)
+Environment (exported by the caller):
+    SWE_BUILD_SLOT_MAX      builds that run at once (default 2); every caller of one queue should use the same
+                            value: the oldest waiter takes the next slot within its own MAX, so mixed values run
+                            up to the largest MAX at once and a waiter with a smaller one holds back those behind it
+    SWE_BUILD_SLOT_JOBS     job count given to the build tools below (default 6)
+    SWE_BUILD_SLOT_TIMEOUT  seconds to wait for a slot, then exit 75 without running (default: no limit)
+    SWE_BUILD_SLOT_DIR      the queue directory (default ~/.cache/build-slot)
+
+Job limits set for the command, each only when you have not set it yourself:
+    CARGO_BUILD_JOBS            Cargo (build.jobs)
+    CMAKE_BUILD_PARALLEL_LEVEL  cmake --build
+    GOFLAGS -p=<jobs>           Go, appended only when GOFLAGS (or `go env -w GOFLAGS`) has no -p, other flags
+                                kept; -p also limits how many test binaries `go test` runs at once
+Not set: GOMAXPROCS (it changes the program and tests that run) and MAKEFLAGS -j (not every Makefile is
+parallel-safe). Pass those, or another tool's own limit, yourself: make -j6, ninja -j6, gradle
+--max-workers=6, mvn -T 6, bazel build --jobs=6, dotnet build -maxcpucount:6.
 
 Exit codes: the command's own; 75 the wait timed out (the command did not run); 130 interrupted while
 waiting (143 on SIGTERM); 127 command not found; 126 command not executable; 2 usage error.
@@ -30,7 +41,7 @@ Liveness uses OS file locks (fcntl.flock on Linux and macOS, msvcrt.locking on W
 so a reused PID cannot keep a dead ticket or slot alive. Only the oldest live waiter may take a free
 slot. On Linux and macOS the command inherits the slot's lock, so a killed wrapper leaves the slot
 held until the build ends. On Windows the wrapper and the build run in a Job Object that is killed
-when the wrapper's handle closes, so the build cannot outlive its slot.
+when the wrapper's handle closes, so the build cannot outlive its slot. Standard library only.
 """
 
 from __future__ import annotations
@@ -52,7 +63,16 @@ else:
 
 EXIT_TIMEOUT = 75
 EXIT_USAGE = 2
-HOLDER_ENV = "BUILD_SLOT_HOLDER"
+HOLDER_ENV = "BUILD_SLOT_HOLDER"  # shared with older copies, so a nested call of either reuses the slot
+PROG = "@PLUGIN@-build-slot"
+MAX_ENV, JOBS_ENV, TIMEOUT_ENV, DIR_ENV = (f"SWE_BUILD_SLOT_{k}" for k in ("MAX", "JOBS", "TIMEOUT", "DIR"))
+RENAMED = {"BUILD_SLOT_SLOTS": MAX_ENV, "BUILD_SLOT_JOBS": JOBS_ENV, "BUILD_SLOT_TIMEOUT": TIMEOUT_ENV,
+           "BUILD_SLOT_DIR": DIR_ENV}
+# Per-tool job limits: (variable, value given the job count). Each is set only when the caller has not set it.
+JOB_LIMITS = (
+    ("CARGO_BUILD_JOBS", str),  # Cargo: the build.jobs setting
+    ("CMAKE_BUILD_PARALLEL_LEVEL", str),  # cmake --build
+)
 POLL = 0.2
 REPORT_MIN = 5.0
 REPORT_EVERY = 60.0
@@ -65,7 +85,7 @@ class Interrupted(Exception):
 
 
 def say(message: str) -> None:
-    print(f"build-slot: {message}", file=sys.stderr, flush=True)
+    print(f"{PROG}: {message}", file=sys.stderr, flush=True)
 
 
 def env_int(name: str, default: int, minimum: int) -> int:
@@ -84,7 +104,7 @@ def env_int(name: str, default: int, minimum: int) -> int:
 
 
 def queue_dir() -> Path:
-    raw = os.environ.get("BUILD_SLOT_DIR", "").strip()
+    raw = os.environ.get(DIR_ENV, "").strip()
     path = Path(raw).expanduser() if raw else Path.home() / ".cache" / "build-slot"
     try:
         new = not path.exists()
@@ -95,7 +115,7 @@ def queue_dir() -> Path:
         if not WINDOWS:
             os.chmod(path / "tickets", 0o700)
     except OSError as exc:
-        say(f"cannot use the queue directory {path} (BUILD_SLOT_DIR): {exc}")
+        say(f"cannot use the queue directory {path} ({DIR_ENV}): {exc}")
         sys.exit(EXIT_USAGE)
     return path.resolve()
 
@@ -302,7 +322,7 @@ def wait_for_slot(base: Path, slots: int, timeout: int) -> tuple[int, int]:
                 return taken
             now = time.monotonic()
             if timeout and now - started >= timeout:
-                say(f"no slot after {timeout}s (BUILD_SLOT_TIMEOUT); the command did not run")
+                say(f"no slot after {timeout}s ({TIMEOUT_ENV}); the command did not run")
                 raise Interrupted(EXIT_TIMEOUT)
             position = ahead + 1
             if reported is None or (position != reported and now - reported_at >= REPORT_MIN) \
@@ -409,11 +429,53 @@ def run(argv: list[str], env: dict[str, str], slot_fd: int | None) -> int:
     return 128 - code if code < 0 else code
 
 
+def go_env_file() -> Path | None:
+    """The file `go env -w` writes: $GOENV, else <user config dir>/go/env (`go help environment`)."""
+    named = os.environ.get("GOENV", "")
+    if named == "off":
+        return None
+    if named:
+        return Path(named)
+    if WINDOWS:
+        base = os.environ.get("APPDATA", "")
+    elif sys.platform == "darwin":
+        base = str(Path.home() / "Library" / "Application Support")
+    else:
+        base = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
+    return Path(base) / "go" / "env" if base else None
+
+
+def go_flags(env: dict[str, str], jobs: int) -> str | None:
+    """GOFLAGS with -p=<jobs> appended, or None when -p is set already. An empty GOFLAGS counts as unset, as in Go."""
+    flags = env.get("GOFLAGS", "")
+    if not flags:
+        path = go_env_file()
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines() if path else []
+        except OSError:
+            lines = []
+        flags = next((line.split("=", 1)[1] for line in lines if line.startswith("GOFLAGS=")), "")
+    if any(flag == "-p" or flag.startswith(("-p=", "--p=")) or flag == "--p" for flag in flags.split()):
+        return None
+    return f"{flags} -p={jobs}".strip()
+
+
 def command_env(jobs: int, extra: dict[str, str]) -> dict[str, str]:
     env = dict(os.environ)
-    env.setdefault("CARGO_BUILD_JOBS", str(jobs))
+    for name, value in JOB_LIMITS:
+        if name not in env:
+            env[name] = value(jobs)
+    goflags = go_flags(env, jobs)
+    if goflags is not None:
+        env["GOFLAGS"] = goflags
     env.update(extra)
     return env
+
+
+def warn_renamed() -> None:
+    for old, new in RENAMED.items():
+        if old in os.environ and new not in os.environ:
+            say(f"{old} is no longer read: set {new}")
 
 
 def raise_interrupted(signum: int, _frame: object) -> None:
@@ -424,9 +486,10 @@ def raise_interrupted(signum: int, _frame: object) -> None:
 
 def main_run(argv: list[str]) -> int:
     base = queue_dir()
-    slots = env_int("BUILD_SLOT_SLOTS", 2, 1)
-    timeout = env_int("BUILD_SLOT_TIMEOUT", 0, 0)
-    jobs = env_int("BUILD_SLOT_JOBS", 6, 1)
+    warn_renamed()
+    slots = env_int(MAX_ENV, 2, 1)
+    timeout = env_int(TIMEOUT_ENV, 0, 0)
+    jobs = env_int(JOBS_ENV, 6, 1)
     if outer_slot(base) is not None:
         return run(argv, command_env(jobs, {}), None)
     previous = {}
@@ -458,7 +521,8 @@ def main_run(argv: list[str]) -> int:
 
 def main_status() -> int:
     base = queue_dir()
-    slots = env_int("BUILD_SLOT_SLOTS", 2, 1)
+    warn_renamed()
+    slots = env_int(MAX_ENV, 2, 1)
     print(f"queue {base}, {slots} slots")
     for index in range(slots):
         held = is_locked(base / f"slot-{index}.lock")
@@ -486,7 +550,7 @@ def main(argv: list[str]) -> int:
         print(__doc__.strip())
         return 0
     if not argv or argv[0].startswith("-"):
-        say("usage: build-slot.py <command> [args...]   or   build-slot.py --status")
+        say(f"usage: {PROG} <command> [args...]   or   {PROG} --status | --help")
         return EXIT_USAGE
     return main_run(argv)
 

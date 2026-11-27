@@ -1,9 +1,9 @@
 ---
 name: build-slot
-description: "Run heavy builds through one shared FIFO queue of build slots per user and machine, so agents building at once in separate worktrees do not exhaust CPU and memory. Wrap cargo build, check, clippy and the compile of cargo test, maturin, docker build and native C/C++ extension builds in scripts/build-slot.py: it waits in arrival order for a free slot (2 by default), sets CARGO_BUILD_JOBS=6 when it is unset and returns the command's exit code. Use before any heavy compile or image build, and when the builds of several agents slow the machine down."
+description: "Run every heavy build, of any language, through one shared FIFO queue of build slots per user and machine, so agents building at once in separate worktrees do not exhaust CPU and memory: `@PLUGIN@-build-slot <command>` waits in arrival order for one of 2 slots (SWE_BUILD_SLOT_MAX), gives Cargo, CMake and Go a job limit you have not set yourself, runs the command as given and returns its exit code. Use before a heavy compile, image build, make target or build script (Rust, Go, C/C++, TypeScript, native Python, Java/Kotlin, docker build and the like), in every brief that starts one, and when the builds of several agents slow the machine down."
 metadata:
   group: process
-  summary: "Run heavy builds in one shared FIFO queue of build slots so parallel agents share the machine"
+  summary: "Run heavy builds of any language in one shared FIFO queue of build slots: @PLUGIN@-build-slot <command>"
 ---
 
 # Build slot
@@ -11,49 +11,56 @@ metadata:
 Many agents build at once in separate worktrees. Every heavy build goes through one queue that all agents of this user
 on this machine share: at most 2 run at once, the others wait in arrival order.
 
-## Run
-
 ```bash
-python3 "<skill-dir>/scripts/build-slot.py" <command> [args...]
+@PLUGIN@-build-slot <command> [args...]
 ```
 
-`<skill-dir>` is the directory of this file. Use its full path: your working directory is the target project. On
-Windows run it with `python` or `py`. The command runs as given, with no shell: for `&&` or a pipe, make one call per
-command. It waits for a free slot, prints its queue position to stderr while it waits, runs the command and exits with
-the command's exit code. `--status` prints the slots and who waits.
+The command runs as given, with no shell (for `&&` or a pipe, make one call per command), and its exit code is
+returned. `--status` prints the slots and who waits; `--help` prints the settings. Not found? Run the script by its full
+path, `python3 "<skill-dir>/scripts/@PLUGIN@-build-slot.py"` (`python` or `py` on Windows, `<skill-dir>` is this
+file's directory), and tell the user `make install` puts the command in `~/.local/bin`.
 
-## When to wrap
+## Steps for an agent
 
-| Wrap | Do not wrap |
-|---|---|
-| `cargo build`, `cargo check`, `cargo clippy`, the compile of `cargo test` | lint and format (`ruff`, `cargo fmt`, `eslint`) |
-| `maturin build`, `maturin develop` | plain Python and its tests |
-| `docker build` | small, quick tests |
-| native C/C++ extensions (a `pip install` that compiles, `cmake --build`) | |
-| Go and large TypeScript builds, only when measured heavy | |
+1. Before you run a build, a `make` target or a build script, decide whether it is heavy: read what it runs (its
+   prerequisites and the scripts it calls).
+2. Heavy: run it through `@PLUGIN@-build-slot`, compiling inside the slot and running tests outside it (table below).
+3. A long build: start it in the background and check on it; waiting counts toward your command's timeout.
+4. While it waits: do not kill it, bypass the queue or start a second copy. A stopped and rerun command goes to the
+   back of the queue.
+5. Put the same rule in every brief to an agent you start: "run heavy builds through `@PLUGIN@-build-slot`".
 
-Compile inside the slot, run the tests outside it:
+## What to run through a slot
 
-```bash
-python3 "<skill-dir>/scripts/build-slot.py" cargo test --workspace --no-run
-cargo test --workspace    # runs the tests; may still compile a little, such as doctests
-```
+| Language / tool | Through a slot | Not through a slot |
+|---|---|---|
+| Rust | `cargo build`, `cargo check`, `cargo clippy`, `cargo test --workspace --no-run`, `maturin build --release`, `maturin develop` | then `cargo test --workspace` (may still compile a little, such as doctests); `cargo fmt` |
+| Go, when measured heavy | `go build ./...`, `go test -c -o <dir>/ ./...` (compiles the tests) | then `go test ./...`; `gofmt` |
+| C/C++ | `cmake --build build`, `make -j6 build`, `ninja -C build` | `ctest --test-dir build`; `clang-format` |
+| TypeScript/JavaScript, when large | `npm run build` (`next build`, `vite build`, `tsc -b`) | `npm test`, `eslint`, a small `tsc --noEmit` |
+| Python with native code | `pip install .` or `uv build` of a package that compiles, `python -m build` | pure-Python installs, `pytest`, `ruff` |
+| Java/Kotlin | `./gradlew assemble testClasses --max-workers=6`, `mvn -T 6 test-compile` | then `./gradlew test`, `mvn surefire:test` |
+| Containers | `docker build -t <image> .` | `docker run` |
+
+Any other heavy build works the same way. A slot limits how many builds start, not their CPU use, so the tool's own
+limit still matters: the wrapper sets `CARGO_BUILD_JOBS`, `CMAKE_BUILD_PARALLEL_LEVEL` and Go's `-p` (in `GOFLAGS`)
+to `SWE_BUILD_SLOT_JOBS` (6) when you have not set them. It sets no `GOMAXPROCS` (it changes the program and tests that
+run) and no `MAKEFLAGS` `-j` (not every Makefile is parallel-safe): pass `make -j6`, `ninja -j6`, `--max-workers=6`,
+`mvn -T 6`, `bazel build --jobs=6` or `dotnet build -maxcpucount:6` yourself. `docker build` runs in the Docker daemon,
+which the slot does not limit.
 
 ## Builds started by make or a script
 
-Before you run a target or a script, read what it runs: its prerequisites and the scripts it calls. `make -n` helps,
-but it still runs recipe lines marked `+` or that call `$(MAKE)`.
-
-1. **It only builds** (heavy): wrap the whole call: `python3 "<skill-dir>/scripts/build-slot.py" make <target>`.
+1. **It only builds** (heavy): wrap the whole call: `@PLUGIN@-build-slot make build`.
 2. **It mixes a build with tests or lint** (such as `verify`) **and the Makefile has the `BUILD_SLOT` prefix
-   variable:** pass the wrapper in it and do not wrap `make`, so only the prefixed compile lines take a slot:
-   `BUILD_SLOT='python3 "<skill-dir>/scripts/build-slot.py"' make verify`.
+   variable:** do not wrap `make`; pass the command, so only the prefixed compile lines take a slot:
+   `BUILD_SLOT=@PLUGIN@-build-slot make verify`.
 3. **It mixes them without the variable:** wrap the whole `make` call and accept that the slot is held during the
    tests. Edit the project's Makefile only when your task includes it.
 
-Never wrap `make` and also pass `BUILD_SLOT` as if it narrowed the slot: the inner calls reuse the outer slot, so the
-whole run holds it. The convention for a Makefile, empty by default so people and CI run unchanged, and never with the
-skill's path written into the project:
+`make -n` shows a target's lines, but it still runs lines marked `+` or that call `$(MAKE)`. Never wrap `make` and also
+pass `BUILD_SLOT` as if it narrowed the slot: the inner calls reuse the outer slot. The Makefile convention, empty by
+default so people and CI run unchanged:
 
 ```make
 BUILD_SLOT ?=
@@ -63,25 +70,19 @@ verify:
 	cargo test --workspace
 ```
 
-## Rules
-
-- **Waiting counts toward your command's timeout.** Run a long build in the background and check on it.
-- **Never kill or bypass a waiting build.** A stopped and rerun command goes to the back of the queue.
-- **Every agent sharing a queue uses the same slot count.**
-- A nested call (the build runs a script that calls the wrapper again) reuses the outer slot.
-- `docker build`: a slot limits how many builds start, not their CPU use; the Docker daemon does the work.
-
 ## Settings
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `BUILD_SLOT_SLOTS` | `2` | how many builds run at once |
-| `BUILD_SLOT_JOBS` | `6` | the `CARGO_BUILD_JOBS` given to the command; a value already set is never changed |
-| `BUILD_SLOT_TIMEOUT` | none | seconds to wait for a slot, then exit `75` without running the command |
-| `BUILD_SLOT_DIR` | `~/.cache/build-slot` | the queue; every installed copy shares the default |
+| `SWE_BUILD_SLOT_MAX` | `2` | builds that run at once; export a higher value to raise it |
+| `SWE_BUILD_SLOT_JOBS` | `6` | the job limit given to Cargo, CMake and Go; a value you set is never changed |
+| `SWE_BUILD_SLOT_TIMEOUT` | none | seconds to wait for a slot, then exit `75` without running the command |
+| `SWE_BUILD_SLOT_DIR` | `~/.cache/build-slot` | the queue; every installed copy shares the default |
 
-Exit codes: the command's own; `75` no slot within `BUILD_SLOT_TIMEOUT`; `130` interrupted (Ctrl+C) while waiting,
-`143` on SIGTERM, both after leaving the queue; `127` command not found; `126` not executable; `2` usage error.
+**Every caller of a queue uses the same `SWE_BUILD_SLOT_MAX`.** The oldest waiter takes the next slot within its own
+maximum: mixed values run up to the largest one at once, and a waiter with a smaller one holds back those behind it.
+Exit codes: the command's own; `75` no slot in time; `130` interrupted while waiting (`143` on SIGTERM), after leaving
+the queue; `127` command not found; `126` not executable; `2` usage error.
 
 ## How it works
 
@@ -90,7 +91,7 @@ The queue directory holds `queue.lock` (held briefly to join, check or leave), `
 slot `n`) and `slot-<n>.owner` (the token, pid and program name of its last holder). This layout is stable: other
 copies rely on it. Liveness is an OS file lock (`fcntl.flock`, `msvcrt.locking` on Windows), never a PID, so a waiter
 that died is skipped and a reused PID changes nothing. Only the oldest live waiter takes a free slot. There is no
-daemon.
+daemon. A nested call (the build runs the wrapper again) reuses the outer slot.
 
 ## Caveats
 
@@ -100,7 +101,9 @@ daemon.
   ends. A background daemon the build starts (a compiler cache server, a build daemon) inherits it too and holds the
   slot until it exits: start such a daemon before the build, outside the wrapper.
 - **Windows:** the wrapper and the build run in a Job Object that ends with the wrapper: killing the wrapper ends the
-  build, and a process the build leaves behind is ended when the build finishes. `.cmd` and `.bat` tools such as `npm`
-  are found by name and run by `cmd.exe`, which reads `& | < > ^ %` in their arguments: pass plain arguments only.
+  build, and a process the build leaves behind is ended when the build finishes. The command is the
+  `@PLUGIN@-build-slot.cmd` launcher, which runs the script with `py`, else `python`; Ctrl+C in it may ask "Terminate
+  batch job". `.cmd` and `.bat` tools such as `npm` are found by name and run by `cmd.exe`, which reads `& | < > ^ %`
+  in their arguments: pass plain arguments only.
 - Ctrl+C during the build reaches the build itself; the wrapper waits for it and returns its exit code.
 - Tested on Linux, macOS and Windows by `tests/build_slot_test.py` in CI.
