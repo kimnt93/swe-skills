@@ -7,7 +7,8 @@
 What the build does:
   * copies src/skills into dist/<name>/skills and renames the router skill `router` to <name>, so the
     entry command is /<name> (Claude Code), $<name>:<name> (Codex), /skill:<name> (omp), <name> (Hermes, ...)
-  * fills @PLUGIN@, @DOMAIN@, @OWNER@ and @HOMEPAGE@ in every text file of the skills and the agents,
+  * fills @PLUGIN@, @DOMAIN@, @OWNER@ and @HOMEPAGE@ in every text file of the skills and the agents
+    (and @PLUGIN@ in the skills' file names),
     and @SKILL_INDEX@ (grouped by metadata.group) in the router
   * ships each Claude Code subagent without a `model:` line: only the team's agent table sets a model
   * renders the plugin manifests from src/manifests, dropping fields left empty
@@ -212,6 +213,8 @@ def main() -> int:
     for path in skills.rglob("*"):
         if path.is_file():
             substitute(path, mapping)
+    for path in sorted(skills.rglob("*@PLUGIN@*"), key=lambda p: len(p.parts), reverse=True):
+        path.rename(path.with_name(path.name.replace("@PLUGIN@", name)))  # file names too, such as <name>-build-slot.py
     router = skills / name / "SKILL.md"
     text = router.read_text(encoding="utf-8")
     text = re.sub(r"^name:\s*.*$", f"name: {name}", text, count=1, flags=re.M)
@@ -279,6 +282,7 @@ def main() -> int:
     left = [str(p.relative_to(dist)) for p in dist.rglob("*")
             if p.is_file() and PLACEHOLDER.search(read_text(p) or "")]
     left = [p for p in left if not p.startswith("scripts/")]
+    left += [str(p.relative_to(dist)) for p in dist.rglob("*") if PLACEHOLDER.search(p.name)]
     if left:
         sys.exit("build: placeholders left in " + ", ".join(left))
     print(f"built dist/{name}: {len(stack['skills'])} skills, entry /{name}, marketplace {stack['marketplace']}")
