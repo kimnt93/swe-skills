@@ -335,6 +335,91 @@ class BuildSlotTest(unittest.TestCase):
         release.touch()
         self.wait_ok(h)
 
+    # --- cancel: what an agent's stop does (SIGTERM, SIGHUP, SIGKILL; to the wrapper or its process group) ---------
+
+    def build_tree(self, name: str, ignore_term: bool = False, session: bool = True):
+        """A wrapper in its own session running a build that starts a child; returns (wrapper, build pid, child pid)."""
+        pids = self.tmp / f"{name}.pids"
+        code = ("import os, signal, subprocess, sys, time\n"
+                + ("signal.signal(signal.SIGTERM, signal.SIG_IGN)\n" if ignore_term else "")
+                + "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])\n"
+                + f"open({str(pids)!r}, 'w').write(f'{{os.getpid()}} {{child.pid}}')\n"
+                + "time.sleep(60)\n")
+        wrapper = subprocess.Popen([sys.executable, str(SCRIPT)] + py(code), env=self.env, start_new_session=session,
+                                   preexec_fn=None if session else os.setpgrp,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+        self.procs.append(wrapper)
+        wait_until(lambda: pids.exists() and len(pids.read_text().split()) == 2, what="the build and its child")
+        build, child = (int(x) for x in pids.read_text().split())
+        return wrapper, build, child
+
+    def gone(self, pid: int) -> bool:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True
+        # a zombie of a reaped-later orphan counts as gone
+        stat = Path(f"/proc/{pid}/stat")
+        return stat.exists() and stat.read_text().rsplit(")", 1)[1].split()[0] == "Z"
+
+    def slot_free(self) -> bool:
+        return self.run_wrapper(py("pass"), SWE_BUILD_SLOT_TIMEOUT="1").returncode == 0
+
+    @unittest.skipIf(WINDOWS, "POSIX signals")
+    def test_sigterm_or_sighup_to_the_wrapper_stops_the_build_and_frees_the_slot(self) -> None:
+        for signum in (signal.SIGTERM, signal.SIGHUP):
+            wrapper, build, child = self.build_tree(f"t{signum}")
+            wrapper.send_signal(signum)
+            self.assertEqual(wrapper.wait(timeout=WAIT), 128 + signum, wrapper.stderr.read())
+            wait_until(lambda: self.gone(build) and self.gone(child), what="the build and its child to stop")
+            self.assertTrue(self.slot_free())
+
+    @unittest.skipIf(WINDOWS, "POSIX signals")
+    def test_a_build_that_ignores_sigterm_gets_sigkill_after_the_grace(self) -> None:
+        self.env["SWE_BUILD_SLOT_GRACE"] = "1"
+        wrapper, build, child = self.build_tree("stubborn", ignore_term=True)
+        begin = time.monotonic()
+        wrapper.terminate()
+        self.assertEqual(wrapper.wait(timeout=WAIT), 128 + signal.SIGTERM)
+        self.assertLess(time.monotonic() - begin, 10)
+        self.assertTrue(self.gone(build) and self.gone(child))
+        self.assertTrue(self.slot_free())
+
+    @unittest.skipIf(WINDOWS, "POSIX signals")
+    def test_a_stop_of_the_process_group_stops_everything(self) -> None:
+        for signum in (signal.SIGTERM, signal.SIGKILL):
+            wrapper, build, child = self.build_tree(f"g{signum}")
+            os.killpg(wrapper.pid, signum)
+            wrapper.wait(timeout=WAIT)
+            wait_until(lambda: self.gone(build) and self.gone(child), what="the whole group to stop")
+            wait_until(self.slot_free, what="the slot to be free")
+
+    @unittest.skipIf(WINDOWS, "POSIX signals")
+    def test_cancel_never_signals_a_process_it_did_not_start(self) -> None:
+        wrapper, build, child = self.build_tree("own", session=False)  # its own group in this session
+        neighbour = subprocess.Popen(py("import time; time.sleep(60)"),
+                                     preexec_fn=lambda: os.setpgid(0, wrapper.pid))  # same process group, not ours
+        self.procs.append(neighbour)
+        wrapper.terminate()
+        wrapper.wait(timeout=WAIT)
+        wait_until(lambda: self.gone(build) and self.gone(child), what="the build to stop")
+        self.assertIsNone(neighbour.poll(), "a process the wrapper did not start was signalled")
+        neighbour.kill()
+
+    @unittest.skipIf(WINDOWS, "POSIX signals")
+    def test_sigkill_leaves_the_build_holding_its_slot_and_status_names_it(self) -> None:
+        wrapper, build, child = self.build_tree("orphan")
+        wrapper.kill()
+        wrapper.wait(timeout=WAIT)
+        self.assertFalse(self.gone(build), "the build should run on after SIGKILL of the wrapper alone")
+        self.assertFalse(self.slot_free(), "its slot should stay held while it runs")
+        status = self.run_wrapper(["--status"]).stdout
+        self.assertIn(f"build pid {build} (wrapper gone: stop the build you started with `kill {build}`)", status)
+        self.assertNotIn("time.sleep", status)
+        os.kill(build, signal.SIGTERM)
+        os.kill(child, signal.SIGTERM)  # its own child: the build was killed without a chance to stop it
+        wait_until(self.slot_free, what="the slot after stopping the orphan")
+
     def test_killed_wrapper(self) -> None:
         h, started, release, done = self.holder("h")
         wait_until(started.exists, what="the holder")
@@ -379,7 +464,7 @@ class BuildSlotTest(unittest.TestCase):
             return found + (["--status"] if secret in status else [])
 
         status = self.run_wrapper(["--status"]).stdout
-        self.assertIn(f"slot 0: busy  pid {proc.pid}: {Path(sys.executable).name}", status)
+        self.assertIn(f"slot 0: busy  {Path(sys.executable).name}, wrapper pid {proc.pid}, build pid ", status)
         self.assertEqual(leaks(), [])
         release.touch()
         self.wait_ok(proc)
@@ -389,7 +474,7 @@ class BuildSlotTest(unittest.TestCase):
         wait_until(held[1].exists, what="the next build")
         (self.queue / "slot-0.owner").write_text(f"old\n1\n/usr/bin/docker build --build-arg TOKEN={secret} .\n")
         status = self.run_wrapper(["--status"]).stdout
-        self.assertIn("slot 0: busy  pid 1: docker", status)
+        self.assertIn("slot 0: busy  docker, wrapper pid 1\n", status)
         self.assertNotIn(secret, status)
 
     @unittest.skipIf(WINDOWS, "POSIX file modes")

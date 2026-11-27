@@ -14,6 +14,13 @@ Environment (exported by the caller):
     SWE_BUILD_SLOT_JOBS     job count given to the build tools below (default 6)
     SWE_BUILD_SLOT_TIMEOUT  seconds to wait for a slot, then exit 75 without running (default: no limit)
     SWE_BUILD_SLOT_DIR      the queue directory (default ~/.cache/build-slot)
+    SWE_BUILD_SLOT_GRACE    seconds a cancelled build gets after SIGTERM before SIGKILL (default 10)
+
+Cancel (Linux, macOS): SIGTERM or SIGHUP to this command while it waits leaves the queue; while it builds, the
+signal goes to the build and the processes below it (nothing else), SIGKILL follows after the grace period, and the
+slot is freed once they are gone. A stop of the whole process group reaches the build directly. SIGKILL of this
+command alone leaves the build running with its slot: --status then shows "wrapper gone" and the build's pid to stop.
+Windows: ending this command (Stop-Process, taskkill) ends the build through a Job Object and frees the slot.
 
 Job limits set for the command, each only when you have not set it yourself:
     CARGO_BUILD_JOBS            Cargo (build.jobs)
@@ -24,8 +31,9 @@ Not set: GOMAXPROCS (it changes the program and tests that run) and MAKEFLAGS -j
 parallel-safe). Pass those, or another tool's own limit, yourself: make -j6, ninja -j6, gradle
 --max-workers=6, mvn -T 6, bazel build --jobs=6, dotnet build -maxcpucount:6.
 
-Exit codes: the command's own; 75 the wait timed out (the command did not run); 130 interrupted while
-waiting (143 on SIGTERM); 127 command not found; 126 command not executable; 2 usage error.
+Exit codes: the command's own; 75 the wait timed out (the command did not run); 128 + the signal when
+cancelled (129 SIGHUP, 143 SIGTERM, 130 SIGINT while waiting); 127 command not found; 126 command not
+executable; 2 usage error.
 
 Layout of the queue directory (stable; other copies of this script rely on it):
     queue.lock         locked briefly while joining, checking or leaving the queue
@@ -33,14 +41,14 @@ Layout of the queue directory (stable; other copies of this script rely on it):
     tickets/<12-digit number>-<pid>.ticket
                        one per waiter, locked by it for as long as it waits; an unlocked ticket is dead
     slot-<n>.lock      one per slot (n from 0), locked while a build holds the slot
-    slot-<n>.owner     token, pid and program name (never the arguments) of the last holder;
-                       a nested call checks its token
+    slot-<n>.owner     token, wrapper pid and program name (never the arguments) of the last holder,
+                       then the build's pid once it starts; a nested call checks its token
 On Linux and macOS the directory and its files are readable by the user only (0700 and 0600).
 
 Liveness uses OS file locks (fcntl.flock on Linux and macOS, msvcrt.locking on Windows), never PIDs,
 so a reused PID cannot keep a dead ticket or slot alive. Only the oldest live waiter may take a free
-slot. On Linux and macOS the command inherits the slot's lock, so a killed wrapper leaves the slot
-held until the build ends. On Windows the wrapper and the build run in a Job Object that is killed
+slot. On Linux and macOS the command inherits the slot's lock, so a wrapper killed by SIGKILL leaves
+the slot held until the build ends. On Windows the wrapper and the build run in a Job Object that is killed
 when the wrapper's handle closes, so the build cannot outlive its slot. Standard library only.
 """
 
@@ -65,7 +73,8 @@ EXIT_TIMEOUT = 75
 EXIT_USAGE = 2
 HOLDER_ENV = "BUILD_SLOT_HOLDER"  # shared with older copies, so a nested call of either reuses the slot
 PROG = "@PLUGIN@-build-slot"
-MAX_ENV, JOBS_ENV, TIMEOUT_ENV, DIR_ENV = (f"SWE_BUILD_SLOT_{k}" for k in ("MAX", "JOBS", "TIMEOUT", "DIR"))
+MAX_ENV, JOBS_ENV, TIMEOUT_ENV, DIR_ENV, GRACE_ENV = (
+    f"SWE_BUILD_SLOT_{k}" for k in ("MAX", "JOBS", "TIMEOUT", "DIR", "GRACE"))
 RENAMED = {"BUILD_SLOT_SLOTS": MAX_ENV, "BUILD_SLOT_JOBS": JOBS_ENV, "BUILD_SLOT_TIMEOUT": TIMEOUT_ENV,
            "BUILD_SLOT_DIR": DIR_ENV}
 # Per-tool job limits: (variable, value given the job count). Each is set only when the caller has not set it.
@@ -408,7 +417,100 @@ def resolve(argv: list[str]) -> list[str]:
     return argv
 
 
-def run(argv: list[str], env: dict[str, str], slot_fd: int | None) -> int:
+def descendants(root: int) -> set[int]:
+    """The processes below root (Linux: /proc, macOS: ps). Empty when they cannot be read."""
+    parents: dict[int, int] = {}
+    proc = Path("/proc")
+    if proc.is_dir():
+        for entry in proc.iterdir():
+            if entry.name.isdigit():
+                try:
+                    stat = (entry / "stat").read_text()
+                    parents[int(entry.name)] = int(stat.rsplit(")", 1)[1].split()[1])
+                except (OSError, ValueError, IndexError):
+                    pass
+    else:
+        try:
+            out = subprocess.run(["ps", "-A", "-o", "pid=,ppid="], capture_output=True, text=True, timeout=10).stdout
+        except (OSError, subprocess.SubprocessError):
+            out = ""
+        for line in out.splitlines():
+            fields = line.split()
+            if len(fields) == 2 and fields[0].isdigit() and fields[1].isdigit():
+                parents[int(fields[0])] = int(fields[1])
+    found, todo = set(), [root]
+    while todo:
+        parent = todo.pop()
+        for pid, ppid in parents.items():
+            if ppid == parent and pid not in found:
+                found.add(pid)
+                todo.append(pid)
+    return found
+
+
+class Build:
+    """The command, run in this process group so that a stop of the whole group reaches it too.
+
+    A SIGTERM or SIGHUP sent to this wrapper alone is passed to the build and to the processes below it, and only to
+    them; after the grace period those still running get SIGKILL. The wrapper returns, and frees the slot, only
+    once they are gone. SIGKILL of the wrapper cannot be handled: the build runs on and keeps the slot (--status shows
+    its pid).
+    """
+
+    def __init__(self, child: subprocess.Popen, grace: int) -> None:
+        self.child = child
+        self.grace = grace
+        self.cancelled = 0
+        self.started: set[int] = set()
+
+    def ours(self) -> set[int]:
+        """Started processes still alive in this process group (a reused pid would sit in another group)."""
+        alive = set()
+        for pid in self.started:
+            try:
+                if os.getpgid(pid) == os.getpgrp():
+                    alive.add(pid)
+            except OSError:
+                pass
+        return alive
+
+    def signal(self, signum: int) -> None:
+        if self.child.poll() is None:
+            self.started |= {self.child.pid} | descendants(self.child.pid)
+        for pid in self.ours():
+            try:
+                os.kill(pid, signum)
+            except OSError:
+                pass
+
+    def cancel(self, signum: int, _frame: object) -> None:
+        if self.cancelled:  # a second cancel: stop it now
+            self.signal(signal.SIGKILL)
+            return
+        self.cancelled = signum
+        self.signal(signum)
+
+    def wait(self) -> int:
+        deadline = None
+        while True:
+            try:
+                code = self.child.wait(timeout=0.2)
+            except subprocess.TimeoutExpired:
+                code = None
+            if self.cancelled and deadline is None:
+                deadline = time.monotonic() + self.grace
+            if code is not None and not (self.cancelled and self.ours()):
+                break
+            if deadline is not None and time.monotonic() >= deadline:
+                self.signal(signal.SIGKILL)
+                deadline = time.monotonic() + self.grace
+        if self.cancelled:
+            say(f"stopped by {signal.Signals(self.cancelled).name}: the build is gone and its slot is free")
+            return 128 + self.cancelled
+        return 128 - code if code < 0 else code
+
+
+def run(argv: list[str], env: dict[str, str], slot_fd: int | None, started=None) -> int:
     kwargs = {}
     if slot_fd is not None and not WINDOWS:
         kwargs["pass_fds"] = (slot_fd,)
@@ -423,10 +525,17 @@ def run(argv: list[str], env: dict[str, str], slot_fd: int | None) -> int:
     except OSError as exc:
         say(f"cannot start {argv[0]}: {exc}")
         return 126
-    # Ctrl+C reaches the build itself (same process group or console); the wrapper only waits for it.
+    if started:
+        started(child.pid)
+    # Ctrl+C at a terminal reaches the build itself (same process group or console); the wrapper only waits for it.
     signal.signal(signal.SIGINT, lambda *_: None)
-    code = child.wait()
-    return 128 - code if code < 0 else code
+    if WINDOWS:  # the Job Object ends the build with this process
+        code = child.wait()
+        return 128 - code if code < 0 else code
+    build = Build(child, env_int(GRACE_ENV, 10, 0))
+    for name in ("SIGTERM", "SIGHUP"):
+        signal.signal(getattr(signal, name), build.cancel)
+    return build.wait()
 
 
 def go_env_file() -> Path | None:
@@ -512,11 +621,30 @@ def main_run(argv: list[str]) -> int:
     write_private(owner, f"{token}\n{os.getpid()}\n{os.path.basename(argv[0])}\n")
     if WINDOWS and windows_job() is None:
         say("warning: no Job Object; if this wrapper is killed the build keeps running without a slot")
+    def started(pid: int) -> None:
+        fd = os.open(str(owner), os.O_WRONLY | os.O_APPEND)
+        try:
+            os.write(fd, f"{pid}\n".encode())
+        finally:
+            os.close(fd)
+
     try:
-        return run(argv, command_env(jobs, {HOLDER_ENV: f"{index}:{token}"}), slot_fd)
+        return run(argv, command_env(jobs, {HOLDER_ENV: f"{index}:{token}"}), slot_fd, started)
     finally:
         unlock(slot_fd)
         os.close(slot_fd)
+
+
+def running(pid: int) -> bool:
+    if WINDOWS:
+        return True  # only shown as gone where that can be told
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except OSError:
+        pass
+    return True
 
 
 def main_status() -> int:
@@ -530,7 +658,11 @@ def main_status() -> int:
         if held:
             try:
                 lines = (base / f"slot-{index}.owner").read_text(encoding="utf-8").splitlines()
-                detail = f"  pid {lines[1]}: {shown(lines[2])}"
+                detail = f"  {shown(lines[2])}, wrapper pid {lines[1]}"
+                if len(lines) > 3:
+                    detail += f", build pid {lines[3]}"
+                    if not running(int(lines[1])):
+                        detail += f" (wrapper gone: stop the build you started with `kill {lines[3]}`)"
             except (OSError, IndexError):
                 pass
         print(f"slot {index}: {'busy' if held else 'free'}{detail}")
