@@ -125,7 +125,7 @@ import re, sys
 from pathlib import Path
 root = Path(sys.argv[1]); bad = []
 expected = {"playbook-build", "playbook-plan", "playbook-quick", "playbook-refactor-plan", "playbook-review", "playbook-ship",
-            "playbook-test", "playbook-security"}
+            "playbook-test", "playbook-security", "playbook-solo"}
 actual = {p.parent.name for p in (root / "src/skills").glob("playbook*/SKILL.md")}
 if actual != expected:
     bad.append(f"playbooks must be exactly {sorted(expected)}, got {sorted(actual)}")
@@ -158,7 +158,8 @@ checks = {
                       "`can-merge` refuses a PASS without it"],
     "playbook-build": ["reviewer", "Trust it", "can-merge", "--handover", "of 3.", "Stopped by reviewer", "--match-head-commit", "/orchestration",
                        "checked by nobody else", "## 1. Issue", "## 2. Plan", "## 3. Code", "## 4. Ship", "**Do not stop at the acceptance.**",
-                       "## Where does this run stand", "the tester for a `test` lane issue", "devops for an `ops` lane issue", "close the card",
+                       "## Where does this run stand", "the tester for a `test` lane issue [only when the request asks for testing]",
+                       "a `test` lane issue too", "devops for an `ops` lane issue", "close the card",
                        "**only orchestrates**", "Coding starts only after it", "**checks the plan against the card**",
                        "**A departure from the plan is a finding**", "issue_gate.py pr", "--required", "no checks reported",
                        "a `risk:money-path` PR is never auto-merged", "security and outbound-data check",
@@ -175,6 +176,31 @@ checks = {
                       "**expected result of every\nstep before you run anything**", "**Never add `--approve` without the owner's explicit approval that names that action.**",
                       "weaken an expected result or a time budget", "**Run every failure again.**", "pass or fail per function, the evidence paths and the bugs ready to file",
                       "**File an issue only when the request asked for it**", "Fixing a bug is a new request", "to build or fix something use playbook-build, the default"],
+    # solo: one agent, only when named, whose own check is never a review and whose stops leave the PR open
+    "playbook-solo": ["**Only when the request names `playbook-solo`.**", "Nobody picks it by itself",
+                      "use [playbook-build](../playbook-build/SKILL.md)",
+                      "**starts no other agent, subagent or bot and hands nothing over:**", "A bot does not run this playbook",
+                      "**The check before each merge is a self-check, not an independent review.**", "**Post no reviewer verdict:**",
+                      "[the asking rule](../principles/references/never-block-on-the-human.md)",
+                      "issue_gate.py issue <n>", "Never write the owner's acceptance.", "which means nobody else has read it",
+                      "**No unasked data:**", "**No `Pipeline:` line:**", "in dependency order", "**Its own worktree and branch,**",
+                      "**One PR.**", "All of this holds for **one head SHA**", "agent_identity.py check --author",
+                      "A PR somebody else wrote or judged is never merged here", "exits 0 on the committed head",
+                      "[security-review](../security-review/SKILL.md)", "**no proven finding**",
+                      "**no outbound data the accepted issue does not ask for**", "issue_gate.py asked", "scanned nothing (exit 2): no merge",
+                      "`merge rules: allowed`; required checks green; not behind `main`, no conflict", "--required", "no checks reported",
+                      "--rebase --match-head-commit <checked sha>", "Never `--admin`", "A rebase that conflicts is aborted and blocks the issue",
+                      "**`pr_loop.py can-merge` has no form for a self-merge, and this playbook changes no gate.**",
+                      "**no script refuses a solo merge**", "**The merge command's exit is not proof.**", "can-remove",
+                      "**Money path:**", "**stop with the PR open**", "**The issue stays open, and the PR and its branch stay;**",
+                      "**Issues that depend on it wait. Independent issues go on.**", "## 6. One report",
+                      "**every merge rests on the author's self-check, with no independent review**"],
+    # the developer delivers the complete issue with both kinds of test, and the tester works only on request
+    "developer": ["**The complete issue in one pull request: the feature, its unit tests and its functional tests.**",
+                  "real entry point", "local or disposable dependencies", "[only when a request asks for testing]"],
+    "bot-orchestration": ["**The tester gets work only when a request asks for testing by name**",
+                          "No pipeline creates a test package or sends one to the tester by default.",
+                          "functional tests are never moved to the tester", "A `test` lane issue nobody asked the tester for is the developer's."],
     "playbook-plan": ["architect", "plan comment", "CTO", "send it back", "**Stop here.**", "/orchestration", "playbook-build"],
     "playbook-quick": ["**No architect**", "**no check**", "CTO/CEO merges", "send it back", "--match-head-commit", "/orchestration", "can-remove",
                        "**Only when the request names `playbook-quick`.**", "can-merge --pr <n> --repo <owner>/<repo> --unreviewed --head <reported sha>",
@@ -223,6 +249,9 @@ forbidden = {
                        "Accepted by CTO", "Changes required by CTO", "gh pr diff", "pr_lint.py pr", "git worktree add --detach"],
     "playbook-build": ["not reviewed, not merged", "waits for the owner's merge decision", "owner-approved", "--unreviewed",
                        "playbook-complete", "owner-ask", "owner-report"],
+    # solo starts nobody, sends nothing, posts no verdict and uses no other pipeline's way to a merge
+    "playbook-solo": ["worker-start", "task-create", "orchestration send", "delegate.py", "reviewer-brief", "--unreviewed",
+                      "Stopped by reviewer", "Accepted by CTO", "Changes required by"],
 }
 for name, needles in forbidden.items():
     folder = root / "src/skills" / name
@@ -236,6 +265,31 @@ for doc in sorted((root / "src/skills/playbook-quick").rglob("*.md")):
     for word in re.findall(r"(\w+) \S+ of 3\.", doc.read_text(encoding="utf-8")):
         if word != "Return":
             bad.append(f"{doc.relative_to(root)}: '{word} ... of 3.': quick has no review rounds, only returns")
+# solo posts no verdict, and since can-merge has no form for its merge, none of its pages tells the agent to run it
+for doc in sorted((root / "src/skills/playbook-solo").rglob("*.md")):
+    body = doc.read_text(encoding="utf-8")
+    if re.search(r"(?m)^\s*Verdict: (PASS|FAIL)", body):
+        bad.append(f"{doc.relative_to(root)}: solo posts no reviewer verdict")
+    if re.search(r"(?m)^\s*python3 .*pr_loop\.py can-merge", body):
+        bad.append(f"{doc.relative_to(root)}: solo documents a can-merge command, which cannot allow a self-merge")
+# the self-check before a solo merge is written as commands: none may drop out
+solo = (root / "src/skills/playbook-solo/SKILL.md").read_text(encoding="utf-8")
+solo_commands = [x.strip() for b in re.findall(r"^```bash\n(.*?)^```", solo, re.M | re.S) for x in b.splitlines()]
+for needle in ("pr_loop.py state --pr", "--comments", "agent_identity.py check",
+               "security_scan.py --base origin/main --head <checked sha>", "issue_gate.py asked <issue>", "issue_gate.py pr <n>",
+               "gh pr checks <n> --repo <owner>/<repo> --required", "git merge-base --is-ancestor origin/main <checked sha>",
+               "mergeStateStatus", "--rebase --match-head-commit <checked sha>", "--json state,mergeCommit",
+               "pr_loop.py can-remove --worktree", "ORCA worktree rm"):
+    if not any(needle in x for x in solo_commands):
+        bad.append(f"playbook-solo: no command {needle!r}")
+# no pipeline that builds sends the tester a package unasked, and no shipped build example is a test-only package
+for name in ("playbook-build", "playbook-quick", "playbook-solo"):
+    for doc in sorted((root / "src/skills" / name).rglob("*.md")):
+        body = doc.read_text(encoding="utf-8").replace("\\\n", " ")
+        if re.search(r"""(?m)^[^#\n]*\bsend\b.*--to[ =]["']?bot:<?tester""", body):
+            bad.append(f"{doc.relative_to(root)}: sends the tester a package; the tester works only on request")
+        if body.startswith("Lane: test"):
+            bad.append(f"{doc.relative_to(root)}: a test-only package; the developer delivers the tests with the feature")
 # the removed pipeline is gone everywhere but the change log
 if (root / "src/skills/playbook-complete").exists():
     bad.append("src/skills/playbook-complete: the removed pipeline is still there")
@@ -484,7 +538,7 @@ for edits in ({"body": IG.parse_time("2026-03-02T09:30:00Z"), "title": None},
         bad.append(f"issue_gate approves an owner-accepted issue edited after the acceptance, or gives no way back: {edits}")
 if not gate({**outsider, "author_write": (True, "write"), "comments": [], "edits": None})[0]:
     bad.append("issue_gate asks the owner to accept an issue whose author has write access")
-for name in ("playbook-build", "playbook-ship", "playbook-plan", "playbook-review", "playbook-test"):
+for name in ("playbook-build", "playbook-ship", "playbook-plan", "playbook-review", "playbook-test", "playbook-solo"):
     for doc in sorted((skills / name).rglob("*.md")):
         if L.QUICK_MARK in doc.read_text(encoding="utf-8"):
             bad.append(f"{doc.relative_to(skills)}: only playbook-quick writes '{L.QUICK_MARK}'")
@@ -495,10 +549,22 @@ for name, kind, title, labels in (
         ("card.md", "planning", "RATE-00: Limit requests per API key", ["enhancement", "backend", "medium"]),
         ("issue-a.md", "package", "RATE-00a: Answer 429 over an API key's limit", ["enhancement", "backend", "medium"]),
         ("issue-b.md", "package", "RATE-00b: Set the request limits in the deployment", ["chore", "ops", "simple"]),
-        ("issue-c.md", "package", "RATE-00c: Load test the request limit", ["testing", "test", "simple"])):
+        ("issue-c.md", "package", "RATE-00c: Document the request limit for API clients", ["documentation", "docs", "simple"])):
     bad += [f"playbook-build {name}: {x}" for x in L.lint_issue(kind, title, labels, (build / name).read_text(encoding="utf-8"))]
 for name, kind in (("plan-comment.md", "plan"), ("plan-acceptance.md", "decision")):
     bad += [f"playbook-build {name}: {x}" for x in L.lint_comment(kind, (build / name).read_text(encoding="utf-8"))]
+# a package issue and a PR body without either test line fail the linter; 'none:' with the reason passes (issue-c, docs only)
+rate = ("package", "RATE-00a: Answer 429 over an API key's limit", ["enhancement", "backend", "medium"])
+quick_pr = ("ord-02/local-order-times", "fix(ord-02): show local order times")
+for line in ("Unit tests", "Functional tests"):
+    drop = lambda body: re.sub(rf"(?m)^- \*\*{line}:\*\*.*(?:\n  .*)*\n", "", body)  # noqa: E731
+    for what, whole_body, lint_body in (("a package issue", btext("issue-a.md"), lambda b: L.lint_issue(*rate, b)),
+                                        ("a PR body", text("pr.md"), lambda b: L.lint_pr(*quick_pr, b))):
+        cut = drop(whole_body)
+        if cut == whole_body or lint_body(whole_body) or not any(f"'**{line}:" in x for x in lint_body(cut)):
+            bad.append(f"package_lint accepts {what} without its '{line}' line")
+    if not re.search(rf"(?m)^- \*\*{line}:\*\* none: \S", btext("issue-c.md")):
+        bad.append(f"playbook-build issue-c.md: shows how a docs-only package says why '{line}' cannot apply")
 # build: the owner's report gives every PR its full head SHA and names what only the reviewer checked
 report = btext("report.md")
 for needle in ("after the reviewer's PASS", "Checked only by the reviewer who pushed them: 5a6b7c8", "blocked", "stays open"):
@@ -535,7 +601,7 @@ messages = {
     "playbook-build/assets/example/architect-brief.md": "delegate",
     "playbook-build/assets/example/developer-brief.md": "delegate",
     "playbook-build/assets/example/devops-brief.md": "delegate",
-    "playbook-build/assets/example/tester-brief.md": "delegate",
+    "playbook-build/assets/example/docs-brief.md": "delegate",
     "playbook-build/assets/example/reviewer-brief.md": "delegate",
     "playbook-build/assets/example/plan-report.md": "bot-report",
     "playbook-build/assets/example/return-report.md": "bot-report",
@@ -568,6 +634,32 @@ for finding in re.split(r"(?m)^### ", audit_report.split("## Findings")[1].split
     for needle in ("**Where:**", "**Proof:** `", "```", "**Gets:**", "**Smallest fix:**"):
         if needle not in finding:
             bad.append(f"playbook-security report.md: finding {finding.splitlines()[0]!r} lacks {needle!r}")
+# solo's example: the PR body and merge comment pass the linters, both say it is a self-check, and the report names the
+# merged head in full, what stays open and that nobody else reviewed anything
+alone = skills / "playbook-solo/assets/example"
+checked |= {f"playbook-solo/assets/example/{x}" for x in ("pr.md", "merge.md", "report.md")}
+alone_pr, alone_merge, alone_report = ((alone / x).read_text(encoding="utf-8") for x in ("pr.md", "merge.md", "report.md"))
+bad += [f"playbook-solo pr.md: {x}" for x in L.lint_pr("ord-01/cancel-route", "feat(ord-01): add the cancel route", alone_pr)]
+bad += [f"playbook-solo merge.md: {x}" for x in L.lint_comment("merge", alone_merge)]
+for name, body in (("pr.md", alone_pr), ("merge.md", alone_merge)):
+    if "self-check, not an independent review" not in " ".join(body.split()):
+        bad.append(f"playbook-solo {name}: does not say it is a self-check, not an independent review")
+if G.decisions([{"body": alone_merge, "authorAssociation": "OWNER", "author": {"login": "rev"}, "at": "0"}], 74, can_push):
+    bad.append("playbook-solo merge.md: pr_loop reads it as a judgment; solo posts none")
+merged_at = re.search(r"\bat ([0-9a-f]{40}) after checks\.", alone_merge)
+if not merged_at or merged_at[1] not in alone_report or merged_at[1] not in alone_merge.split("## Gate")[1]:
+    bad.append("playbook-solo example: the merged head differs between the merge comment, its gate and the report")
+for needle in ("on my self-check", "money path: open at", "worktree kept", "waiting: it depends on",
+               "There was no independent review, and no reviewer verdict was posted.", "started no other agent or bot",
+               "Test kinds left out:", "Created: "):
+    if needle not in " ".join(alone_report.split()):
+        bad.append(f"playbook-solo report.md: missing {needle!r}")
+for row in [x for x in alone_report.splitlines() if "/pull/" in x]:
+    if not re.search(r"\b[0-9a-f]{40}\b", row):
+        bad.append(f"playbook-solo report.md: a PR without its full head SHA: {row.strip()}")
+# solo issues carry no quick line, so the one merge form for an unjudged head refuses them
+if not G.unreviewed_problems([], pull(reported, []), reported, [{"number": 61, "labels": [], "body": btext("issue-a.md")}]):
+    bad.append("pr_loop can-merge --unreviewed allows an issue of another pipeline than quick")
 for name, kind in (("verdict-fail.md", "verdict"), ("fix.md", "fix"), ("verdict-pass.md", "verdict"), ("merge.md", "merge"),
                    ("stopped.md", "decision")):
     body = (skills / "playbook-ship/assets/example" / name).read_text(encoding="utf-8")
@@ -575,7 +667,7 @@ for name, kind in (("verdict-fail.md", "verdict"), ("fix.md", "fix"), ("verdict-
     if not body.rstrip().endswith("Created: Reviewer (example)"):
         bad.append(f"playbook-ship {name}: the reviewer reviews, fixes and merges in ship")
 for name in ("playbook-quick", "playbook-build", "playbook-ship", "playbook-refactor-plan", "playbook-test",
-             "playbook-security"):
+             "playbook-security", "playbook-solo"):
     for doc in sorted((skills / name / "assets/example").glob("*.md")):
         if str(doc.relative_to(skills)) not in checked:
             bad.append(f"{doc.relative_to(skills)}: an example no linter checks; add it to enforcement_test.sh")
@@ -658,7 +750,7 @@ for needle in ("Agents do separate work and never talk to each other", "agent â†
 # the owner accepts an issue with one line that works in any shell, and only an issue the gate refuses as not
 # approved (such as an outsider's); nothing uses bash-only $'...' quoting
 accept = 'gh issue comment <number> -R <owner>/<repo> --body "Accepted by owner."'
-for doc in (*[skills / n / "SKILL.md" for n in ("playbook-build", "playbook-quick", "playbook-ship")],
+for doc in (*[skills / n / "SKILL.md" for n in ("playbook-build", "playbook-quick", "playbook-ship", "playbook-solo")],
             skills / "github/references/issues.md", skills / "github/references/pull-requests.md"):
     body = doc.read_text(encoding="utf-8")
     if accept not in body:
@@ -678,23 +770,29 @@ for doc in sorted([*skills.rglob("*.md"), root / "README.md", *(root / "docs").r
 # choosing a pipeline: build is the default, quick only when named, and nothing routes quick by the size of the work
 router = (skills / "router/SKILL.md").read_text(encoding="utf-8")
 manager = (skills / "manager/SKILL.md").read_text(encoding="utf-8")
-for needle in ("## Pipelines: exactly eight", "| `playbook-security` | a security audit of a PR or a repository is asked for |",
+for needle in ("## Pipelines: exactly nine", "| `playbook-solo` | **only when the request names it**", "nor `playbook-solo`",
+               "**no independent review**", "So no bot runs `playbook-solo`",
+               "**A developer delivers the complete issue in one PR:**", "**The tester gets work only when a request asks for testing by name**",
+               "| `playbook-security` | a security audit of a PR or a repository is asked for |",
                "no code changed, no verdict, nothing merged", "**Every pull request that is reviewed gets a security check too**", "| `playbook-test` | test software as its user does |", "no code fixed, nothing merged", "| `playbook-refactor-plan` | a refactoring plan is asked for |", "| `playbook-build` | **the default**", "Nobody picks `playbook-quick` by itself", "**no check**",
                "**The weight is on the plan.**", "Every one that builds ends with the merge",
                "do not switch silently", "A request that names a playbook follows it"):
     if needle not in " ".join(router.split()):
         bad.append(f"router: missing {needle!r}")
-for needle in ("A refactoring plan is asked for | `playbook-refactor-plan`", "Audit this for security or leaks | `playbook-security`", "Test this app, API or tool | `playbook-test`", "(**the default**) | `playbook-build`", "Names quick (never picked otherwise)", "do not switch silently", "**no check**",
+for needle in ("Names solo (never picked otherwise) | `playbook-solo`", "quick and solo only when named",
+               "A refactoring plan is asked for | `playbook-refactor-plan`", "Audit this for security or leaks | `playbook-security`", "Test this app, API or tool | `playbook-test`", "(**the default**) | `playbook-build`", "Names quick (never picked otherwise)", "do not switch silently", "**no check**",
                "reviewer checks it against the plan"):
     if needle not in " ".join(manager.split()):
         bad.append(f"manager: missing {needle!r}")
 routing = [skills / "router/SKILL.md", skills / "manager/SKILL.md", root / "README.md", *sorted((root / "docs").rglob("*.md")),
            *[skills / n / "SKILL.md" for n in ("playbook-build", "playbook-plan", "playbook-refactor-plan", "playbook-review", "playbook-ship",
-                                               "playbook-test", "playbook-security")]]
+                                               "playbook-test", "playbook-security", "playbook-solo")]]
 for doc in routing:
     for number, line in enumerate(doc.read_text(encoding="utf-8").splitlines(), 1):
         if re.search(r"playbook-quick|`quick`|\bQuick\b", line) and re.search(r"\b(small|simple|medium)\b", line):
             bad.append(f"{doc.relative_to(root)}:{number}: routes quick by the size of the work; quick runs only when named")
+        if re.search(r"playbook-solo|`solo`|\bSolo\b", line) and re.search(r"\b(small|simple|medium)\b", line):
+            bad.append(f"{doc.relative_to(root)}:{number}: routes solo by the size of the work; solo runs only when named")
 # every link into a playbook page points at a heading that exists
 def slug(heading):
     return re.sub(r"[^\w\- ]", "", heading.strip().lower()).replace(" ", "-")
@@ -759,7 +857,7 @@ for line in commands.splitlines():
 if bad:
     raise SystemExit("; ".join(bad))
 PY
-pass "playbook skills: exactly eight pipelines, valid metadata, their boundaries, examples and comment formats"
+pass "playbook skills: exactly nine pipelines, valid metadata, their boundaries, examples and comment formats"
 
 # one agent table: it alone sets harness, model and effort, and the stack starts agents only through Orca
 python3 - "$root" <<'PY' || fail "one agent table"
@@ -858,5 +956,5 @@ for template in plan epic-plan; do
   grep -q '^### Decisions <!-- optional -->$' "src/skills/write-comment/assets/$template.template.md" \
     || fail "$template template has no Decisions section"
 done
-pass "one rule for asking: linked by the roles and all eight playbooks, written once; plans record decisions"
+pass "one rule for asking: linked by the roles and all nine playbooks, written once; plans record decisions"
 echo "all passed"
