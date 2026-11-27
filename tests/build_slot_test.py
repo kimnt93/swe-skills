@@ -318,6 +318,70 @@ class BuildSlotTest(unittest.TestCase):
         self.assertEqual(self.run_wrapper(py("pass"), BUILD_SLOT_DIR=str(other)).returncode, 0)
         self.assertEqual(other.stat().st_mode & 0o777, 0o755)
 
+    # --- make: the BUILD_SLOT prefix variable of a project's Makefile --------------------------------------
+
+    def makefile(self) -> Path:
+        """A project whose verify target compiles (prefixed line) and then tests (unprefixed line)."""
+        project = self.tmp / "project"
+        project.mkdir()
+        (project / "record.py").write_text(
+            "import os, sys\nopen(sys.argv[1] + '.txt', 'w').write(os.environ.get('BUILD_SLOT_HOLDER', 'none'))\n")
+        (project / "Makefile").write_text(
+            "BUILD_SLOT ?=\nPY ?= python3\n\nverify:\n"
+            "\t$(BUILD_SLOT) \"$(PY)\" record.py compile\n"
+            "\t\"$(PY)\" record.py test\n")
+        return project
+
+    def make(self, project: Path, prefix: list[str] | None = None) -> list[str]:
+        command = [shutil.which("make"), "-s", "-C", str(project), "verify", f"PY={sys.executable}"]
+        return (prefix or []) + command
+
+    def spaced_wrapper(self) -> str:
+        """The wrapper copied to a path with spaces, as the BUILD_SLOT value an agent passes."""
+        copy = self.tmp / "skill dir" / "scripts" / "build-slot.py"
+        copy.parent.mkdir(parents=True)
+        shutil.copy(SCRIPT, copy)
+        return f'"{sys.executable}" "{copy}"'
+
+    def recorded(self, project: Path) -> tuple[str, str]:
+        return (project / "compile.txt").read_text(), (project / "test.txt").read_text()
+
+    @unittest.skipUnless(shutil.which("make"), "make is not installed")
+    def test_make_with_an_empty_prefix_runs_unchanged(self) -> None:
+        project = self.makefile()
+        result = subprocess.run(self.make(project), env=self.env, capture_output=True, text=True, timeout=WAIT)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.recorded(project), ("none", "none"))
+        self.assertFalse(self.queue.exists(), "an empty BUILD_SLOT must not touch the queue")
+
+    @unittest.skipUnless(shutil.which("make"), "make is not installed")
+    def test_make_prefix_queues_only_the_compile_line(self) -> None:
+        project = self.makefile()
+        h, started, release, _ = self.holder("h")
+        wait_until(started.exists, what="the holder")
+        proc = self.start(self.make(project), wrapper=[], BUILD_SLOT=self.spaced_wrapper())
+        wait_until(lambda: len(self.tickets()) == 1, what="the prefixed compile line queued")
+        time.sleep(0.5)
+        self.assertFalse((project / "compile.txt").exists(), "the compile line ran without a slot")
+        self.assertFalse((project / "test.txt").exists(), "the test line ran before the compile line")
+        release.touch()
+        self.wait_ok(h)
+        self.wait_ok(proc)
+        compiled, tested = self.recorded(project)
+        self.assertNotEqual(compiled, "none", "the compile line did not run in a slot")
+        self.assertEqual(tested, "none", "the test line held a slot")
+
+    @unittest.skipUnless(shutil.which("make"), "make is not installed")
+    def test_make_wrapped_and_prefixed_does_not_deadlock(self) -> None:
+        project = self.makefile()
+        wrapper = [sys.executable, str(SCRIPT)]
+        result = subprocess.run(self.make(project, prefix=wrapper), capture_output=True, text=True, timeout=WAIT,
+                                env={**self.env, "BUILD_SLOT": self.spaced_wrapper(), "BUILD_SLOT_TIMEOUT": "10"})
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        compiled, tested = self.recorded(project)
+        self.assertNotEqual(compiled, "none")
+        self.assertEqual(compiled, tested, "both lines run in the outer slot when make itself is wrapped")
+
     @unittest.skipUnless(WINDOWS, "Windows .cmd tools")
     def test_windows_cmd_tool_by_bare_name(self) -> None:
         tools = self.tmp / "tools"

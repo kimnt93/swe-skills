@@ -39,6 +39,30 @@ python3 "<skill-dir>/scripts/build-slot.py" cargo test --workspace --no-run
 cargo test --workspace    # runs the tests; may still compile a little, such as doctests
 ```
 
+## Builds started by make or a script
+
+Before you run a target or a script, read what it runs: its prerequisites and the scripts it calls. `make -n` helps,
+but it still runs recipe lines marked `+` or that call `$(MAKE)`.
+
+1. **It only builds** (heavy): wrap the whole call: `python3 "<skill-dir>/scripts/build-slot.py" make <target>`.
+2. **It mixes a build with tests or lint** (such as `verify`) **and the Makefile has the `BUILD_SLOT` prefix
+   variable:** pass the wrapper in it and do not wrap `make`, so only the prefixed compile lines take a slot:
+   `BUILD_SLOT='python3 "<skill-dir>/scripts/build-slot.py"' make verify`.
+3. **It mixes them without the variable:** wrap the whole `make` call and accept that the slot is held during the
+   tests. Edit the project's Makefile only when your task includes it.
+
+Never wrap `make` and also pass `BUILD_SLOT` as if it narrowed the slot: the inner calls reuse the outer slot, so the
+whole run holds it. The convention for a Makefile, empty by default so people and CI run unchanged, and never with the
+skill's path written into the project:
+
+```make
+BUILD_SLOT ?=
+
+verify:
+	$(BUILD_SLOT) cargo test --workspace --no-run
+	cargo test --workspace
+```
+
 ## Rules
 
 - **Waiting counts toward your command's timeout.** Run a long build in the background and check on it.
