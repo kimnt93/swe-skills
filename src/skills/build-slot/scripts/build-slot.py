@@ -22,7 +22,9 @@ Layout of the queue directory (stable; other copies of this script rely on it):
     tickets/<12-digit number>-<pid>.ticket
                        one per waiter, locked by it for as long as it waits; an unlocked ticket is dead
     slot-<n>.lock      one per slot (n from 0), locked while a build holds the slot
-    slot-<n>.owner     token, pid and command of the last holder; a nested call checks its token
+    slot-<n>.owner     token, pid and program name (never the arguments) of the last holder;
+                       a nested call checks its token
+On Linux and macOS the directory and its files are readable by the user only (0700 and 0600).
 
 Liveness uses OS file locks (fcntl.flock on Linux and macOS, msvcrt.locking on Windows), never PIDs,
 so a reused PID cannot keep a dead ticket or slot alive. Only the oldest live waiter may take a free
@@ -85,11 +87,33 @@ def queue_dir() -> Path:
     raw = os.environ.get("BUILD_SLOT_DIR", "").strip()
     path = Path(raw).expanduser() if raw else Path.home() / ".cache" / "build-slot"
     try:
-        (path / "tickets").mkdir(parents=True, exist_ok=True)
+        new = not path.exists()
+        path.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if not WINDOWS and (new or (path / "queue.lock").exists()):  # never chmod a directory that is not a queue
+            os.chmod(path, 0o700)
+        (path / "tickets").mkdir(mode=0o700, exist_ok=True)
+        if not WINDOWS:
+            os.chmod(path / "tickets", 0o700)
     except OSError as exc:
         say(f"cannot use the queue directory {path} (BUILD_SLOT_DIR): {exc}")
         sys.exit(EXIT_USAGE)
     return path.resolve()
+
+
+def write_private(path: Path, text: str) -> None:
+    """Writes path readable by the user only, also when an older copy created it with the default umask."""
+    fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        if not WINDOWS:
+            os.fchmod(fd, 0o600)
+        os.write(fd, text.encode("utf-8"))
+    finally:
+        os.close(fd)
+
+
+def shown(line: str) -> str:
+    """The program name from an owner file; an older copy wrote the whole command line there."""
+    return os.path.basename(line.split(" ", 1)[0]) if line else ""
 
 
 # --- OS locks ---------------------------------------------------------------------------------------
@@ -181,7 +205,7 @@ def next_number(base: Path) -> int:
         last = 0
     last = max([last] + [ticket_number(p) for p in tickets(base)]) + 1
     tmp = base / f"counter.{os.getpid()}.tmp"
-    tmp.write_text(f"{last}\n", encoding="ascii")
+    write_private(tmp, f"{last}\n")
     os.replace(tmp, counter)
     return last
 
@@ -416,7 +440,7 @@ def main_run(argv: list[str]) -> int:
         signal.signal(getattr(signal, name), handler)
     token = secrets.token_hex(8)
     owner = base / f"slot-{index}.owner"
-    owner.write_text(f"{token}\n{os.getpid()}\n{' '.join(argv)}\n", encoding="utf-8")
+    write_private(owner, f"{token}\n{os.getpid()}\n{os.path.basename(argv[0])}\n")
     if WINDOWS and windows_job() is None:
         say("warning: no Job Object; if this wrapper is killed the build keeps running without a slot")
     try:
@@ -436,7 +460,7 @@ def main_status() -> int:
         if held:
             try:
                 lines = (base / f"slot-{index}.owner").read_text(encoding="utf-8").splitlines()
-                detail = f"  pid {lines[1]}: {lines[2]}"
+                detail = f"  pid {lines[1]}: {shown(lines[2])}"
             except (OSError, IndexError):
                 pass
         print(f"slot {index}: {'busy' if held else 'free'}{detail}")

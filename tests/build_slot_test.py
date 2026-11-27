@@ -43,7 +43,7 @@ class BuildSlotTest(unittest.TestCase):
         self.queue = self.tmp / "queue"
         self.procs: list[subprocess.Popen] = []
         self.releases: list[Path] = []
-        self.env = {k: v for k, v in os.environ.items() if not k.startswith("BUILD_SLOT_") and k != "CARGO_BUILD_JOBS"}
+        self.env = {k: v for k, v in os.environ.items() if not k.startswith("BUILD_SLOT") and k != "CARGO_BUILD_JOBS"}
         self.env["BUILD_SLOT_DIR"] = str(self.queue)
         self.env["BUILD_SLOT_SLOTS"] = "1"
         self.count = 0
@@ -70,7 +70,8 @@ class BuildSlotTest(unittest.TestCase):
             kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
         elif group:  # a shell running this in the background may have set SIGINT to ignored
             kwargs["preexec_fn"] = lambda: signal.signal(signal.SIGINT, signal.SIG_DFL)
-        proc = subprocess.Popen((wrapper or [sys.executable, str(SCRIPT)]) + command, env={**self.env, **env},
+        wrapper = [sys.executable, str(SCRIPT)] if wrapper is None else wrapper
+        proc = subprocess.Popen(wrapper + command, env={**self.env, **env},
                                 stdout=log, stderr=subprocess.STDOUT, **kwargs)
         proc.log = self.tmp / f"wrapper-{self.count}.log"
         log.close()
@@ -268,6 +269,54 @@ class BuildSlotTest(unittest.TestCase):
         result = self.run_wrapper(self.appender("next"), BUILD_SLOT_TIMEOUT="20")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.order(), ["next"])
+
+    def test_no_argument_in_queue_files_or_status(self) -> None:
+        secret = "tok-" + "9f3Kq2xLw7Zs"
+        started, release = self.tmp / "s.started", self.tmp / "s.release"
+        self.releases.append(release)
+        code = (f"import os, time\nopen({str(started)!r}, 'w').close()\n"
+                f"while not os.path.exists({str(release)!r}): time.sleep(0.05)\n")
+        proc = self.start(py(code) + ["--build-arg", f"TOKEN={secret}", f"--password={secret}"])
+        wait_until(started.exists, what="the build holding a slot")
+
+        def leaks() -> list[str]:
+            found = [str(p) for p in self.queue.rglob("*") if p.is_file() and secret.encode() in p.read_bytes()]
+            status = self.run_wrapper(["--status"]).stdout
+            return found + (["--status"] if secret in status else [])
+
+        status = self.run_wrapper(["--status"]).stdout
+        self.assertIn(f"slot 0: busy  pid {proc.pid}: {Path(sys.executable).name}", status)
+        self.assertEqual(leaks(), [])
+        release.touch()
+        self.wait_ok(proc)
+        self.assertEqual(leaks(), [])
+        # an owner file written by an older copy holds the whole command line: --status shows only the program
+        held = self.holder("h")
+        wait_until(held[1].exists, what="the next build")
+        (self.queue / "slot-0.owner").write_text(f"old\n1\n/usr/bin/docker build --build-arg TOKEN={secret} .\n")
+        status = self.run_wrapper(["--status"]).stdout
+        self.assertIn("slot 0: busy  pid 1: docker", status)
+        self.assertNotIn(secret, status)
+
+    @unittest.skipIf(WINDOWS, "POSIX file modes")
+    def test_queue_is_readable_by_the_user_only(self) -> None:
+        self.queue.mkdir(mode=0o755)
+        (self.queue / "queue.lock").touch()
+        old_owner = self.queue / "slot-0.owner"
+        old_owner.write_text("old\n1\nmake\n")
+        os.chmod(self.queue, 0o755)
+        os.chmod(old_owner, 0o644)
+        self.assertEqual(self.run_wrapper(py("pass")).returncode, 0)
+        modes = {str(p.relative_to(self.queue)): p.stat().st_mode & 0o777 for p in [self.queue, *self.queue.rglob("*")]}
+        for name, mode in modes.items():
+            self.assertEqual(mode & 0o077, 0, f"{name} is {oct(mode)}")
+        self.assertEqual(modes["."], 0o700)
+        # a directory that is not a queue is never chmodded
+        other = self.tmp / "other"
+        other.mkdir(mode=0o755)
+        os.chmod(other, 0o755)
+        self.assertEqual(self.run_wrapper(py("pass"), BUILD_SLOT_DIR=str(other)).returncode, 0)
+        self.assertEqual(other.stat().st_mode & 0o777, 0o755)
 
     @unittest.skipUnless(WINDOWS, "Windows .cmd tools")
     def test_windows_cmd_tool_by_bare_name(self) -> None:

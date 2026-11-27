@@ -63,12 +63,15 @@ Exit codes: the command's own; `75` no slot within `BUILD_SLOT_TIMEOUT`; `130` i
 
 The queue directory holds `queue.lock` (held briefly to join, check or leave), `counter` (the last ticket number),
 `tickets/<number>-<pid>.ticket` (one per waiter, locked while it waits), `slot-<n>.lock` (locked while a build holds
-slot `n`) and `slot-<n>.owner` (its holder). This layout is stable: other copies rely on it. Liveness is an OS file lock
-(`fcntl.flock`, `msvcrt.locking` on Windows), never a PID, so a waiter that died is skipped and a reused PID changes
-nothing. Only the oldest live waiter takes a free slot. There is no daemon.
+slot `n`) and `slot-<n>.owner` (the token, pid and program name of its last holder). This layout is stable: other
+copies rely on it. Liveness is an OS file lock (`fcntl.flock`, `msvcrt.locking` on Windows), never a PID, so a waiter
+that died is skipped and a reused PID changes nothing. Only the oldest live waiter takes a free slot. There is no
+daemon.
 
 ## Caveats
 
+- The queue directory and its files are readable by you only (Linux and macOS). `slot-<n>.owner` and `--status`
+  hold the program's name, never its arguments, which can carry tokens or build args.
 - **Linux and macOS:** the build inherits its slot's lock, so a killed wrapper leaves the slot held until the build
   ends. A background daemon the build starts (a compiler cache server, a build daemon) inherits it too and holds the
   slot until it exits: start such a daemon before the build, outside the wrapper.
