@@ -34,7 +34,12 @@ the plan comment (the `write-comment` skill).
 3. **Pick the values** from the [catalog](references/catalog.md): exactly one **type**, one **lane** and one
    **difficulty** as labels; the **priority** as a body line; **area** labels only if they already exist
    (`gh label list`). Never invent a value.
-4. **Write the body** from the kind's template into a file. Replace every placeholder.
+4. **Write the body** from the kind's template into a file. Replace every placeholder. A `package` is the **complete**
+   work of one pull request: the feature, its unit tests and its functional tests
+   ([what a developer delivers](../developer/SKILL.md#what-you-deliver)). Its `Owned files` hold the test files, and its
+   `Done when` has a `Unit tests` and a `Functional tests` line, each with the command that runs them, or `none:` and why
+   that kind cannot apply. Never put them in an issue of their own, and write no `test` lane issue for the tester unless
+   the request [asks for testing](../bot-orchestration/SKILL.md#the-tester-only-on-request).
 5. **Sign and lint.** The last line is `Created: <your agent name>`:
 
    ```bash
@@ -59,7 +64,8 @@ the plan comment (the `write-comment` skill).
 
 - **Good:** `CDV-04: [Low Priority] Show price gaps between two feeds`, labels `enhancement`, `frontend`, `medium`; the
   body says what the user sees, which files to read first and which commands must pass.
-- **Bad:** `fix stuff`, labels `type:feat`, `urgent`; the body says "see our chat".
+- **Bad:** `fix stuff`, labels `type:feat`, `urgent`; the body says "see our chat"; or a second issue "tests for
+  CDV-04".
 
 ## Never
 

@@ -38,6 +38,7 @@ Implement client-side and server-side pagination for TableView component, includ
 - **NO COMMITS**: Do NOT run git commit or git push. Leave changes uncommitted.
 - Restrict modifications strictly to the files listed above.
 - Preserve existing styling and TypeScript interfaces.
+- Deliver the whole feature with its unit tests and functional tests, or say why one kind cannot apply.
 
 ## Verification Gate
 Run and ensure this command passes:

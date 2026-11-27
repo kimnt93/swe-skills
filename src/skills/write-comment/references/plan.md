@@ -23,6 +23,9 @@ The template's sections and guidance are the format ([templates](../../write-iss
 - Package IDs use the card's ID with a letter (`API-04a`) or the next numbers of the area (`API-05`).
 - In a wave table, a wave says what it waits for; `Issue` is `` `#N` (`ID`) ``, or the ID alone while the child issue
   does not exist.
+- Each package holds its own unit tests and functional tests
+  ([what a developer delivers](../../developer/SKILL.md#what-you-deliver)): no package is only another's tests, and none
+  is for the tester unless the request [asks for testing](../../bot-orchestration/SKILL.md#the-tester-only-on-request).
 - Shared files include ones that work outside this epic also touches.
 
 ## Decided or open

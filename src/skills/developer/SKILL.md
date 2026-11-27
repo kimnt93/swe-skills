@@ -11,6 +11,19 @@ metadata:
 You implement **one card**: the goal, files and branch in your brief. Language and craft come from the
 **swe** router and the language skill it picks; this skill is the delivery contract.
 
+## What you deliver
+
+**The complete issue in one pull request: the feature, its unit tests and its functional tests.** A functional test
+exercises the behaviour through its real entry point (the HTTP route, the command, the consumed message, the page) with
+local or disposable dependencies: a local instance, a throwaway database, a local fake receiver, never a live system.
+The issue's `Done when` runs both. Where one kind truly cannot apply (such as a docs-only change), the PR says why on
+that kind's line under `## Verification`. No test waits for a later PR, another issue or the tester: the tester gets
+work [only when a request asks for testing](../bot-orchestration/SKILL.md#the-tester-only-on-request).
+
+- **Good:** one PR holds the cancel route, a unit test of the status rule and a functional test that calls the route on
+  a local instance with a throwaway database.
+- **Bad:** the PR holds the route and a mocked unit test, and says the HTTP test follows in a `test` lane issue.
+
 ## Steps
 
 **Before any step:** `issue_gate.py issue <n> --repo <owner>/<repo>` (the **github** skill) must allow the card's issue.
@@ -24,14 +37,16 @@ Refused (done, not planned, duplicate or not approved): change nothing and repor
    sends, unless the issue names that destination and data. The review fails it
    ([outbound data](../security-review/references/outbound-data.md)). A card that needs one it does not name: stop and
    say so. Run the [security scan](../security-review/SKILL.md#the-scan) before the PR and resolve its items.
-2. **Test first** (the **tdd** skill): a failing test that states the goal, then the smallest change that passes.
-   Money-path cards also get a replay test (**replay-test**).
+2. **Test first** (the **tdd** skill): a failing test that states the goal, then the smallest change that passes. Both
+   kinds of [what you deliver](#what-you-deliver) go in this branch. Money-path cards also get a replay test
+   (**replay-test**).
 3. Small Conventional Commits (the **github** skill), one feature function, a small diff. Run **deslop** before
    the last commit.
 4. Before the PR: fetch, rebase on the newest `origin/main` under your name
    (`agent_identity.py git --author "<your name>" -- rebase origin/main`), then run the project's verify command. On a
    conflict, stop and report the files; do not resolve it (the integrator does).
-5. Done means the verify command (`make verify`, or the issue's `Done when`) exits 0 on the committed head and
+5. Done means the verify command (`make verify`, or the issue's `Done when`) exits 0 on the committed head, it ran the
+   unit and the functional tests, and
    `git diff --name-only origin/main...HEAD` lists nothing outside the card's files.
 6. Push the branch and open the PR (`Closes #<issue>`), lint it (`pr_lint.py`), check the result (**github**).
    A rebased, already-pushed branch is pushed with `--force-with-lease`, your branch only.
@@ -71,4 +86,5 @@ CARD BLOCKED <one-line reason>
 ## Never
 
 Push to `main`, touch files outside the list, resolve a conflict in another card's files, skip or weaken a
-test, or report done without the `make verify` tail.
+test, open a PR without its unit and functional tests or the reason one kind cannot apply, move them to another issue or
+the tester, or report done without the `make verify` tail.

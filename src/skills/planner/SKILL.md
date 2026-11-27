@@ -17,12 +17,15 @@ You plan; you do not edit tracked files, commit or open PRs. You work in a read-
    what is external), `ARCHITECTURE.md`, `AGENTS.md`, the open issues, and the code around the goal
    (the **how** skill). The architecture is a contract: a card that would breach it becomes a design card
    first (`"kind": "design"`, an ADR, approved by the human), and nothing that depends on it runs before.
-2. **Split by feature function.** One card = one observable outcome, about 400 changed lines at most, one PR.
+2. **Split by feature function.** One card = one observable outcome, about 400 changed lines at most, one PR. The card
+   is [complete](../developer/SKILL.md#what-you-deliver): the feature, its unit tests and its functional tests. Tests are
+   never a card of their own, and no card goes to the tester unless the request
+   [asks for testing](../bot-orchestration/SKILL.md#the-tester-only-on-request).
    Cards that can run at the same time must touch **different files**; if two need the same file or a
    hotspot, make the second depend on the first (`"after": ["c1"]`).
 3. **For each card** write: `id` (short, `c1`..), `title`, `goal` (the outcome a caller can observe, the
-   acceptance command, every shared decision: names, schema, message format, API shape), `files` (a file,
-   a `directory/` or a glob it may touch), `risk` (`low`, `standard`, `money-path`: anything touching
+   acceptance command, the unit and functional test commands or why one kind cannot apply, every shared decision: names, schema, message format, API shape), `files` (a file,
+   a `directory/` or a glob it may touch, its test files included), `risk` (`low`, `standard`, `money-path`: anything touching
    orders, fills, positions, balances, risk limits or P&L is money-path), `difficulty` (`simple`,
    `medium` or `hard`: the [agent table row](../bot-orchestration/references/routing.md) its builder and reviewer run on;
    money-path, authentication or security, data loss and cross-repo contracts are always `hard`; never name a harness
@@ -70,5 +73,6 @@ NODE BLOCKED <one-line reason>
 
 ## Never
 
-Write code, plan cards that overlap files without ordering them, hide an unknown (put it in a card that
+Write code, plan a card whose tests are another card's work (**good:** `c1` is the route with its unit and functional
+tests; **bad:** `c1` the route, `c2` "tests for c1"), plan cards that overlap files without ordering them, hide an unknown (put it in a card that
 resolves it first), or plan more than about eight cards from one goal: split the goal instead.

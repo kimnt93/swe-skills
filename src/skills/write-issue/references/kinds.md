@@ -22,7 +22,9 @@ section you have nothing for.
 ## What makes it good
 
 - **Standalone:** names every file and command; nothing depends on a chat.
-- **Runnable proof:** each `Done when` is a command; "works" is not.
+- **Runnable proof:** each `Done when` is a command; "works" is not. A package's names its unit tests and its
+  functional tests, or says why one kind cannot apply
+  ([what a developer delivers](../../developer/SKILL.md#what-you-deliver)).
 - **Right size:** a package is one PR of a few hundred changed lines. Two packages of a wave never own the same file.
 
 ## Signature

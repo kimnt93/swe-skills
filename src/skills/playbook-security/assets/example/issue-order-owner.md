@@ -25,6 +25,8 @@ Only the account that owns an order can read it; anyone else gets 404.
 - No new outbound path.
 
 ## Done when (run from the repository root on the committed head)
+- **Unit tests:** `pytest -q tests/test_orders_access.py -k rule` runs the ownership rule alone
+- **Functional tests:** `pytest -q tests/test_orders_access.py` calls the route on a local app with a throwaway database
 - `pytest -q tests/test_orders_access.py` passes, and fails without the change: user B gets 404 for user A's order.
 - `make verify`
 

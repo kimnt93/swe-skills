@@ -1,8 +1,8 @@
-Job: RATE-00c: load test the request limit
+Job: RATE-00c: document the request limit
 Issue: https://github.com/<owner>/<repo>/issues/63
 Difficulty: simple
 Playbook: playbook-build, stage 3 (wave 2: RATE-00a is merged; build from the newest main, open the PR, hand it over)
-Done when: the PR is open with green required checks, `make load-test` passes on its head, and the handover check allows removing the worktree
+Done when: the PR is open with green required checks, `make docs-check` passes on its head, the PR says why it has no unit or functional test, and the handover check allows removing the worktree
 Limits: only the issue's owned files; never merge; after the handover report, remove your worktree
 Use only your own agents, if you need any; report only what you verified
 Delegating further: one child chat per receiving bot from this chat, opened with --chat new and this chat's subject (its title without the sender's name); every later message to that bot uses --chat with the recorded id

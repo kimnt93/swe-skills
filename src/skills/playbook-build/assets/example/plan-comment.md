@@ -18,11 +18,13 @@ network call to every request.
 
 ### Planned Packages (split into child cards when promoted)
 1. **`RATE-00a` (Backend limiter):** `src/api/ratelimit.py`, its wiring in `src/api/app.py`, and
-   `tests/test_ratelimit.py` with a test at the limit, one over it and one per key.
+   `tests/test_ratelimit.py` with a test at the limit, one over it and one per key; its functional load test
+   `tests/load/test_ratelimit_load.py`: 1,000 requests a minute from one key get `429` after the limit while a second
+   key is served.
 2. **`RATE-00b` (Deployment limits):** the two variables in `deploy/compose.yaml`, with the staging and production
    values.
-3. **`RATE-00c` (Load test):** `tests/load/test_ratelimit_load.py`: 1,000 requests a minute from one key get `429`
-   after the limit while a second key is served; needs `RATE-00a` on `main`.
+3. **`RATE-00c` (Client docs):** the limit, the `429` answer and `Retry-After` in `docs/api.md`; documents only, so no
+   unit or functional test applies; needs `RATE-00a` on `main`.
 
 ### Risks & Gates
 - **A client is cut off by mistake:** the defaults are above today's busiest key (410 a minute last month).

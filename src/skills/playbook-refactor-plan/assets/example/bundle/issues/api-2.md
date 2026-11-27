@@ -36,6 +36,8 @@ export test to the list's meaning and add one test that sends both endpoints the
 - Part of {{new:epic}}.
 
 ## Done when (run from the repository root on the committed head)
+- **Unit tests:** `go test ./internal/http/... ./internal/export/...`: each handler's filter
+- **Functional tests:** `go test -tags e2e ./internal/http/... ./internal/export/...` sends both routes of a local server, on a throwaway database, the same parameters
 - `go test ./internal/http/... ./internal/export/...`
 - `make verify`
 

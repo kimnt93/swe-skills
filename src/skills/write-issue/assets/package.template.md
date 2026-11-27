@@ -15,6 +15,7 @@ Priority: medium
 
 ## Owned files (create or change only these) <!-- needs code -->
 - `<path>` (new)
+- `<unit test and functional test files>`
 
 ## Forbidden
 - every file not listed above (report a needed change in the PR text instead)
@@ -27,8 +28,9 @@ Priority: medium
 - <constraint, decision, shared contract, pitfall>
 
 ## Done when (run from the repository root on the committed head) <!-- needs code -->
-- `<test command>`
-- `<lint command>`
+- **Unit tests:** <the command that runs them, in backticks; or "none:" and why this kind cannot apply>
+- **Functional tests:** <the command that drives the behaviour through its real entry point with local or disposable dependencies, in backticks; or "none:" and why this kind cannot apply>
+- `<verify or lint command>`
 
 ## Branch and PR
 - Branch `<id>/<slug>` from `main`; commits `<type>(<id>): <summary>`; open a PR to `main`; do not merge it.

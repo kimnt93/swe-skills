@@ -35,6 +35,8 @@ list's meaning for every field: it is the one users see. Rejected: a database vi
   filters nothing.
 
 ## Done when (run from the repository root on the committed head)
+- **Unit tests:** `go test ./internal/orders/...`: every filter field, the empty one included
+- **Functional tests:** `go test -tags e2e ./internal/orders/...` runs `orders.Find` against a throwaway database
 - `go test ./internal/orders/...`
 - `make verify`
 

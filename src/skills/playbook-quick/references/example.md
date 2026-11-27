@@ -52,10 +52,10 @@ ORCA orchestration send --to "bot:<developer>" --chat <child chat id> --type han
 
 # 3. Developer
 python3 <github skill>/scripts/agent_identity.py git --author "<name>" -- commit -m "fix(ord-02): show local order times"
-cd web && npm run check                                                         # the issue's Done when
+(cd web && npm run check && npm run test:e2e -- orders)                         # the issue's Done when
 python3 <work-package skill>/scripts/package_lint.py pr --branch ord-02/local-order-times \
     --title "fix(ord-02): show local order times" --body-file pr.md
-python3 <github skill>/scripts/pr_lint.py local --body pr.md --allow 'web/src/pages/Orders*' --allow CHANGELOG.md
+python3 <github skill>/scripts/pr_lint.py local --body pr.md --allow 'web/src/pages/Orders*' --allow 'web/e2e/orders*' --allow CHANGELOG.md
 git push -u origin HEAD
 gh pr create --base main --title "fix(ord-02): show local order times" --body-file pr.md
 gh pr checks 54 --repo <owner>/<repo> --required --watch                       # 'no checks reported': say "no checks"

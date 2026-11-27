@@ -1,8 +1,9 @@
 # Example: a plan, three packages, reviewed and merged
 
 The request: "API clients flood us; limit requests per API key". It names no playbook, so the CEO uses this one.
-`CEO (example)`, `Architect (example)`, `Developer (example)`, `Devops (example)`, `Tester (example)` and
-`Reviewer (example)` sign the texts of each role. The project, files, numbers and names are made up. `ORCA` is as in
+`CEO (example)`, `Architect (example)`, `Developer (example)`, `Devops (example)` and
+`Reviewer (example)` sign the texts of each role. No tester takes part: the request did not
+ask for testing, so the load test is part of the developer's own package. The project, files, numbers and names are made up. `ORCA` is as in
 [orchestration](orchestration.md).
 
 | # | Stage | Who | What | File |
@@ -12,7 +13,7 @@ The request: "API clients flood us; limit requests per API key". It names no pla
 | 3 | 2 | Architect | analyses the code, posts one plan comment with three packages | [plan comment](../assets/example/plan-comment.md) |
 | 4 | 2 | Architect | sends it back | [plan report](../assets/example/plan-report.md) |
 | 5 | 2 | CEO | checks the plan against the card, accepts plan v1 and goes on | [acceptance](../assets/example/plan-acceptance.md) |
-| 6 | 3 | CEO | creates #61 (`backend`), #62 (`ops`) and #63 (`test`, wave 2); the gate allows all three, opened by an account with write access | [#61](../assets/example/issue-a.md), [#62](../assets/example/issue-b.md), [#63](../assets/example/issue-c.md) |
+| 6 | 3 | CEO | creates #61 (`backend`, with its load test), #62 (`ops`) and #63 (`docs`, wave 2); the gate allows all three, opened by an account with write access | [#61](../assets/example/issue-a.md), [#62](../assets/example/issue-b.md), [#63](../assets/example/issue-c.md) |
 | 7 | 3 | CEO | sends wave 1: #61 to the developer, #62 to devops; holds #63 | [developer brief](../assets/example/developer-brief.md), [devops brief](../assets/example/devops-brief.md) |
 | 8 | 3 | Developer | its agent builds; it verifies, opens PR #64, runs the handover check, removes the worktree, reports | [handover](../assets/example/return-report.md) |
 | 9 | 3 | Devops | the issue's check cannot run without a file the owner keeps; it opens no PR and keeps the worktree | [PR BLOCKED](../assets/example/report-b.md) |
@@ -21,7 +22,7 @@ The request: "API clients flood us; limit requests per API key". It names no pla
 | 12 | 4 | Reviewer | fixes it and pushes | [fix](../assets/example/fix.md) |
 | 13 | 4 | Reviewer | passes the new head, naming its commit; reports | [PASS](../assets/example/verdict-pass.md), [report](../assets/example/review-report.md) |
 | 14 | 4 | CEO | `can-merge`, gate, checks; merges; confirms #61 closed | [merge](../assets/example/merge.md) |
-| 15 | 3, 4 | CEO, Tester, Reviewer | `RATE-00a` is merged, so wave 2 goes: #63 to the tester, then the same review and merge | [tester brief](../assets/example/tester-brief.md) |
+| 15 | 3, 4 | CEO, Developer, Reviewer | `RATE-00a` is merged, so wave 2 goes: #63 to the developer, then the same review and merge; its PR says why it has no tests | [docs brief](../assets/example/docs-brief.md) |
 | 16 | 4 | CEO | reports to the owner; #60 stays open for the blocked #62 | [report](../assets/example/report.md) |
 
 With no developer bot, step 7 starts the CEO's own agent for #61 with an
@@ -84,8 +85,8 @@ gh pr view 64 --repo $R --json state,mergeCommit,closingIssuesReferences
 gh issue view 61 --repo $R --json state
 
 # 15. CEO: wave 2 from the new main
-ORCA orchestration send --to "bot:<tester>" --chat new --type handoff \
-    --subject "<parent chat name>" --body-file tester-brief.md
+ORCA orchestration send --to "bot:<developer>" --chat <child chat id> --type handoff \
+    --subject "BUILD RATE-00c: document the request limit" --body-file docs-brief.md
 ```
 
 **If round 3 had not been enough:** after three `FAIL` rounds the next failing review is

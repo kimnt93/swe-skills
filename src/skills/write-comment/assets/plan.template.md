@@ -10,7 +10,7 @@
 **Rejected:** <the other approach and why it lost>
 
 ### Planned Packages (split into child cards when promoted)
-1. **`<ID>a` (<Backend title>):** <files, functions, routes, schemas, formulas, tests>
+1. **`<ID>a` (<Backend title>):** <files, functions, routes, schemas, formulas, its own unit and functional tests>
 2. **`<ID>b` (<Web title>):** <files, screens, strings>
 
 ### Risks & Gates <!-- needs code -->

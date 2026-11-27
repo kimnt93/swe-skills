@@ -19,9 +19,9 @@ ORCA worktree ps --since 2h                  # is somebody already on these file
 | The job | Goes to the role | Only when no bot holds that role |
 |---|---|---|
 | the plan (stage 2) | architect | your own agent, named `<your name> / architect` |
-| a `test` lane issue | tester | the developer |
+| a `test` lane issue the request [asks the tester for](../../bot-orchestration/SKILL.md#the-tester-only-on-request) | tester | the developer |
 | an `ops` lane issue | devops | the developer |
-| any other issue | developer | your own agent, named `<your name> / developer` |
+| any other issue, other `test` lane ones included | developer | your own agent, named `<your name> / developer` |
 | the review and its fixes (stage 4) | reviewer | your own agent that wrote none of the PR, named `<your name> / reviewer` |
 
 One job has one bot. If somebody is on it, send to that chat or worker.
@@ -44,8 +44,7 @@ ORCA orchestration send --to "bot:<developer>" --chat new --type handoff \
     --subject "<parent chat name>" --body-file developer-brief.md
 ORCA orchestration send --to "bot:<devops>" --chat new --type handoff \
     --subject "<parent chat name>" --body-file devops-brief.md
-ORCA orchestration send --to "bot:<tester>" --chat new --type handoff \
-    --subject "<parent chat name>" --body-file tester-brief.md
+# the tester only when the request asks for testing by name; developer tests are never sent there
 # every later issue for one of them
 ORCA orchestration send --to "bot:<developer>" --chat <child chat id> --type handoff \
     --subject "BUILD <ID>: <outcome>" --body-file developer-brief.md

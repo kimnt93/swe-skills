@@ -117,7 +117,7 @@ A bot starts agents for **its own** job only. Only when no bot has the role may 
 | **CEO / CTO** | **only orchestrates**: writes the issues, runs the playbook (delegating, the plan decision, the merge its playbook gives it), reports to the owner | plan, code, test, deploy or review code itself, in any playbook; start an agent for a role another bot holds |
 | **Architect** | the plan: analysis, the plan comment, sending it back | accept its own plan, build |
 | **Developer** | the code job: difficulty, agents, worktrees, verification, the PR, the report | write the code itself, design or priority calls, review of its own PR, the merge |
-| **Tester** | a `test` lane issue: tests and verification work, built and reported like the developer's; a [playbook-test](../playbook-test/SKILL.md) run: test as a user, report, fix nothing | judge a PR as its reviewer, the merge |
+| **Tester** | [only when a request asks for testing](#the-tester-only-on-request): a [playbook-test](../playbook-test/SKILL.md) run (test as a user, report, fix nothing), or a `test` lane issue the request wants the tester to build, built and reported like the developer's | take over a developer's unit or functional tests, judge a PR as its reviewer, the merge |
 | **Devops** | an `ops` lane issue: deployment, CI and infrastructure work, built and reported like the developer's | deploy, write on a server or touch production without the owner's go (a staging deploy through the project's normal pipeline, within its deploy rules, needs none), the merge |
 | **Reviewer** | the verdict on a PR it did not write, drafted by its own agents, with its [security and outbound-data check](../reviewer/SKILL.md#security-and-outbound-data); in `build` and `ship` also the fixes and the check against the accepted plan, and in `ship` the merge; a [playbook-security](../playbook-security/SKILL.md) audit: proven findings, change nothing | build the PR it judges; take part in `quick`, which has no check |
 
@@ -134,11 +134,24 @@ the owner which bot, which job and why, and let them decide.
 An analysis, a check or a search that is part of a bot's own job may use its own agent: a CEO may start one to read the
 state of its issues, not to build them.
 
+### The tester only on request
+
+**The tester gets work only when a request asks for testing by name** ("test it", "have the tester ...",
+`playbook-test`). No pipeline creates a test package or sends one to the tester by default. A developer's unit and
+functional tests are never moved to the tester, a later package or a `test` lane issue: they are part of
+[what the developer delivers](../developer/SKILL.md#what-you-deliver). A `test` lane issue nobody asked the tester for
+is the developer's. A requested test run is [playbook-test](../playbook-test/SKILL.md).
+
+- **Good:** "Limit requests per API key" becomes developer and devops packages, each with its own tests. "And have the
+  tester try it on staging" adds a `playbook-test` run.
+- **Bad:** the CTO adds a "load test" package for the tester, so the developer's PR ships with no functional test.
+
 ## The build flow
 
 1. **CEO bot** writes the issue (`write-issue`), checks the [merge rules](../github/references/pull-requests.md#merge-rules) allow it,
    **delegates** it to the developer bot with its own return address, and **ends its turn**.
-2. **Developer bot** (the tester bot for a `test` lane issue, the devops bot for an `ops` one) runs the gate, [rates the issue and reads that row of the agent table](references/routing.md), creates the issue's
+2. **Developer bot** (the devops bot for an `ops` lane issue; the tester bot only for a `test` lane issue
+   [the request asked the tester for](#the-tester-only-on-request)) runs the gate, [rates the issue and reads that row of the agent table](references/routing.md), creates the issue's
    worktree, and **briefs one agent** per issue. Independent issues run in parallel, each with its own agent.
 3. **Agent** does its slice, pushes it and opens the PR when its brief says so, and **reports to its bot only**.
 4. **Developer bot verifies**: runs the evidence command itself and reads the diff against the owned files. A claim is

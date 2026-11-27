@@ -1,6 +1,6 @@
 ---
 name: playbook-build
-description: "The default pipeline of a CTO/CEO: issue, plan, code, PR, review and fix, merge. (1) The CTO/CEO creates the issue card; (2) the architect plans it carefully and the CTO/CEO checks the plan against the card and accepts it; (3) each package of the plan becomes an issue the merge rules approve, and the role that holds its lane (developer, tester or devops) builds it in its own worktree, opens the PR and hands it over; (4) the reviewer reviews the code against the issue and the accepted plan, fixes what it finds within 3 rounds and passes or stops it, and the CTO/CEO trusts the verified PASS, merges, confirms and closes the card. Use for any request to build that names no other playbook. For one existing PR use playbook-ship; for only a plan, playbook-plan."
+description: "The default pipeline of a CTO/CEO: issue, plan, code, PR, review and fix, merge. (1) The CTO/CEO creates the issue card; (2) the architect plans it carefully and the CTO/CEO checks the plan against the card and accepts it; (3) each package of the plan becomes an issue the merge rules approve, and the developer (devops for ops; the tester only when the request asks for testing) builds it with its unit and functional tests in its own worktree, opens the PR and hands it over; (4) the reviewer reviews the code against the issue and the accepted plan, fixes what it finds within 3 rounds and passes or stops it, and the CTO/CEO trusts the verified PASS, merges, confirms and closes the card. Use for any request to build that names no other playbook. For one existing PR use playbook-ship; for only a plan, playbook-plan."
 metadata:
   group: start
   summary: "Build (the default): issue, architect plan, package PRs, reviewer fixes and passes, CTO merges"
@@ -19,7 +19,7 @@ reviews no code by default.
            │                                          an accepted plan already? start at 3
 3 CODE   CTO/CEO: one package issue per PR ─► the merge rules approve it
            │
-         builder by lane (developer / tester / devops): own worktree, one PR, hands over, removes its worktree
+         builder by lane (developer / devops; tester only on request): the complete issue with its tests, one PR
            │
 4 SHIP   reviewer: review against the issue and the plan ⇄ fix, at most 3 rounds
            ├─ PASS ────► CTO/CEO trusts it ─► merges ─► confirms ─► every child merged: closes the card
@@ -72,10 +72,10 @@ python3 <github skill>/scripts/pr_loop.py state --pr <pr> --repo <owner>/<repo>
 |---|---|---|
 | **CTO/CEO** | writes the card and the package issues, sends each job to the role that holds it, checks the plan against the card and decides, **trusts the verdict**, merges, confirms, closes the card | plan, code, test, deploy, review the diff, edit code |
 | **Architect** | analyses the code, plans carefully, posts the plan comment, sends it back | accept its own plan, build |
-| **Builder**: the developer; the tester for a `test` lane issue; devops for an `ops` lane issue | builds one issue in its own worktree as the plan says, opens the PR, hands it over, removes its worktree | merge, fix after the handover |
+| **Builder**: the developer (a `test` lane issue too); devops for an `ops` lane issue; the tester for a `test` lane issue [only when the request asks for testing](../bot-orchestration/SKILL.md#the-tester-only-on-request) | builds the [complete issue](../developer/SKILL.md#what-you-deliver) in its own worktree as the plan says, opens one PR, hands it over, removes its worktree | merge, fix after the handover, leave its tests for another issue or role |
 | **Reviewer** (from a different model family than the builder when the project has one) | reviews the PR against its issue **and the accepted plan**, **fixes its findings**, passes or stops it | judge code it wrote first, merge, change the issue or the plan |
 
-Each role signs with its own [name](../bot-orchestration/SKILL.md#names). No bot for the tester or devops role: the
+Each role signs with its own [name](../bot-orchestration/SKILL.md#names). No bot for the devops or requested tester role: the
 developer builds that issue. No developer bot either: your own agent, named `<your name> / <role>`.
 
 ## When to use it
@@ -111,7 +111,9 @@ now under this playbook; then go on to stage 3. A request that already has an ac
 ### Package issues
 
 Each package of the accepted plan becomes one `package` issue (the `write-issue` skill), keeping the plan's ID (`<ID>a`,
-`<ID>b`). Split as in [playbook-quick step 1](../playbook-quick/SKILL.md#1-ctoceo-turn-the-problem-into-issues): one
+`<ID>b`). Each is [complete](../developer/SKILL.md#what-you-deliver): the feature, its unit tests and its functional
+tests, both in its `Done when`. No package holds another's tests, and none is created for the tester unless the request
+asks for testing. Split as in [playbook-quick step 1](../playbook-quick/SKILL.md#1-ctoceo-turn-the-problem-into-issues): one
 issue per PR, the same wave never owns the same file, each shared contract written in the `Notes` of both issues, waves
 under `Depends on`. Each child says `Refs #<card>`; list the children and their waves in the card's `## Notes`.
 
@@ -134,9 +136,9 @@ gh issue comment <number> -R <owner>/<repo> --body "Accepted by owner."
 
 | The issue's lane | Builder |
 |---|---|
-| `test` | the tester |
 | `ops` | devops |
-| any other | the developer |
+| `test`, only when the request [asks for testing](../bot-orchestration/SKILL.md#the-tester-only-on-request) | the tester |
+| any other, a `test` lane one nobody asked the tester for included | the developer |
 
 The builder's **bot** gets a [handoff](assets/example/developer-brief.md) with your return address; your own agent (no bot
 for the role) gets an [agent brief](assets/example/agent-brief-developer.md), which also gives its author name. Send
@@ -148,7 +150,9 @@ The builder bot gives the issue to one agent on its [row](../bot-orchestration/r
 the result itself** before the handover. The bot never codes.
 
 1. Steps 1 to 5 of [playbook-quick step 3](../playbook-quick/SKILL.md#3-developer-one-issue-one-worktree-one-pr): the
-   gate first, **its own worktree**, owned files, test first, commits under its name, the linters, the PR, green checks.
+   gate first, **its own worktree**, owned files, test first with
+   [unit and functional tests](../developer/SKILL.md#what-you-deliver), commits under its name, the linters, the PR,
+   green checks.
    It follows the accepted plan; a plan it cannot follow is `PR BLOCKED`, not a new design.
 2. **Hand over.** The branch now belongs to the reviewer. Prove that everything is on GitHub:
 
@@ -222,10 +226,10 @@ it: it reports the verdict to the owner. Work that depends on it is not sent; ot
 ## One good, one bad
 
 - **Good:** the CTO checks the plan against the card and accepts it, writes three package issues the gate approves, sends
-  the `ops` issue to devops and the backend one to the developer, merges each head the reviewer passed (the reviewer
-  having caught a departure from the plan), then sends the `test` issue of wave 2.
-- **Bad:** the CTO stops at the accepted plan, waits for the owner to accept issues the team opened, writes the tests itself
-  because the tester was slow, or re-reads the diff after a PASS and merges a head pushed after it.
+  the `ops` issue to devops and the backend one, with its unit and load tests, to the developer, merges each head the
+  reviewer passed (the reviewer having caught a departure from the plan), then sends the docs issue of wave 2.
+- **Bad:** the CTO stops at the accepted plan, waits for the owner to accept issues the team opened, adds a test package
+  for the tester that nobody asked for, or re-reads the diff after a PASS and merges a head pushed after it.
 
 ## Done
 

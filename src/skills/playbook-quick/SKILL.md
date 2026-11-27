@@ -70,7 +70,9 @@ How to split:
   its own line: PRs merge one at a time, and the later one rebases.
 - **A shared contract is written down** (names, types, route, format) in the `Notes` of **both** issues. If you cannot
   write it, the work needs a plan: say so and ask.
-- **The `Done when` is the only check**, so make it a command that proves the outcome.
+- **The `Done when` is the only check**, so make it a command that proves the outcome and runs the issue's unit and
+  functional tests. No issue is only another's tests, and none is for the tester unless the request
+  [asks for testing](../bot-orchestration/SKILL.md#the-tester-only-on-request).
 - **Mark every issue quick:** the header line `Pipeline: quick` right after `Priority:`, before the first `## `
   heading, with nothing else there but the template's header lines
   ([the quick line](../write-issue/references/catalog.md#the-quick-line-pipeline-quick-only-from-playbook-quick)).
@@ -108,7 +110,8 @@ a bot never codes.
 
 1. Run `issue_gate.py issue <n>` (the `github` skill) **before** the worktree and any code; refused: send `PR BLOCKED`
    with the reason. In the worktree, branch from the newest `main` as `<id-lowercase>/<slug>`; change only the owned files.
-2. Test first when the change has code. Clean the diff with `deslop`.
+2. Deliver the [complete issue](../developer/SKILL.md#what-you-deliver): the feature, unit tests and functional tests,
+   test first; where one kind truly cannot apply, the PR says why. Clean the diff with `deslop`.
 3. Commit with your name: `agent_identity.py git --author "<your name>" -- commit -m "<type>(<id>): <summary>"`.
 4. Run the issue's `Done when` on the committed head **before opening the PR**. Write the PR body from the
    [PR template](../work-package/assets/pr.template.md), run both linters (the `work-package` and `github` skills), push and

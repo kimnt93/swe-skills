@@ -7,7 +7,7 @@ Commit under the author name, and end every text with 'Created:' and that name
 Worktree: ord-02/local-order-times
 Scope: the issue's owned files and its changelog line; nothing else
 Acceptance: the list shows local time and zone name
-Evidence command: cd web && npm run check
+Evidence command: cd web && npm run check && npm run test:e2e -- orders
 Deliver: open the PR
 Stop when: a fix needs another file or a design decision
 Report to: only the bot that started you, once, with worker_done

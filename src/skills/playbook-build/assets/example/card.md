@@ -1,6 +1,6 @@
 Lane: backend
 Wave: 1
-Difficulty: medium (a middleware, its deployment settings and a load test; the limits need a decision)
+Difficulty: medium (a middleware, its deployment settings and the client docs; the limits need a decision)
 Priority: medium
 
 ## Goal
@@ -17,6 +17,7 @@ fast for everyone else.
 - A limit per API key, set per environment.
 - The answer when the limit is reached, and what a client can rely on.
 - A test that shows the limit under load.
+- What a client needs to know, in the API docs.
 - Out of scope: limits per user or per route, and a dashboard.
 
 ## Depends on

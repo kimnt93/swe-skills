@@ -16,6 +16,10 @@ request ─► CTO/CEO ─► tester: plan with expected results ─► run ─�
 STOP ◄─ short report ◄─ CTO/CEO opens the evidence of each failure ◄─┘
 ```
 
+**Only when a request asks for testing by name.** No other pipeline sends the tester work by itself, and this run never
+replaces the unit and functional tests a developer delivers with each change
+([the tester only on request](../bot-orchestration/SKILL.md#the-tester-only-on-request)).
+
 Messages and a run: [example](references/example.md). Who may message whom:
 [bot-orchestration](../bot-orchestration/SKILL.md). How to test: [web-testing](../web-testing/SKILL.md) for anything
 used in a browser, [api-cli-testing](../api-cli-testing/SKILL.md) for an API or a command-line tool.

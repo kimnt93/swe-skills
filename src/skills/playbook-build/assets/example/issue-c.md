@@ -1,17 +1,18 @@
-Lane: test
+Lane: docs
 Wave: 2
-Difficulty: simple (one load test against the merged limiter)
+Difficulty: simple (one page about the merged limiter)
 Priority: medium
 
 ## Goal
-A load test shows one key getting `429` after 600 requests in a minute while a second key is still served.
+The API docs tell a client the limit, the `429` answer with `Retry-After` and what to do when it gets one.
 
 ## Read first
 - `AGENTS.md`
-- `tests/load/README.md`
+- `docs/api.md`
+- `src/api/ratelimit.py`
 
 ## Owned files (create or change only these)
-- `tests/load/test_ratelimit_load.py`
+- `docs/api.md`
 - `CHANGELOG.md`
 
 ## Forbidden
@@ -24,9 +25,11 @@ A load test shows one key getting `429` after 600 requests in a minute while a s
 Refs #60. Contract with `RATE-00a`: `429`, `Retry-After` and `{"error":"RATE_LIMITED"}`.
 
 ## Done when (run from the repository root on the committed head)
-- `make load-test`
+- **Unit tests:** none: only documents change, there is no code to test
+- **Functional tests:** none: only documents change, no behaviour does
+- `make docs-check`
 
 ## Branch and PR
-- Branch `rate-00c/load-test` from `main`; commits `test(rate-00c): <summary>`; open a PR to `main`; do not merge it.
+- Branch `rate-00c/limit-docs` from `main`; commits `docs(rate-00c): <summary>`; open a PR to `main`; do not merge it.
 
 Created: CEO (example)

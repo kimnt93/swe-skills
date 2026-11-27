@@ -23,6 +23,7 @@ the three screens. Rejected: a state library, which nothing else here needs.
 - `src/screens/OrderList.tsx`
 - `src/screens/OrderExport.tsx`
 - `src/screens/Dashboard.tsx`
+- `e2e/orders.spec.ts` (new)
 
 ## Forbidden
 - every file not listed above (report a needed change in the PR text instead)
@@ -35,6 +36,8 @@ the three screens. Rejected: a state library, which nothing else here needs.
 - Part of {{new:epic}}.
 
 ## Done when (run from the repository root on the committed head)
+- **Unit tests:** `npm test -- filter`: `toParams` for every field, the empty one included
+- **Functional tests:** `npm run test:e2e -- orders` drives the three screens in a local browser against a fake API
 - `npm test -- filter`
 - `make verify`
 
