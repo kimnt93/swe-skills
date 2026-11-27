@@ -36,7 +36,7 @@ pass the same tests on in-memory SQLite and on PostgreSQL 16. **References.** `o
 
 **What it is.** Realtime pipelines with Pathway (Python code on a Rust engine): Kafka in, transforms, tumbling windows, joins, Kafka
 or database out. **Use it when** you start or change a streaming pipeline that computes over events as they arrive. **Say.**
-`/swe:data-pathway a pipeline that reads trades from Kafka and writes one-minute VWAP per symbol`.
+`/swe:data-pathway a pipeline that reads order events from Kafka and writes a one-minute total per key`.
 **What you get.** A project template (`assets/template`): config from env, pure business logic in plain functions (tested with
 pytest alone), thin Pathway wiring, persistence for restarts, a Dockerfile and compose file, the `stream_pipeline_*` OTel
 **metric contract** (one `status` label, `received` / `dropped` / `published`, lag, freshness; checked by `scripts/otlp_check.py`),

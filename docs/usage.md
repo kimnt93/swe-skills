@@ -29,7 +29,7 @@ tail in the reply. Called with no request, `/swe` prints the skill table.
 
 | You say | Playbook the router runs | You get |
 |---|---|---|
-| `/swe how does the fill consumer work?` | investigation (`how`) | an explanation with `file:line` evidence, no PR |
+| `/swe how does the order consumer work?` | investigation (`how`) | an explanation with `file:line` evidence, no PR |
 | `/swe why do we retry three times in the order client?` | investigation (`why`) | the commits, PRs and incidents behind it |
 | `/swe fix: cancelled orders still show as open` | bug-fix + `tdd` | a failing test, the root-cause fix, `make verify` |
 | `/swe add a cancel-order endpoint and a Cancel button` | feature (`architect` first) | types and a sketch, then code in small commits, then proof |
@@ -37,12 +37,12 @@ tail in the reply. Called with no request, `/swe` prints the skill table.
 | `/swe add a nullable column to orders` | migration + `db-migrations` | expand → migrate → contract, tried up and down on PostgreSQL |
 | `/swe the order list endpoint is slow` | perf-issue + profiling | a baseline, the limiter, the fix, a vetted before → after |
 | `/swe get p95 under 20 ms` | hillclimb | one change per measurement, one commit per kept win |
-| `/swe errors spiking on fills since the deploy` | incident | timeline from Sentry, logs, traces, then a repro |
+| `/swe errors spiking on the order consumer since the deploy` | incident | timeline from Sentry, logs, traces, then a repro |
 | `/swe train a model for next-hour volume` | feature with `py-code` ML | time-ordered splits, a model card, an evaluation vs baseline |
 | `/swe get PR 42 green` | babysit | conflicts, review threads, CI, stopping at merge-ready |
 
 Skills you can call directly (no router): `/swe:interrogate review this branch`,
-`/swe:architect design the position snapshot API`, `/swe:blast-radius`,
+`/swe:architect design the order snapshot API`, `/swe:blast-radius`,
 `/swe:deslop`, `/swe:ketchup` (catch me up), `/swe:reflect` (capture what this task taught),
 `/swe:correct` (stop a repeated mistake). Everything is listed in [skills.md](skills.md), and each skill is explained step by step in [skills/](skills/README.md).
 
@@ -96,6 +96,9 @@ you decide what happens. Details and gates: [playbooks.md](playbooks.md).
   ```
 
 - **A money path.** A pull request labelled `risk:money-path` is never auto-merged.
+- **Your business rules.** A merge or deploy window or an extra high-risk path exists only when the project's agents
+  file or you state it ([the rule](../src/skills/principles/references/business-rules.md), with an example to fill). A
+  blocked window is waited out unless those rules or you allow the step.
 - **A stopped pull request**, and any pull request from a fork or an outside contributor.
 - **A pull request `quick` stopped**: it stays open. Ask for `ship` to land it, or `review` for a comment.
 

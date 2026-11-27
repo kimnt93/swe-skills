@@ -14,7 +14,7 @@ migration, an incident, a refactor, a question about the code. With no request i
 
 **Say.**
 - `/swe` (print the plugin)
-- `/swe the orders consumer double-counts fills when Kafka redelivers. repro first, then fix and verify.`
+- `/swe the orders consumer double-counts events when Kafka redelivers. repro first, then fix and verify.`
 - `/swe add a Cancel button to the orders dashboard`
 
 **What happens.**

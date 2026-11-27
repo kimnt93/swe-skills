@@ -43,7 +43,7 @@ In any git repository, in Claude Code:
 
 ```text
 /swe            ← prints every skill, grouped
-/swe the orders consumer double-counts fills when Kafka redelivers. repro first, then fix and verify.
+/swe the orders consumer double-counts events when Kafka redelivers. repro first, then fix and verify.
 ```
 
 The router restates your goal and a done-predicate, picks the language (Go/Fiber for APIs, Python

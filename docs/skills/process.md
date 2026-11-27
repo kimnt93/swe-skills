@@ -8,7 +8,7 @@ them directly with `/swe:<skill>`.
 ### how
 
 **What it is.** A senior-engineer walkthrough of a part of the codebase. **Use it when** you are new to a
-subsystem or about to change it. **Say.** `/swe:how does the fill consumer work?` **What happens.** For a
+subsystem or about to change it. **Say.** `/swe:how does the order consumer work?` **What happens.** For a
 small scope one pass; for a subsystem 2 to 4 read-only subagents each take an angle, then one merges them.
 It follows the flow that matters for the stack: Fiber route, handler, use case, port, adapter, SQL/Redis/Kafka;
 topic, decode, handler, transaction, offset commit; data, features, model, serving; route, server or client
@@ -29,7 +29,7 @@ competing explanations, what is unknown, and a Preserve / Change / Avoid / Risk 
 
 **What it is.** Settle types, signatures and module shape before code. **Use it when** code crosses a
 function boundary, or for a new service, endpoint, consumer, pipeline or frontend feature. **Say.**
-`/swe:architect design the position snapshot API` (add "with checkpoint" to stop for your sign-off).
+`/swe:architect design the order snapshot API` (add "with checkpoint" to stop for your sign-off).
 **What happens.** (1) Ground: map what the code touches. (2) Sketch: at least two runners on row `planner/architect`
 (different families when the table offers them) each produce a whole-shape design from the caller's usage, with
 `not implemented` bodies; screen them against the red-flags list (pass-through layers, one-implementation
@@ -41,7 +41,7 @@ alternative, risks). (4) Implement against the sketch; a needed deviation is sur
 
 ### principles
 
-**What it is.** The 22 engineering principles, one short file each, with the Go, Python, Rust and
+**What it is.** The 23 engineering principles, one short file each, with the Go, Python, Rust and
 TypeScript forms. **Use it when** the router opens it for you, or when you need the rule behind a review
 comment. The full list is in [principles.md](principles.md); the index in `SKILL.md` has one "applies"
 line per principle so only the relevant ones are opened.

@@ -45,7 +45,7 @@ at-least-once`.
 APIs are Go. **Stack.** uv, ruff, Litestar + uvicorn, msgspec at the edges, psycopg 3 with plain SQL,
 redis-py asyncio, confluent-kafka, boto3, Celery, polars (never pandas). **Use it when** you train or
 evaluate a model, build a feature or data pipeline, serve a model, or work with dataframes.
-**Say.** `/swe:py-code train a model for next-hour volume per symbol`.
+**Say.** `/swe:py-code train a model for next-hour request volume per customer`.
 
 **ML reference (`ml`).** Layout `data`, `features`, `split`, `train`, `evaluate`, `artefact`, `serve`;
 splits by time (train on the past, validate on the next window, test on a later one); features at time t use
@@ -63,11 +63,11 @@ and "the domain does no I/O" (`lint-imports`). Nothing blocking in `async def`. 
 
 ### rust-code
 
-**What it is.** Performance. Hot paths Go or Python cannot make fast enough (matching, pricing, indicators,
+**What it is.** Performance. Hot paths Go or Python cannot make fast enough (tight loops, numeric kernels,
 parsers), Rust cores for Python packages through PyO3, and low-latency services. Bring the baseline number
 that justifies Rust. **Stack.** tokio, axum, serde, thiserror, tracing, tokio-postgres + deadpool with raw
 SQL, redis, rdkafka, aws-sdk-s3, polars (pinned), pyo3 (abi3) + maturin. **Use it when** a measured hot path
-moves to Rust, or you build a Python extension. **Say.** `/swe:rust-code move this rolling indicator to Rust
+moves to Rust, or you build a Python extension. **Say.** `/swe:rust-code move this rolling computation to Rust
 and expose it to Python`.
 
 **Rules.** `cargo fmt`, `clippy --all-targets --all-features -D warnings`, `unsafe_code = "forbid"`, no

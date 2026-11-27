@@ -10,7 +10,7 @@ when to use it, what to say, what happens, what you get, and its files.
 | [languages.md](languages.md) | go-code, py-code, rust-code, ts-code |
 | [data-platform.md](data-platform.md) | db-migrations, db-orm, api-contract, deployment-setup |
 | [observability.md](observability.md) | service-logging, service-tracing, service-errors |
-| [principles.md](principles.md) | the 22 principles, one paragraph each |
+| [principles.md](principles.md) | the 23 principles, one paragraph each |
 
 ## Skills
 
@@ -57,7 +57,7 @@ when to use it, what to say, what happens, what you get, and its files.
 | [ketchup](process.md#ketchup) | Plain-words catch-up on what changed and what waits on you |
 | [manager](process.md#manager) | Manager: pick the playbook (build by default), orchestrate only, delegate by role, verify, report |
 | [planner](process.md#planner) | Planner: split a goal into PR-sized cards with disjoint files, risks and difficulty, as a JSON plan |
-| [principles](process.md#principles) | 22 engineering principles; the router opens the ones that apply (money-path, idempotency, ...) |
+| [principles](process.md#principles) | 23 engineering principles; the router opens the ones that apply (money-path, idempotency, ...) |
 | [project](process.md#project) | Run a project's docs, GitHub repo setup, backlog and status |
 | [reflect](process.md#reflect) | Turn a long task's lessons into approved skill edits or new checks |
 | [replay-test](process.md#replay-test) | Prove money-path code on a recorded day, with duplicate and redelivery runs |

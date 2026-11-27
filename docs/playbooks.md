@@ -33,6 +33,12 @@ checks the plan against the card before it accepts it, and in `build` and `ship`
 accepted plan (packages, contracts, owned files, verify commands); a departure from the plan is a finding. A
 `risk:money-path` PR is never merged automatically, and a project's own approval rules still apply.
 
+**Your business rules are yours.** No playbook has a blocked time window or any other business policy of its own. State
+them in the project's agents file (such as `AGENTS.md`) or your instructions: blocked merge or deploy windows, who may
+allow an exception, extra high-risk paths. The one
+[rule for business rules](../src/skills/principles/references/business-rules.md), with a placeholder example, makes
+every merging or deploying role read and obey them. They only add high-risk paths, and no script checks them.
+
 ## Bots and agents
 
 **Orca** runs the stack: workspaces, one git worktree per task, and orchestration. A **bot** is a standing member that
