@@ -66,6 +66,7 @@ day, then with duplicated and redelivered events) and, for state machines and ra
 |---|---|---|
 | work to build (the default, also with no playbook named) | `/swe:playbook-build <problem or plan>` | an accepted plan, then pull requests a separate reviewer checked against it, fixed and passed, then merged |
 | a request for quick, by name | `/swe:playbook-quick <problem>` | no plan and no check: pull requests merged when the merge rules, the required checks and the reported head allow it |
+| a request for solo, by name, given to one agent | `/swe:playbook-solo <problems>` | one agent's pull requests, each merged on its own self-check with no independent review, and one report |
 | a problem you want only planned | `/swe:playbook-plan <problem>` | an accepted plan on the issue; nothing built |
 | a refactoring you want planned as issues | `/swe:playbook-refactor-plan <request, with the repositories>` | new issues written by the architect and posted unchanged; the ones they replace closed as not planned; nothing built |
 | a pull request to judge | `/swe:playbook-review review PR <n>` | one verdict comment; nothing changed |

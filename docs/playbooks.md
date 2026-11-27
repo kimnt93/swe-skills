@@ -1,14 +1,15 @@
 # Playbooks
 
-There are **eight pipelines**. They use the `work-package` formats and the `github` rules, and run in Orca. Every pipeline
+There are **nine pipelines**. They use the `work-package` formats and the `github` rules, and run in Orca. Every pipeline
 that builds ends with the merge; `plan` (it stops at the accepted plan), `refactor-plan` (it stops at the posted issues)
 `review` (it only comments), `test` and `security` (they only report) merge nothing. Nothing is built or merged unless the [merge rules](../src/skills/github/references/pull-requests.md#merge-rules) allow it, and no
-PR's author merges it.
+PR's author merges it, except in `solo`, which runs only when a request names it.
 
 | Shortcut | Pipeline | Use it for | Inputs |
 |---|---|---|---|
 | `/swe:playbook-build` | **Build** (the default) | any request to build that names no playbook: issue, plan, code, PR, review and fix, merge | a problem, a plan or `issue`s |
 | `/swe:playbook-quick` | **Quick** | only when the request names it: issue, code, PR, merge, with **no check** | a problem or `issue`s |
+| `/swe:playbook-solo` | **Solo** | only when the request names it: **one agent** from problems to merged PRs, on its own self-check, **no independent review** | problems or `issue`s |
 | `/swe:playbook-plan` | **Plan** | only a plan: issue, plan, comments; stops at the accepted plan | a problem or an `issue` |
 | `/swe:playbook-refactor-plan` | **Refactor plan** | only when a refactoring plan is asked for: the architect writes the new issues, the CTO/CEO posts them unchanged; no code | a request and the repositories in scope |
 | `/swe:playbook-review` | **Review** | comment on one existing PR; changes nothing | a PR |
@@ -21,7 +22,7 @@ existing PR; `plan` when you want only a plan; `refactor-plan` when a refactorin
 want software tested and nothing changed; `security` when you
 want an audit for leaks and vulnerabilities. A question is
 answered read-only. Nobody picks `quick` by itself; named
-for work with an open design question, the CTO/CEO says so and asks.
+for work with an open design question, the CTO/CEO says so and asks. Nobody picks `solo` by itself either.
 
 **Agents decide what is reversible** and ask only what the one
 [rule for asking](../src/skills/principles/references/never-block-on-the-human.md) says; every gate and playbook stop
@@ -41,7 +42,7 @@ bots with a handoff and report back with a status. Agents report only to their b
 CTO bot **only orchestrates**: it writes the issues and runs the playbook, and never plans, codes, tests, deploys or
 reviews code itself. Each of those jobs goes to the role that holds it (which bot holds which role is your team's own mapping
 skill, kept outside this plugin): the architect (plans), the developer, the
-tester (`test` lane issues), devops (`ops` lane issues: deployment and operations) and the reviewer (code review). The
+tester (only when a request asks for testing), devops (`ops` lane issues: deployment and operations) and the reviewer (code review). The
 flow, the message templates and the linter are in [bot-orchestration](../src/skills/bot-orchestration/SKILL.md).
 Replies and status reports are short.
 
@@ -59,6 +60,7 @@ or row means stop and ask; there is no default, and rows may be the same.
 ```text
 Build     problem ─► card ─► architect plan ─► CTO/CEO checks it against the card, accepts ─► package issues ─► builder by lane: PR, handover ─► reviewer: review against the plan ⇄ fix (≤3) ─► CTO/CEO trusts the PASS ─► merge or stop
 Quick     problem ─► issue(s) ─► developer: Done when, PR, required checks ─► CTO/CEO: mechanical conditions only ─► merge or stop ─► remove worktree
+Solo      problems ─► one agent: issues ─► each in dependency order: worktree, code and tests, PR, self-check ─► merge or leave open ─► one report
 Plan      problem ─► CTO/CEO card ─► architect ─► plan comment ─► back to CTO/CEO ─► accept ─► STOP
 Refactor  request ─► CTO/CEO ─► architect: every repo and open issue, the bundle ─► CTO/CEO posts it unchanged: create, then close ─► STOP
 Review    PR ─► read and run ─► one verdict comment ─► STOP
@@ -69,6 +71,27 @@ Security  request ─► CTO/CEO ─► reviewer: scan, outbound paths, topics, 
 
 `build` has four stages (issue, plan, code, ship) and shows a "where does this run stand" table read from GitHub, so a
 resumed run starts at the right stage. Its stage 2 is the `plan` pipeline, which goes on to code instead of stopping.
+
+**Solo** is one agent, asked directly by a person, doing every step: it writes the issues, then for each, in
+dependency order, makes a worktree and a branch, builds the complete issue, opens one PR and merges it, confirms,
+closes the work and removes the worktree, and reports once at the end. It starts no other agent or bot and hands nothing
+over. **Its check before a merge is a self-check, not an independent review,** and it posts no verdict. A money path
+stops with the PR open; a blocked issue stays open with its PR and branch while independent issues go on
+([playbook-solo](../src/skills/playbook-solo/SKILL.md)).
+
+**How the unchanged gates apply to solo.** `issue_gate.py` runs as everywhere: before the work and before the merge, and
+who may approve an issue is the same. Three limits follow from changing no gate:
+
+- `pr_loop.py can-merge` can allow no solo merge: it needs another agent's PASS, or quick's issues. So no script
+  refuses a solo merge of a money path, of a judged PR or of a moved head. Solo's own steps check the first two, and
+  `--match-head-commit` holds the head.
+- `can-remove` knows no stop signed by a solo agent, so the worktree of a blocked or money-path issue stays until a
+  person decides.
+- A bot never does a task itself, and an agent a bot started never merges. So no bot runs solo or delegates it: a
+  person gives it to an agent directly.
+
+With an account that has write access, the issues solo writes are approved as they are: the same agent then writes,
+builds, checks and merges, and nobody else reads any of it.
 
 **Refactor plan** is planning only. The planner/architect reads every repository in scope with its issues, analyses and
 plans, and writes a bundle: a parent card, every new issue complete, and a `remove` or `keep` with its reason for every
@@ -98,6 +121,14 @@ unfixed vulnerability is not published on a public repository without your decis
 In `build` and `ship` the reviewer fixes its own findings. Nobody else checks those fixes before `main`: the PASS names
 each commit, and a `risk:money-path` PR is never auto-merged
 ([fix loop](../src/skills/reviewer/references/fix-loop.md)).
+
+**Every pipeline that builds** has the developer deliver the complete issue in one PR: the feature, **unit tests** and
+**functional tests** (the behaviour through its real entry point, with local or disposable dependencies). The issue's
+`Done when` names both; where one kind cannot apply, such as docs only, the PR says why
+([the rule](../src/skills/developer/SKILL.md#what-you-deliver)). The linter requires both lines in every `package` issue
+and every PR body. **The tester gets work only when a request asks for testing by name:** no pipeline creates or sends a
+test package by default, and developer tests are never moved to the tester
+([the rule](../src/skills/bot-orchestration/SKILL.md#the-tester-only-on-request)).
 
 **Quick has no check of the code**: no reviewer, no verdict, no feedback rounds. The developer runs the issue's
 `Done when` before it opens the PR and keeps the required checks green. The CTO/CEO does not read the diff or run the
@@ -167,6 +198,8 @@ before any work starts. Agents never write the owner's acceptance.
 
 The scripts check that the section is there and that its claims match the issue's text. Whether the review found
 everything, and what the issue means, is the reviewer's judgment. `quick` has no check, so none of this runs there.
+`solo` has no reviewer and no verdict: its author runs the same check on its own diff before each merge, as a
+self-check, and no script enforces it.
 
 ## The gates
 
@@ -175,9 +208,9 @@ everything, and what the issue means, is the reviewer's judgment. `quick` has no
 | Card ready (`build`, `plan`) | CTO/CEO | a `planning` or `epic` issue that passes `package_lint.py issue` |
 | Plan returned | architect | one plan comment per version, sent back to the CTO/CEO with its URL |
 | Plan accepted | CTO/CEO | the plan is checked against the card, the `plan` or `epic-plan` comment passes the linter, every choice is decided with its reason, each open question (only what the [rule for asking](../src/skills/principles/references/never-block-on-the-human.md) lists) is answered, or waits for the owner with the work that needs it not started, and the decision comment is posted. **Plan ends here**; `build` goes on to code |
-| Issue ready (`build`, `quick`) | CTO/CEO | `ID: title`, type + lane + difficulty labels, priority, closed file list, runnable `Done when` |
+| Issue ready (`build`, `quick`, `solo`) | CTO/CEO (`solo`: its one agent) | `ID: title`, type + lane + difficulty labels, priority, closed file list, runnable `Done when` with its unit and functional tests |
 | Issue approved | the merge rules | before work starts and again before the merge: `issue_gate.py` allows it (an author with write access, or the owner's comment for anyone else's issue) |
-| PR ready | builder (developer, tester or devops) | owned files only, test first, `Closes #N`, the `Done when` on the committed head before the PR opens |
+| PR ready | builder (developer or devops; the tester only on request; `solo`: its one agent) | owned files only, test first, the feature with unit and functional tests or why one cannot apply, `Closes #N`, the `Done when` on the committed head before the PR opens |
 | PR returned (`build`, `quick`) | builder | `PR READY` or `PR BLOCKED` sent back with the PR URL and full head SHA |
 | Bundle checked (`refactor-plan`) | architect, again by `post` | `refactor_bundle.py check`: every open issue has a disposition, every new issue passes the issue linter, references, waves and new-number placeholders resolve; then the dry run |
 | Posted unchanged (`refactor-plan`) | CTO/CEO | `post --digest` publishes only the bundle the dry run showed; new issues exist and read back before anything is closed |
@@ -187,10 +220,11 @@ everything, and what the issue means, is the reviewer's judgment. `quick` has no
 | Feedback limit (`build`, `ship`) | reviewer | at most 3 rounds, then pass or `Stopped by reviewer`; `pr_loop.py decide` refuses a fourth |
 | Trusted merge (`build`) | CTO/CEO | `pr_loop.py can-merge`: a PASS on the head by an account that can push, not by the writer, naming the reviewer's own commits; an `Accepted by` on a PR approves nothing |
 | Unreviewed merge (`quick` only) | CTO/CEO | `pr_loop.py can-merge --unreviewed --head <reported sha>`: open, no judgment or stop by anyone, every linked issue carries `Pipeline: quick` (only quick writes it), not a money path, the given head (the script cannot know what was reported: the sha comes from the builder's report) |
-| Worktree removed (`build`, `quick`, `ship`) | whoever made it | `pr_loop.py can-remove` allows it only when nothing is lost (`--handover` for an open PR another agent takes) |
+| Self-checked merge (`solo` only) | the one agent, on its own PR | on one head: every commit its own and no verdict or stop on the PR, no money path, the `Done when`, the security-review check with no proven finding and no unasked outbound data, `merge rules: allowed`, required checks green, not behind, no conflict. **Not an independent review**; no verdict |
+| Worktree removed (`build`, `quick`, `ship`, `solo`) | whoever made it | `pr_loop.py can-remove` allows it only when nothing is lost (`--handover` for an open PR another agent takes) |
 | Safe to run (`test`) | the test runners, and the tester | allowed hosts and programs only; on production a step that changes something runs only with the owner's approval of that step; evidence outside every repository |
 | Report checked (`test`) | CTO/CEO | every function has `PASS`, `FAIL` or `NOT RUN` with evidence, and the evidence of each failure shows it |
-| Merge | CTO/CEO (`build`, `quick`) or reviewer (`ship`) | the checked SHA is the head, required checks green (or "no checks"), branch not behind `main`; `gh pr merge --rebase --match-head-commit` |
+| Merge | CTO/CEO (`build`, `quick`), reviewer (`ship`) or the one agent (`solo`) | the checked SHA is the head, required checks green (or "no checks"), branch not behind `main`; `gh pr merge --rebase --match-head-commit` |
 
 Issues are written with [`write-issue`](../src/skills/write-issue/SKILL.md) (kinds and the
 [catalog](../src/skills/write-issue/references/catalog.md)); plan, decision, verdict, fix and close comments with
@@ -202,10 +236,10 @@ All templates, and how to change their style: [templates](../src/skills/write-is
 ## Rules
 
 - A build is one package, one issue, one worktree, one branch, one PR, one owner.
-- The CTO/CEO only orchestrates: it does not plan, code, test, deploy or review, and the builder does not merge. A
-  project that reserves the merge for a person wins.
-- Only `build` and `ship` let the reviewer edit, and only to fix its posted findings. `review` never edits; `quick` has
-  no reviewer.
+- The CTO/CEO only orchestrates: it does not plan, code, test, deploy or review, and the builder does not merge
+  (`solo`, which no bot runs, is the exception). A project that reserves the merge for a person wins.
+- Only `build` and `ship` let the reviewer edit, and only to fix its posted findings. `review` never edits; `quick` and
+  `solo` have no reviewer.
 - `test` and `security` fix no code, open no branch or PR and merge nothing; fixing what they found is a new request.
 - Plans and verdicts are comments, not new issues. A plan that creates packages also creates their issues and links them.
   `refactor-plan` is the exception: its plan is the new set of issues.
@@ -215,7 +249,7 @@ All templates, and how to change their style: [templates](../src/skills/write-is
 ## What happened to the old playbooks
 
 The old `playbook-deliver`, `playbook-feature`, `playbook-bugfix`, `playbook-cifix`,
-`playbook-docs`, `playbook-rebase`, `playbook-land`, `playbook-changelog`, `playbook-verify`, `playbook-solo` and the
-`playbook` dispatcher are removed, and so is the short-lived complete pipeline: its four stages are now `playbook-build`.
+`playbook-docs`, `playbook-rebase`, `playbook-land`, `playbook-changelog`, `playbook-verify`, the old solo pipeline and the
+`playbook` dispatcher are removed (today's `playbook-solo` is a new pipeline that shares only the name), and so is the short-lived complete pipeline: its four stages are now `playbook-build`.
 `playbook-review` is comment-only. Their useful methods live in the skills they named (`github`, `tdd`, `docs-sync`,
 `ci-fixer`, `integrator`, `changelog`, `verifier`, `reviewer`, `delegate`); they are no longer separate CTO pipelines.

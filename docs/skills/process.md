@@ -221,7 +221,7 @@ stack and rejected approach, planned packages or a wave table, risks and gates. 
 ### work-package
 
 **What it is.** The branch, commits and PR of one package, and the one linter. **Branch, commits, PR.** Branch
-`<id>/<slug>`, commits and PR title `<type>(<id>): <summary>`, the one PR template (the body of every pull request); the author never merges. **Files.** `scripts/package_lint.py` (`issue`,
+`<id>/<slug>`, commits and PR title `<type>(<id>): <summary>`, the one PR template (the body of every pull request); the author never merges (`playbook-solo` excepted). **Files.** `scripts/package_lint.py` (`issue`,
 `comment`, `branch`, `commit`, `pr`, `catalog`, `--self-test`), `assets/catalog.json`, a PR template, one reference.
 
 ### project
@@ -259,7 +259,7 @@ No agent messages another agent. When a bot has a role, nobody else starts that 
 orchestrates: it writes the issues and runs the playbook, and never plans, codes, tests, deploys or reviews code.
 Replies and status reports are short and carry only what the reader needs. Delegated work from one chat to one bot stays in
 one child chat on that bot, opened under the parent chat's name; its recorded id is used for every later message.
-**Roles.** Architect (plans), developer, tester (`test` lane), devops (`ops` lane: deployment and operations), reviewer
+**Roles.** Architect (plans), developer, tester (only when a request asks for testing), devops (`ops` lane: deployment and operations), reviewer
 (code review). The skills name roles only; which bot holds which role is each team's own mapping skill, kept outside
 this repository: the orchestrating bot reads it, and otherwise the bot list. **Flow.** CEO bot → issue → the builder bot
 of its lane → an agent on the issue's row → verified PR → status to the CEO bot. **The agent table.** One per team, held
@@ -279,20 +279,23 @@ before anything lands. **When.** A bot or a person hands a single task to a codi
 ### manager
 
 **What it is.** How a project's manager handles a request. **What happens.** A question it answers read-only. Otherwise
-it runs the playbook the request names, or `build` when none is named (`quick` only when named, `plan`, `refactor-plan`,
+it runs the playbook the request names, or `build` when none is named (`quick` only when named; `solo` it neither runs nor delegates; `plan`, `refactor-plan`,
 `review`, `ship`), and delegates each job to the role that holds it, or coordinates its own agents with `delegate`, each
 on a row of the agent table. **Never.** Start work on an unapproved issue, or let an author merge its own pull request.
 
 ### planner
 
 **What it is.** Turns a goal into PR-sized cards. **What happens.** Reads the architecture and the code, gives
-every card disjoint files, a risk, a difficulty, a workflow and a type, orders cards that share a file, files one issue
+every card disjoint files (its test files among them), a risk, a difficulty, a workflow and a type, orders cards that
+share a file, makes no card for tests alone, files one issue
 per card and writes the JSON plan the runner fans out over. Read-only on the code.
 
 ### developer
 
 **What it is.** Builds one card in its own worktree. **What happens.** Branch from `main`, test first, smallest
-change that passes, `make verify` green on the committed head, scope check, push, PR. It stops and reports on a
+change that passes, `make verify` green on the committed head, scope check, push, PR. **What it delivers.** The
+complete issue in one PR: the feature, its unit tests and its functional tests (the behaviour through its real entry
+point, with local or disposable dependencies); where one kind cannot apply, the PR says why. It stops and reports on a
 conflict, an unclear goal or a file outside its list.
 
 ### reviewer

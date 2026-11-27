@@ -5,7 +5,7 @@ when to use it, what to say, what happens, what you get, and its files.
 
 | Page | Covers |
 |---|---|
-| [router.md](router.md) | `/swe` and its engineering methods (bug-fix, feature, refactoring, migration, perf-issue, ...), plus the eight playbooks |
+| [router.md](router.md) | `/swe` and its engineering methods (bug-fix, feature, refactoring, migration, perf-issue, ...), plus the nine playbooks |
 | [process.md](process.md) | how, why, architect, principles, tdd, deslop, blast-radius, interrogate, security-review, verify-create, verify-maintain, replay-test, formal-verify, correct, ketchup, reflect, github, project |
 | [languages.md](languages.md) | go-code, py-code, rust-code, ts-code |
 | [data-platform.md](data-platform.md) | db-migrations, db-orm, api-contract, deployment-setup |
@@ -15,7 +15,7 @@ when to use it, what to say, what happens, what you get, and its files.
 ## Skills
 
 <!-- skills:start -->
-59 skills in 6 groups. Click a skill for its detail.
+60 skills in 6 groups. Click a skill for its detail.
 
 ### Start here
 
@@ -28,6 +28,7 @@ when to use it, what to say, what happens, what you get, and its files.
 | [playbook-review](router.md#playbook-review) | Review: read a PR and post one verdict comment; nothing is changed or merged |
 | [playbook-security](router.md#playbook-security) | Security audit only: proven findings, outbound paths and issues ready to file, nothing changed |
 | [playbook-ship](router.md#playbook-ship) | Ship: review a PR, fix and re-review (3 rounds), merge it and close its issue, or stop |
+| [playbook-solo](router.md#playbook-solo) | Solo, only when named: one agent, from problems to merged PRs; self-checked, no review |
 | [playbook-test](router.md#playbook-test) | Testing only: use the software as a user, report pass or fail per function with evidence |
 | [swe](router.md#router) | Entry point: picks language and playbook, delegates by table row, ends only on make verify |
 

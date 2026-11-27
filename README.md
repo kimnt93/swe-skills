@@ -1,7 +1,7 @@
 # swe-skills
 
 A software-engineering plugin for coding agents. One entry command (`/swe`) picks the language for the job, routes the task to
-tested skills and engineering principles, and does not finish until the project's `make verify` passes. Eight **playbooks**
+tested skills and engineering principles, and does not finish until the project's `make verify` passes. Nine **playbooks**
 (`/swe:playbook-<name>`) cover the path from a problem or a pull request to its end, testing running software and
 auditing its security, run by a team of bots in **Orca**.
 
@@ -47,13 +47,14 @@ make cli
 
 ### 1. Playbooks (`/swe:playbook-<name>`)
 
-Exactly eight. A request that names one follows it; with none named, the CTO/CEO uses **`build`**. Every one that
+Exactly nine. A request that names one follows it; with none named, the CTO/CEO uses **`build`**. Every one that
 builds ends with the merge.
 
 | You have | Playbook | What happens | Ends |
 |---|---|---|---|
-| work to build (**the default**) | [`build`](src/skills/playbook-build/SKILL.md) ([example](src/skills/playbook-build/references/example.md)) | CTO/CEO card → the architect plans it carefully → the CTO/CEO checks the plan against the card and accepts → the developer, tester or devops opens a PR each → a **reviewer** checks it against the plan and fixes, at most 3 rounds → the CTO/CEO trusts the PASS | merged or stopped |
+| work to build (**the default**) | [`build`](src/skills/playbook-build/SKILL.md) ([example](src/skills/playbook-build/references/example.md)) | CTO/CEO card → the architect plans it carefully → the CTO/CEO checks the plan against the card and accepts → the developer (devops for `ops`; the tester only on request) opens a PR each, with unit and functional tests → a **reviewer** checks it against the plan and fixes, at most 3 rounds → the CTO/CEO trusts the PASS | merged or stopped |
 | a request that names `quick` | [`quick`](src/skills/playbook-quick/SKILL.md) ([example](src/skills/playbook-quick/references/example.md)) | CTO/CEO issues, no plan → one worktree and PR each → the CTO/CEO merges on mechanical conditions only: **no check** of the code | merged or stopped |
+| a request that names `solo` | [`solo`](src/skills/playbook-solo/SKILL.md) | one agent writes the issues and, for each in dependency order, builds it with its tests in its own worktree, opens a PR, checks it itself and merges: **no independent review**; it starts no other agent | merged or left open, and one report |
 | a problem you want only planned | [`plan`](src/skills/playbook-plan/SKILL.md) ([example](src/skills/playbook-plan/references/example.md)) | CTO/CEO card → architect comments the plan → back to the CTO/CEO | at the accepted plan; nothing built |
 | a refactoring you want planned as issues | [`refactor-plan`](src/skills/playbook-refactor-plan/SKILL.md) ([example](src/skills/playbook-refactor-plan/references/example.md)) | the architect reads every repository and open issue and writes the new issues → the CTO/CEO posts them unchanged: new ones first, then the replaced ones closed as not planned | at the posted issues; no code, nothing deleted |
 | a PR you want judged | [`review`](src/skills/playbook-review/SKILL.md) | read it, run it when safe, post one `PASS` or `FAIL` comment | at the comment; nothing changed |
@@ -64,6 +65,7 @@ builds ends with the merge.
 ```text
 /swe:playbook-build limit requests per API key
 /swe:playbook-quick users misread order times; fix it
+/swe:playbook-solo cancelled orders still show as open; fix it
 /swe:playbook-plan users cannot export the orders they filtered; plan it
 /swe:playbook-refactor-plan plan the refactor of the order code in orders-api and orders-web
 /swe:playbook-review review PR 54
@@ -175,7 +177,7 @@ and runs the check before anything lands ([delegate](src/skills/delegate/SKILL.m
 
 ```bash
 swe-cli update        # pull the latest code, rebuild the plugin, reinstall it into harnesses
-swe-cli playbooks     # list the eight playbooks and their slash commands
+swe-cli playbooks     # list the nine playbooks and their slash commands
 swe-cli agents        # check the team's agent table (also: path, row <row>, init)
 swe-cli delegate      # start one Orca worker for a brief, on a row of the agent table
 swe-cli config show   # show config.json
@@ -190,7 +192,7 @@ All commands and `config.json`: [cli/README.md](cli/README.md). `make cli` links
 |---|---|
 | [docs/getting-started.md](docs/getting-started.md) | install, first task, troubleshooting |
 | [docs/usage.md](docs/usage.md) | what to say for each kind of task |
-| [docs/playbooks.md](docs/playbooks.md) | the eight playbooks, their gates and rules |
+| [docs/playbooks.md](docs/playbooks.md) | the nine playbooks, their gates and rules |
 | [docs/skills/](docs/skills/README.md) | each skill in detail |
 | [docs/harnesses.md](docs/harnesses.md) | every supported harness and how it installs |
 | [docs/runbooks.md](docs/runbooks.md) | the steps that need you: agent table, local install, publish |

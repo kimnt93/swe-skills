@@ -81,6 +81,7 @@ Once step 4 works on one repository, let a playbook carry work through GitHub. T
 | `/swe:playbook-refactor-plan <request, with the repositories>` | only when you ask for a refactoring plan: new issues posted, replaced ones closed as not planned, no code |
 | `/swe:playbook-build <problem>` | the default: a plan, a pull request per package, a reviewer who checks it against the plan and fixes, then the merge |
 | `/swe:playbook-quick <problem>` | only when you name it: issues with no plan, pull requests merged on mechanical checks, with no review |
+| `/swe:playbook-solo <problems>` | only when you name it, in a chat with one agent: it writes the issues and merges its own pull requests after a self-check, with no independent review |
 | `/swe:playbook-ship ship PR 54` | review and fix, then merge and close the issue |
 | `/swe:playbook-test <what to test, where>` | the app, API or tool used as its user does; a report with evidence; no code fixed |
 

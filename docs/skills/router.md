@@ -202,11 +202,11 @@ change only if it is not worse on any case that matters.
 skill path) to Claude Code, oh-my-pi and Codex. Which harness, model and effort an agent runs on is not here: only
 the team's agent table says it.
 
-## Playbooks: eight pipelines
+## Playbooks: nine pipelines
 
 They use the `write-issue`, `write-comment` and `work-package` formats; the role each playbook names merges, under the
-merge rules. There is no ninth playbook, and every one that builds ends with the merge. A request that names one follows
-it; with none named, the CTO/CEO uses `playbook-build`. Nobody picks `playbook-quick` by itself. The CTO/CEO only
+merge rules. There is no tenth playbook, and every one that builds ends with the merge. A request that names one follows
+it; with none named, the CTO/CEO uses `playbook-build`. Nobody picks `playbook-quick` or `playbook-solo` by itself. The CTO/CEO only
 orchestrates: it never plans, codes, tests, deploys or reviews code. By default the owner approves and reviews no code:
 the weight is on the plan, and the reviewer checks the code against it. Every reviewed pull request also gets the
 security and outbound-data check ([security-review](process.md#security-review)).
@@ -215,8 +215,8 @@ security and outbound-data check ([security-review](process.md#security-review))
 
 **What it is.** The default, in four stages: issue → plan → code → ship. (1) The CTO/CEO's card; (2) the architect plans
 it carefully, and the CTO/CEO checks the plan against the card before it accepts it; (3) one package issue per PR, which
-the merge rules approve when an account with write access opened it, each built by its lane's role (developer, tester for `test`,
-devops for `ops`) in its own worktree, which opens the PR, hands it over and removes the worktree; (4) a reviewer checks
+the merge rules approve when an account with write access opened it, each built with its unit and functional tests by the developer (devops
+for `ops`; the tester only when the request asks for testing) in its own worktree, which opens the PR, hands it over and removes the worktree; (4) a reviewer checks
 the code against the issue and the accepted plan (a departure is a finding), fixes its findings, at most 3 rounds → the
 CTO/CEO trusts the PASS, checks it mechanically (`can-merge`, the merge rules, the required checks) and merges, then
 closes the card when every child is merged, or reports the stop. The reviewer's own fixes are checked by nobody else,
@@ -239,6 +239,18 @@ when the merge rules allow it, the required checks passed, the branch is not beh
 is no money path (`can-merge --unreviewed --head`), and confirms; otherwise it returns it to the same developer, at most 3 times (each return
 a comment on the PR; a clean rebase after another quick PR merged is free), or stops it (PR and branch stay on GitHub) → the developer removes the worktree. **When.** Only when the request names it. **Files.** The
 orchestration commands, an example and its messages.
+
+### playbook-solo
+
+**What it is.** One agent, from problems to merged pull requests. It writes the problems as issues, then for each, in
+dependency order: its own worktree and branch, the complete issue with unit and functional tests, one PR, a self-check
+on one head (merge rules, `Done when`, required checks, not behind, no conflict, `security-review` of the diff), a
+rebase merge of that head, confirm, close, remove the worktree. One report at the end. It starts no other agent or bot
+and hands nothing over. **The self-check is not an independent review** and posts no verdict. A money path stops with
+the PR open; a blocked issue stays open with its PR and branch, and independent issues go on. The gate scripts are
+unchanged: `can-merge` can allow no solo merge, so solo's own steps hold what it would refuse. **When.** Only when the
+request names it, given by a person to one agent: no bot runs or delegates it. **Files.** An example PR body, merge
+comment and report.
 
 ### playbook-refactor-plan
 
