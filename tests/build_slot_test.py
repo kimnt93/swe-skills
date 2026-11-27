@@ -487,6 +487,22 @@ class BuildSlotTest(unittest.TestCase):
         self.assertEqual((tools / "arg.txt").read_text().strip(), "hello")
 
 
+class BuildTest(unittest.TestCase):
+    def test_build_keeps_line_endings(self) -> None:
+        """A Windows checkout has CRLF files; the build must not turn them into CR CR LF (it broke the script)."""
+        sys.path.insert(0, str(ROOT / "scripts"))
+        try:
+            import build as build_module
+        finally:
+            sys.path.pop(0)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "x.py"
+            path.write_bytes(b"x = 1 + \\\r\n    2  # @PLUGIN@\r\nprint(x)\n")
+            build_module.substitute(path, {"@PLUGIN@": "acme"})
+            self.assertEqual(path.read_bytes(), b"x = 1 + \\\r\n    2  # acme\r\nprint(x)\n")
+        compile(SCRIPT.read_bytes(), str(SCRIPT), "exec")
+
+
 class InstallTest(unittest.TestCase):
     """scripts/install.py puts the command in a bin directory of a temporary home; never the real one."""
 

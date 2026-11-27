@@ -126,7 +126,7 @@ def substitute(path: Path, mapping: dict[str, str], json_escape: bool = False) -
         return
     for key, value in mapping.items():
         text = text.replace(key, json.dumps(value)[1:-1] if json_escape else value)
-    path.write_text(text, encoding="utf-8")
+    path.write_text(text, encoding="utf-8", newline="")  # keep the line endings read: on Windows \r\n would double
 
 
 LICENSE = """MIT License
