@@ -113,19 +113,19 @@ build, Playwright.
 
 ### build-slot
 
-**What it is.** One shared FIFO queue of build slots per user and machine, so agents building at once in separate
-worktrees do not exhaust CPU and memory. **Use it when** you run a heavy build: Cargo `build`, `check`, `clippy` and the
-compile of `cargo test`, `maturin`, `docker build`, native C/C++ extensions; Go and large TypeScript builds only when
-measured heavy. **Say.** `python3 "<skill-dir>/scripts/build-slot.py" cargo test --workspace --no-run`, then
-`cargo test --workspace` outside the slot. **What happens.** The command waits in arrival order for one of 2 slots
-(`BUILD_SLOT_SLOTS`), with its queue position on stderr, gets `CARGO_BUILD_JOBS=6` when unset (`BUILD_SLOT_JOBS`), runs
-as given with no shell and returns its exit code. A dead or interrupted waiter leaves the queue, a nested call reuses
-the outer slot, and `BUILD_SLOT_TIMEOUT` exits 75 without running. The queue lives in `~/.cache/build-slot`
-(`BUILD_SLOT_DIR`), shared by every installed copy, readable by you only; it records the program's name, never its
-arguments. For `make`: read what the target runs first; wrap a build-only target whole; for a mixed target such as
-`verify` pass the wrapper in the Makefile's `BUILD_SLOT ?=` prefix variable (empty by default) so only the compile
-lines take a slot, else wrap the whole `make` call. **You get** at most that many heavy builds at once.
-**Files.** `scripts/build-slot.py` (standard library only), tested by `tests/build_slot_test.py`.
+**What it is.** One shared FIFO queue of build slots per user and machine, for heavy builds of any language, so agents
+building at once in separate worktrees do not exhaust CPU and memory. **Use it when** you run a heavy build, `make`
+target or build script: Cargo and maturin, Go, CMake, make and ninja, large TypeScript builds, Python packages that
+compile, Gradle and Maven, `docker build`. **Say.** `swe-build-slot cargo test --workspace --no-run`, then
+`cargo test --workspace` outside the slot; `swe-build-slot make build`; `BUILD_SLOT=swe-build-slot make verify` for a
+Makefile with the `BUILD_SLOT ?=` prefix variable. **What happens.** The command waits in arrival order for one of 2
+slots (`SWE_BUILD_SLOT_MAX`), with its queue position on stderr, runs as given with no shell and returns its exit code.
+`CARGO_BUILD_JOBS`, `CMAKE_BUILD_PARALLEL_LEVEL` and Go's `-p` in `GOFLAGS` get `SWE_BUILD_SLOT_JOBS` (6) unless you
+set them; `GOMAXPROCS` and `MAKEFLAGS` are never set. A dead or interrupted waiter leaves the queue, a nested call
+reuses the outer slot and `SWE_BUILD_SLOT_TIMEOUT` exits 75 without running. The queue lives in `~/.cache/build-slot`
+(`SWE_BUILD_SLOT_DIR`), readable by you only, and records the program's name, never its arguments. `make install` puts
+the command in `~/.local/bin` (`BIN_DIR`; a `.cmd` launcher on Windows). **You get** at most that many heavy builds at
+once. **Files.** `scripts/swe-build-slot.py` (standard library only), tested by `tests/build_slot_test.py`.
 
 ### verify-maintain
 

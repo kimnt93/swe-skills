@@ -49,12 +49,17 @@ The plugin is installed in your harnesses: `/swe` works in Claude Code, Codex an
    Remove it from its own repository.
 2. `make claude codex omp` (or `make install` for every harness detected on the machine).
 3. In a fresh session in any git repository: `/swe` prints the grouped skill table (Claude Code), `/skill:swe` (omp).
+4. The install also puts the command `swe-build-slot` in `~/.local/bin` (`make install BIN_DIR=<dir>` elsewhere). If it
+   warns that the directory is not on PATH, add it with the line it prints; it edits no shell profile. On Windows
+   without make: `py scripts\build.py`, then `py dist\swe\scripts\install.py install --bin-only` (a
+   `swe-build-slot.cmd` launcher in `%USERPROFILE%\.local\bin`).
 
 ### Verify
 
 ```bash
 make status
 claude plugin list | grep swe@swe-skills
+cd / && swe-build-slot --status    # the command, from any directory
 ```
 
 ### Undo
