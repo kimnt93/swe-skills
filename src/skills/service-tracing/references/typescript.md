@@ -28,7 +28,7 @@ and Kafka modules, so monkey-patching attaches: `node --import ./dist/tracing-st
 | Inbound HTTP (Express, Fastify, Nest) | `@opentelemetry/instrumentation-http` + the framework instrumentation (or `@opentelemetry/auto-instrumentations-node`), or `tracing.serverSpan(route, req.headers, fn)` |
 | Outbound HTTP | `instrumentation-http` / `-undici`, or `tracing.clientSpan('GET /pricing', 'pricing', (headers) => fetch(url, { headers }))` |
 | PostgreSQL / Redis | `instrumentation-pg`, `-ioredis`, `-redis`; otherwise `tracing.peerSpan('postgres', 'select orders', fn)` |
-| ClickHouse, S3/RustFS | `peerSpan('clickhouse', 'insert trades', fn)`, `peerSpan('s3', 'put object', fn)` |
+| ClickHouse, S3/RustFS | `peerSpan('clickhouse', 'insert events', fn)`, `peerSpan('s3', 'put object', fn)` |
 | Kafka (`kafkajs`) | `instrumentation-kafkajs`, or `producerSpan(topic, (h) => producer.send({ topic, messages: [{ value, headers: h }] }))` and `consumerSpan(topic, message.headers, fn)` (Buffer header values are decoded) |
 
 ## Rules and pitfalls

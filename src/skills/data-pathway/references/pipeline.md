@@ -55,8 +55,8 @@ agg = clean.windowby(
 
 ## Joins and state
 
-- `left.join(right, left.key == right.key).select(...)` is incremental on both sides; for "latest quote per symbol",
-  reduce the quote stream with `pw.reducers.argmax(pw.this.ts)` first, then join.
+- `left.join(right, left.key == right.key).select(...)` is incremental on both sides; for "latest value per symbol",
+  reduce that stream with `pw.reducers.argmax(pw.this.ts)` first, then join.
 - Everything stateful is held in memory unless persistence is configured: keep keys bounded, put cutoffs on windows.
 
 ## Output

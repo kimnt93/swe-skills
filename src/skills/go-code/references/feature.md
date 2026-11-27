@@ -6,7 +6,7 @@ layer compiles and is tested before the next one depends on it.
 ## Order of work
 
 1. **Understand the contract.** Inputs, outputs, error cases, who calls it, idempotency, concurrency (replicas), money/time.
-   If the rule comes from an external market or regulation, cite the source in a comment.
+   If the rule comes from an external contract, standard or regulation, cite the source in a comment.
 2. **Domain** (`internal/domain/<pkg>`): the rule as pure code and a table-driven test. No I/O, logging or `time.Now()`
    (inject `Now`). New business failures are sentinels or `*apperr.Error` with a stable code.
 3. **Application** (`internal/application`): the use case and, if it needs I/O, a **port declared where it is used** (small
@@ -46,4 +46,4 @@ go test -tags integration -race ./internal/e2e/...      # when SQL / Redis / Kaf
 ## Example usage
 
 - “Add cancel-order: domain rule, use case, Postgres update with a lock, endpoint and tests.”
-- “Add a Kafka consumer that updates positions and is safe to replay.”
+- “Add a Kafka consumer that updates order totals and is safe to replay.”

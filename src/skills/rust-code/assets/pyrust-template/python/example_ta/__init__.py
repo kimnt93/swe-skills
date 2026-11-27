@@ -1,4 +1,4 @@
-"""Rust-powered indicators. A thin layer over `example_ta._native`.
+"""Rust-powered numeric kernels. A thin layer over `example_ta._native`.
 
 No arithmetic lives here: every symbol is a re-export of the native one.
 """

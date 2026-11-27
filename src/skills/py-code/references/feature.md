@@ -6,7 +6,7 @@ layer is tested before the next depends on it.
 ## Order of work
 
 1. **Contract.** Inputs, outputs, error cases, idempotency, concurrency (several replicas), money/time/units. Cite external
-   rules (market, regulation) in a comment.
+   rules (a contract, a standard, a regulation) in a comment.
 2. **Domain** (`domain/`): the rule as pure code (frozen dataclass or function), a typed exception for each business failure (names end in `Error`),
    unit tests with `pytest.mark.parametrize`. No I/O, logging or clock reads (pass `now`).
 3. **Application** (`application/`): the use case and, if it needs I/O, a **Protocol port declared where it is used**. Flow and
@@ -41,4 +41,4 @@ uv run pytest -m integration -o addopts=""      # when SQL / Redis / Kafka behav
 ## Example usage
 
 - “Add cancel-order: domain rule, use case, Postgres update with SKIP LOCKED, endpoint and tests.”
-- “Add a Kafka consumer that upserts ticks and is safe to replay.”
+- “Add a Kafka consumer that upserts events and is safe to replay.”

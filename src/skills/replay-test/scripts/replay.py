@@ -140,9 +140,9 @@ def self_test() -> int:
         events = root / "events.jsonl"
         events.write_text("\n".join(json.dumps(e) for e in [
             {"type": "order", "order_id": "o1"},
-            {"type": "fill", "fill_id": "f1", "symbol": "VN30F", "side": "buy", "qty": 2, "price": "1250.5"},
-            {"type": "fill", "fill_id": "f2", "symbol": "VN30F", "side": "sell", "qty": 1, "price": "1251.0"},
-            {"type": "fill", "fill_id": "f3", "symbol": "FPT", "side": "buy", "qty": 100, "price": "0.1"},
+            {"type": "fill", "fill_id": "f1", "symbol": "ITEM-A", "side": "buy", "qty": 2, "price": "1250.5"},
+            {"type": "fill", "fill_id": "f2", "symbol": "ITEM-A", "side": "sell", "qty": 1, "price": "1251.0"},
+            {"type": "fill", "fill_id": "f3", "symbol": "ITEM-B", "side": "buy", "qty": 100, "price": "0.1"},
         ]) + "\n", encoding="utf-8")
         golden = root / "golden.json"
         good = f"{sys.executable} {engine} idempotent"

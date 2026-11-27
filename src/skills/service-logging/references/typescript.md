@@ -17,7 +17,7 @@ configureFromEnv();                                   // SERVICE_NAME, DEVELOPME
 const log = getLogger();                              // logger = "root"
 log.info({ messages_received: 361234, channel_depth: 0 }, 'message statistics');
 getLogger('api.request').warn({ request_id: rid, duration_ms: 1250.5 }, 'slow request');
-log.error({ error: err, table: 'trades' }, 'sink write failed');   // error, error_type, stack
+log.error({ error: err, table: 'orders' }, 'sink write failed');   // error, error_type, stack
 ```
 
 pino's call shape is `(fields, message)`. Pass an `Error` under the key `error` (or as the first

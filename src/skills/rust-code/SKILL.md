@@ -11,7 +11,7 @@ metadata:
 
 One entry point for Rust work, including Rust-backed Python packages. Read this page, then **read the references that match the request**.
 
-**Rust is for performance:** hot paths that Go or Python can't make fast enough (matching, pricing, indicators,
+**Rust is for performance:** hot paths that Go or Python can't make fast enough (tight loops, numeric kernels,
 parsers, large in-memory computations), Rust cores for Python packages (PyO3), and low-latency services. Bring the
 baseline number that justifies it (the **explain-the-number** principle); new ordinary APIs are Go (`go-code`).
 
@@ -82,4 +82,4 @@ maturin develop --release && pytest -q && pycodestyle --max-line-length=79 pytho
 ## Example prompts
 
 - "add S3 storage to this crate" -> s3, env-config · "add Postgres with raw SQL" -> postgres, feature · "consume Kafka with manual commit" -> kafka
-- "move this rolling indicator from Python to Rust" -> pyrust-scaffold, pyrust-binding · "return a polars frame from Rust" -> pyrust-polars · "build wheels" -> pyrust-release
+- "move this rolling computation from Python to Rust" -> pyrust-scaffold, pyrust-binding · "return a polars frame from Rust" -> pyrust-polars · "build wheels" -> pyrust-release

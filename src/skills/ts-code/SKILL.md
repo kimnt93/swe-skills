@@ -15,7 +15,7 @@ One entry point for frontend work. Read this page, then the references that matc
 | The app | Use | Template |
 |---|---|---|
 | public or SEO pages, server-side data fetching, a backend-for-frontend, auth on the server | **Next.js** (App Router) | `assets/nextjs` |
-| a dashboard, an internal tool, a trading UI behind login, anything that is a single page app | **Vite + React** | `assets/vite-react` |
+| a dashboard, an internal tool, an app behind login, anything that is a single page app | **Vite + React** | `assets/vite-react` |
 
 The backend is a Go/Fiber API (`go-code`); the frontend never talks to a database or Kafka directly.
 

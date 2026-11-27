@@ -65,5 +65,5 @@ set -a; . ./.env; set +a; uv run pytest -m integration -o addopts=""    # round 
 
 ## Example usage
 
-- “Add a repository method that lists open orders by symbol: SQL, bounded, indexed.”
+- “Add a repository method that lists open orders by customer: SQL, bounded, indexed.”
 - “Write the migration and the dataclass row for a new `positions` table.”

@@ -85,5 +85,5 @@ set -a; . ./.env; set +a; uv run pytest -m integration -o addopts=""            
 ## Example prompts
 
 - "add using pg db" / "add a repository for orders with a bounded query" -> postgres, feature
-- "consume the ticks topic and decode fast" -> kafka, data · "make this pandas job faster" -> data · "store reports in RustFS" -> s3
+- "consume the events topic and decode fast" -> kafka, data · "make this pandas job faster" -> data · "store reports in RustFS" -> s3
 - "add a Celery task that retries" -> worker · "scaffold a Litestar service" -> scaffold

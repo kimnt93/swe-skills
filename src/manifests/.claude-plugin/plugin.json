@@ -6,5 +6,5 @@
   "homepage": "@HOMEPAGE@",
   "repository": "@HOMEPAGE@",
   "license": "MIT",
-  "keywords": ["engineering", "verification", "go", "python", "rust", "kafka", "postgres", "redis", "s3", "api", "deployment", "observability", "trading"]
+  "keywords": ["engineering", "verification", "go", "python", "rust", "kafka", "postgres", "redis", "s3", "api", "deployment", "observability"]
 }

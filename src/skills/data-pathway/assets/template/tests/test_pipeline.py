@@ -11,10 +11,10 @@ from pipeline.pipeline import OrderIn, build  # noqa: E402
 
 def rows():
     return [
-        ("o1", " btc ", 100.01, 2.0, 0),
-        ("o2", "btc", 100.02, 3.0, 10),
-        ("o3", "eth", 0.0, 1.0, 20),  # invalid price: rejected
-        ("o4", "btc", 100.03, 1.0, 70),  # next 60 s window
+        ("o1", " abc ", 100.01, 2.0, 0),
+        ("o2", "abc", 100.02, 3.0, 10),
+        ("o3", "xyz", 0.0, 1.0, 20),  # invalid price: rejected
+        ("o4", "abc", 100.03, 1.0, 70),  # next 60 s window
     ]
 
 
@@ -27,7 +27,7 @@ def test_clean_drops_invalid_and_normalises():
     got = pw.debug.table_to_pandas(clean)
     bad = pw.debug.table_to_pandas(rejected)
     assert sorted(got["order_id"]) == ["o1", "o2", "o4"]
-    assert set(got["symbol"]) == {"BTC"}
+    assert set(got["symbol"]) == {"ABC"}
     assert list(bad["order_id"]) == ["o3"]
 
 

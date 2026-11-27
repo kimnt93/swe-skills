@@ -45,5 +45,5 @@ ruff check python tests && pycodestyle --max-line-length=79 python tests      # 
 
 ## Example usage
 
-- “Scaffold a Python package whose indicators are implemented in Rust.”
+- “Scaffold a Python package whose numeric kernels are implemented in Rust.”
 - “Add a Rust core to this pure-Python module.”

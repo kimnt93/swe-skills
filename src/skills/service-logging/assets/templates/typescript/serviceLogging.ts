@@ -8,7 +8,7 @@
  *   const log = getLogger();                 // logger = "root"
  *   const api = getLogger('api.request');    // named logger
  *   log.info({ messages_received: 361234, channel_depth: 0 }, 'message statistics');
- *   log.error({ error: err, table: 'trades' }, 'sink write failed');   // error, error_type, stack
+ *   log.error({ error: err, table: 'orders' }, 'sink write failed');   // error, error_type, stack
  *
  * Every line has level, development_environment, service_name, node_name, logger, time (UTC
  * RFC 3339, 9 fractional digits), caller (<root>/<relative path>:<line>) and message, plus

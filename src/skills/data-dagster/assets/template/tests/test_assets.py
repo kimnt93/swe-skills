@@ -8,10 +8,10 @@ from dag.resources import OrdersSource
 class FakeOrders(OrdersSource):
     def fetch(self, day):
         return [
-            {"order_id": "o1", "symbol": " btc ", "price": 10.0, "qty": 1.0},
-            {"order_id": "o1", "symbol": "btc", "price": 10.0, "qty": 1.0},
-            {"order_id": "o2", "symbol": "eth", "price": 0.0, "qty": 1.0},
-            {"order_id": "o3", "symbol": "eth", "price": 5.0, "qty": 2.0},
+            {"order_id": "o1", "symbol": " abc ", "price": 10.0, "qty": 1.0},
+            {"order_id": "o1", "symbol": "abc", "price": 10.0, "qty": 1.0},
+            {"order_id": "o2", "symbol": "xyz", "price": 0.0, "qty": 1.0},
+            {"order_id": "o3", "symbol": "xyz", "price": 5.0, "qty": 2.0},
         ]
 
 
@@ -31,7 +31,7 @@ def test_clean_orders_drops_invalid_and_duplicates():
     )
     clean = assets.clean_orders(frame)
     assert clean["order_id"].to_list() == ["o1", "o3"]
-    assert clean["symbol"].to_list() == ["BTC", "ETH"]
+    assert clean["symbol"].to_list() == ["ABC", "XYZ"]
 
 
 def test_pipeline_materializes_every_asset():

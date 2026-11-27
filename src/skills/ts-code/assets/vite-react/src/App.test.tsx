@@ -10,10 +10,10 @@ function renderWith(get: Client["get"]) {
 }
 
 test("lists orders from the API", async () => {
-  const orders: Order[] = [{ id: "o1", symbol: "VN30F", side: "buy", qty: 1, price: "1250.5", status: "open" }];
+  const orders: Order[] = [{ id: "o1", symbol: "ITEM-A", side: "buy", qty: 1, price: "1250.5", status: "open" }];
   renderWith(async <T,>() => orders as T);
   expect(await screen.findByRole("table", { name: "Orders" })).toBeInTheDocument();
-  expect(screen.getByRole("cell", { name: "VN30F" })).toBeInTheDocument();
+  expect(screen.getByRole("cell", { name: "ITEM-A" })).toBeInTheDocument();
 });
 
 test("shows the API error code instead of crashing", async () => {

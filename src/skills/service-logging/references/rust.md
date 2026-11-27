@@ -22,7 +22,7 @@ service_logging::init_from_env("feed-data")?;          // SERVICE_NAME, DEVELOPM
                                                       // "feed-data" = project directory name in `caller`
 tracing::info!(messages_received = 361234u64, channel_depth = 0u64, "message statistics");
 tracing::warn!(target: "api.request", request_id = %rid, duration_ms = 1250.5, "slow request");
-tracing::error!(error = %err, error_type = "SinkError", table = "trades", "sink write failed");
+tracing::error!(error = %err, error_type = "SinkError", table = "orders", "sink write failed");
 tracing::error!(fatal = true, "cannot continue");    // level "fatal"
 ```
 

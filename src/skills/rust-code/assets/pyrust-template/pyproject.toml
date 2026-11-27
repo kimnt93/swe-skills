@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "example-ta"
 version = "0.1.0"
-description = "Rust-powered indicators with a Python API"
+description = "Rust-powered numeric kernels with a Python API"
 requires-python = ">=3.11"
 dependencies = ["numpy>=1.26"]
 classifiers = ["Programming Language :: Rust", "Programming Language :: Python :: Implementation :: CPython"]

@@ -14,7 +14,7 @@ A Pathway job has one of two roles:
 
 | Attribute | Value |
 |---|---|
-| `service.name` | the pipeline name, `{datasource}-{role}` (`trades-transform`, `trades-postgres`); the `SERVICE_NAME` variable, also the `service_name` of the log lines |
+| `service.name` | the pipeline name, `{datasource}-{role}` (`orders-transform`, `orders-postgres`); the `SERVICE_NAME` variable, also the `service_name` of the log lines |
 | `service.namespace` | `platform` |
 | `deployment.environment` | `local`, `stg`, `prod` |
 | `host.name` | the node |

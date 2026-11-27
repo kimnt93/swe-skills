@@ -11,12 +11,12 @@ Repo `CHANGELOG.md` follows Keep a Changelog, newest first:
 - Cancel an open order with `DELETE /v1/orders/{id}` ([#41](https://github.com/acme/api/pull/41))
 
 ### Fixed
-- Fills are no longer counted twice when Kafka redelivers ([#44](https://github.com/acme/api/pull/44))
+- Events are no longer counted twice when Kafka redelivers ([#44](https://github.com/acme/api/pull/44))
 
 ## [1.3.0] - 2026-10-30
 
 ### Changed
-- **Breaking:** `GET /v1/positions` returns `qty` as a string. Parse it as a decimal. ([#38](https://github.com/acme/api/pull/38))
+- **Breaking:** `GET /v1/orders` returns `qty` as a string. Parse it as a decimal. ([#38](https://github.com/acme/api/pull/38))
 ```
 
 - Headings: `Added`, `Changed`, `Fixed`, `Removed`, `Security`, `Deprecated`. Omit empty ones.

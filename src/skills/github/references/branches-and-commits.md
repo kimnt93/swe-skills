@@ -15,7 +15,7 @@ silent extra change on this branch.
 
 ```bash
 git fetch origin
-git switch -c <type>/<issue>-<slug> origin/main      # feat/42-cancel-order, fix/57-dup-fills
+git switch -c <type>/<issue>-<slug> origin/main      # feat/42-cancel-order, fix/57-dup-events
 ```
 
 Types: `feat` `fix` `refactor` `perf` `test` `docs` `chore` `ci` `build`. One branch per issue; an issue's

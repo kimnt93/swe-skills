@@ -48,7 +48,7 @@ All agents may post through one account, so the account name says nothing about 
 
 ## One good, one bad
 
-- **Good:** "`services/query.py` scans the file once per symbol; join on the exact UTC timestamp. Rejected: loading both
+- **Good:** "`services/query.py` scans the file once per key; join on the exact UTC timestamp. Rejected: loading both
   feeds in the browser. Gates: `make check`."
 - **Bad:** "Looks doable, I will take a look at the query layer. LGTM."
 

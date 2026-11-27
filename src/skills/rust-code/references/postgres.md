@@ -14,5 +14,5 @@ Schema changes are goose SQL files (`schemas/NNNN_name.sql`, applied by a one-sh
 
 ## Example usage
 
-- “Add a repository method that lists open orders by symbol, bounded, with an index.”
+- “Add a repository method that lists open orders by customer, bounded, with an index.”
 - “Load Postgres settings from the environment with the password from a file.”

@@ -13,7 +13,7 @@ const log = getLogger();
 log.info({ messages_received: 361234, messages_published: 361233, channel_depth: 0 }, 'message statistics');
 getLogger('api.request').warn({ request_id: 'r-1', duration_ms: 1250.5 }, 'slow request');
 log.debug({ ok: true }, 'debug line');
-log.error({ error: new Error('sink write failed'), table: 'trades' }, 'write failed');
+log.error({ error: new Error('sink write failed'), table: 'orders' }, 'write failed');
 
 new NodeTracerProvider().register();
 trace.getTracer('smoke').startActiveSpan('work', (span) => {

@@ -37,7 +37,7 @@ fn main() -> Result<(), String> {
     tracing::error!(
         error = "sink write failed",
         error_type = "SinkError",
-        table = "trades",
+        table = "orders",
         "write failed"
     );
     tracing::error!(fatal = true, "cannot continue");

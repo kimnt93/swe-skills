@@ -33,7 +33,7 @@ and never touch private SDK state. Prefork servers (gunicorn/uvicorn workers, Ce
 | Outbound HTTP | `instrumentation-httpx` / `-requests` / `-aiohttp-client`, or `with tracing.client_span("GET /pricing", peer="pricing") as headers:` and pass `headers` |
 | PostgreSQL | `instrumentation-psycopg` / `-psycopg2` / `-asyncpg` / `-sqlalchemy`; otherwise `tracing.peer_span("postgres", "select orders")` |
 | Redis | `instrumentation-redis`; otherwise `peer_span("redis", "get")` |
-| ClickHouse, S3/RustFS | `peer_span("clickhouse", "insert trades")`, `peer_span("s3", "put object")` (`instrumentation-botocore` covers boto3) |
+| ClickHouse, S3/RustFS | `peer_span("clickhouse", "insert events")`, `peer_span("s3", "put object")` (`instrumentation-botocore` covers boto3) |
 | Kafka (`confluent-kafka`) | `with tracing.producer_span(topic) as h: producer.produce(topic, value, headers=list(h.items()))`; `with tracing.consumer_span(topic, dict(msg.headers() or [])):` (bytes values are decoded) |
 | Celery | `CeleryInstrumentor().instrument()` in `worker_process_init` (publish side too); pass the context in task headers, not the payload |
 

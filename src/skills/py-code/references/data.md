@@ -34,7 +34,7 @@ Choose the library from the job, then **measure on the target machine** (`python
   45x. Never `strptime`/`dateutil` per row.
 - Prefer integer epoch (ms/ns) on the wire between your own services; document the unit in the field name (`ts_ns`).
 - In polars use `pl.Datetime("ns", "UTC")`; convert with `str.to_datetime`/`dt.convert_time_zone`, not Python callbacks.
-- Local-market times (for example UTC+7 sessions) are converted to UTC at the boundary with a documented rule.
+- Times a source gives in its own local zone are converted to UTC at the boundary with a documented rule.
 
 ## Tables and time series: polars, not pandas
 
@@ -42,7 +42,7 @@ Choose the library from the job, then **measure on the target machine** (`python
   on a hot path; no `iter_rows` for transforms.
 - **Lazy first:** `pl.scan_parquet(path).filter(...).group_by(...).agg(...).collect()` so predicates and projections push down;
   `collect(engine="streaming")` for data larger than RAM; `collect()` once, at the end.
-- **Types:** explicit dtypes (`pl.Int64`, `pl.Float64`, `pl.Categorical` for repeated symbols), UTC datetimes, `null` for
+- **Types:** explicit dtypes (`pl.Int64`, `pl.Float64`, `pl.Categorical` for repeated strings), UTC datetimes, `null` for
   missing (never `0`/`NaN` as a sentinel unless the contract says so).
 - **Joins on time:** `join_asof` (backward, `by=` key) for point-in-time correctness; never forward-fill into the past.
 - **Storage/interchange:** Parquet (zstd) and Arrow IPC; `df.to_arrow()` / `pl.from_arrow` are zero-copy; `to_numpy()` for

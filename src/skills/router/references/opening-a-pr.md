@@ -3,7 +3,7 @@
 1. **Branch and worktree** off `main`, named `<type>/<issue>-<slug>` (the `github` skill). Each subagent
    on its own worktree.
 2. **Commits:** small, ordered, each one green; Conventional Commits `type(scope): subject`
-   (`fix(orders): commit offsets after the fill upsert`).
+   (`fix(orders): commit offsets after the order upsert`).
 3. **Before you commit,** run the formatter and linter of each language touched (`golangci-lint fmt`
    and `run`, `ruff format` and `check`, `cargo fmt` and `clippy -D warnings`, `eslint` and `tsc`),
    then the **deslop** skill over the diff.

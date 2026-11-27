@@ -1,4 +1,4 @@
-//! Pure Rust core: the single implementation of every indicator. No Python, no I/O. The Python
+//! Pure Rust core: the single implementation of every kernel. No Python, no I/O. The Python
 //! crate only adapts.
 //!
 //! Contract (the same one every state type follows): `new(..) -> Result<Self>` validates the

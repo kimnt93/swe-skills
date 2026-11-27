@@ -117,7 +117,7 @@ line, so a changed column is a one-line diff.
 
 ```go
 // BAD
-const sqlOpenOrders = `select o.id,o.symbol,sum(f.qty*f.price) as notional,count(*) from orders o join fills f on f.order_id=o.id where o.status='open' and o.created_at>now()-interval '1 day' and f.qty>0 group by o.id,o.symbol having count(*)>1 order by notional desc limit 100`
+const sqlOpenOrders = `select o.id,o.symbol,sum(l.qty*l.price) as total,count(*) from orders o join order_lines l on l.order_id=o.id where o.status='open' and o.created_at>now()-interval '1 day' and l.qty>0 group by o.id,o.symbol having count(*)>1 order by total desc limit 100`
 ```
 
 ```go
@@ -126,16 +126,16 @@ const sqlOpenOrders = `
 SELECT
     o.id,
     o.symbol,
-    SUM(f.qty * f.price) AS notional,
-    COUNT(*) AS fill_count
+    SUM(l.qty * l.price) AS total,
+    COUNT(*) AS line_count
 FROM orders AS o
-JOIN fills AS f ON f.order_id = o.id
+JOIN order_lines AS l ON l.order_id = o.id
 WHERE o.status = 'open'
     AND o.created_at > now() - INTERVAL '1 day'
-    AND f.qty > 0
+    AND l.qty > 0
 GROUP BY o.id, o.symbol
 HAVING COUNT(*) > 1
-ORDER BY notional DESC
+ORDER BY total DESC
 LIMIT 100
 `
 
@@ -173,5 +173,5 @@ SET name = EXCLUDED.name
 
 ## Example usage
 
-- "Add a repository method that lists open orders by symbol." -> a multi-line SQL const, one step per line.
+- "Add a repository method that lists open orders by customer." -> a multi-line SQL const, one step per line.
 - "This function is hard to read, clean it up." -> split validation into named functions, early returns, one error per check.

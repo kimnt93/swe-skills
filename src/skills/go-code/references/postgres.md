@@ -132,5 +132,5 @@ set -a; . ./.env; set +a; go test -tags integration -race ./internal/e2e/...   #
 
 ## Example usage
 
-- “Add a repository method that lists open orders by symbol: raw SQL, bounded, with an index.”
-- “Write the migration and the row struct for a new `positions` table (no pointers, use_zero).”
+- “Add a repository method that lists open orders by customer: raw SQL, bounded, with an index.”
+- “Write the migration and the row struct for a new `shipments` table (no pointers, use_zero).”

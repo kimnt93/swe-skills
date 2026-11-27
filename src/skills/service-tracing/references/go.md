@@ -31,7 +31,7 @@ Initialise before the HTTP server, clients and consumers start; shut down after 
 | Outbound HTTP | `otelhttp.NewTransport(http.DefaultTransport)` on the client, or `tr.ClientSpan(ctx, "GET /pricing", "pricing", propagation.HeaderCarrier(req.Header))` |
 | PostgreSQL (`go-pg` v10, `pgx`) | pgx: `otelpgx` tracer. go-pg has no maintained OTel hook: wrap the calls (or a `QueryHook`) with `tr.PeerSpan(ctx, "postgres", "select orders")` |
 | Redis (`go-redis` v9) | `redisotel.InstrumentTracing(rdb)`; otherwise `tr.PeerSpan(ctx, "redis", "get")` |
-| ClickHouse, S3/RustFS | `tr.PeerSpan(ctx, "clickhouse", "insert trades")`, `tr.PeerSpan(ctx, "s3", "put object")` |
+| ClickHouse, S3/RustFS | `tr.PeerSpan(ctx, "clickhouse", "insert events")`, `tr.PeerSpan(ctx, "s3", "put object")` |
 | Kafka (`confluent-kafka-go`) | `tr.ProducerSpan(ctx, topic, carrier)` then copy the carrier into `kafka.Message.Headers`; `tr.ConsumerSpan(ctx, topic, carrier)` per message (adapter below) |
 
 Confluent headers adapter (the carrier interface is `Get/Set/Keys`):

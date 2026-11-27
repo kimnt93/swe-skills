@@ -163,5 +163,5 @@ SET name = EXCLUDED.name
 
 ## Example usage
 
-- "Add a repository method that lists open orders by symbol." -> a multi-line SQL constant, one step per line.
+- "Add a repository method that lists open orders by customer." -> a multi-line SQL constant, one step per line.
 - "This function is hard to read, clean it up." -> split validation into named functions, guard clauses, one error per check.

@@ -13,10 +13,10 @@ test("unwraps data from a successful envelope", async () => {
 
 test("throws ApiError with the envelope's error code", async () => {
   const client = createClient("http://api", respond({
-    success: false, status_code: 422, message: "over the risk limit", data: null,
-    error: { code: "risk_limit", retryable: false },
+    success: false, status_code: 422, message: "over the size limit", data: null,
+    error: { code: "size_limit", retryable: false },
   }, 422));
-  await expect(client.post("/v1/orders", {})).rejects.toMatchObject({ name: "ApiError", code: "risk_limit", status: 422 });
+  await expect(client.post("/v1/orders", {})).rejects.toMatchObject({ name: "ApiError", code: "size_limit", status: 422 });
 });
 
 test("a non-JSON response is an ApiError, not a crash", async () => {

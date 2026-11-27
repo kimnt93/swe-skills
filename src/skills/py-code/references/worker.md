@@ -41,4 +41,4 @@ single-writer or single-consumer services run `replicas: 1` with `stop-first` up
 ## Example usage
 
 - “Add a Celery task that validates a submission, then fans out two simulations and a notify step.”
-- “Write a Kafka consumer process that upserts ticks and shuts down cleanly.”
+- “Write a Kafka consumer process that upserts events and shuts down cleanly.”

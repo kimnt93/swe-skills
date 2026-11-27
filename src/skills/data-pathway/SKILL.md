@@ -89,5 +89,5 @@ python3 scripts/otlp_check.py --role transform --wait 60 &   # then start the pi
 ## Example prompts
 
 - "Aggregate orders per symbol per minute from Kafka with Pathway" -> template + pipeline reference
-- "Add a Pathway job that joins trades with the latest quote" -> pipeline reference (joins)
+- "Add a Pathway job that joins events with the latest value per key" -> pipeline reference (joins)
 - "Why is the Pathway pipeline's latency high?" -> metrics + deploy references (autocommit, lag)

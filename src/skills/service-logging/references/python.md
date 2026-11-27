@@ -25,7 +25,7 @@ req.warn("slow request", duration_ms=1250.5)
 try:
     write(batch)
 except Exception as exc:
-    log.exception("sink write failed", exc, table="trades")  # error, error_type, stack
+    log.exception("sink write failed", exc, table="orders")  # error, error_type, stack
 ```
 
 Methods: `debug`, `info`, `warn`, `error(msg, exc=None, **f)`, `fatal(msg, exc=None, **f)`,

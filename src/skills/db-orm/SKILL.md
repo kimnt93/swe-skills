@@ -63,6 +63,6 @@ ruff check . && pytest -q
 
 ## Example prompts
 
-- "use GORM for the orders repository" -> go-gorm, orm-rules · "use SQLAlchemy for the positions store" -> py-sqlalchemy
+- "use GORM for the orders repository" -> go-gorm, orm-rules · "use SQLAlchemy for the inventory store" -> py-sqlalchemy
 - "do I need an ORM here?" -> orm-rules (answer: no, raw SQL, unless asked)
 - "make the store work on MySQL too" -> orm-rules (one dialector or URL, the dialect-specific upsert)

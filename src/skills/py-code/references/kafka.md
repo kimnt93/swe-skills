@@ -48,5 +48,5 @@ librdkafka (no system packages needed on glibc images).
 
 ## Example usage
 
-- “Write a consumer process that upserts ticks into Postgres with at-least-once delivery.”
+- “Write a consumer process that upserts events into Postgres with at-least-once delivery.”
 - “Publish order events with the trace context in headers.”

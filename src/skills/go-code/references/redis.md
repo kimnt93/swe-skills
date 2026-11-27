@@ -56,5 +56,5 @@ Unit tests use a fake behind your own interface. Concurrency and TTL behaviour n
 
 ## Example usage
 
-- “Add a per-account lock around the settlement job.”
+- “Add a per-key lock around the nightly export job.”
 - “Cache the instrument list for 60 seconds and invalidate it on change.”

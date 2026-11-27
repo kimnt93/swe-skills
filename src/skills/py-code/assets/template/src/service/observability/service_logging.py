@@ -12,7 +12,7 @@ Copy this file into the service. One call at startup, then log anywhere:
     api = slog.get_logger("api.request")  # a named logger
 
     log.info("message statistics", messages_received=361234, channel_depth=0)
-    log.exception("sink write failed", exc, table="trades")
+    log.exception("sink write failed", exc, table="orders")
 
 Every line has level, development_environment, service_name, node_name,
 logger, time (UTC RFC 3339, 9 fractional digits), caller

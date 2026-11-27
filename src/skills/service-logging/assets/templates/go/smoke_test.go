@@ -30,7 +30,7 @@ func TestSmoke(t *testing.T) {
 	log.Error().
 		Err(errors.New("sink write failed")).
 		Str("error_type", "*errors.errorString").
-		Str("table", "trades").
+		Str("table", "orders").
 		Msg("write failed")
 
 	ctx, span := sdktrace.NewTracerProvider().Tracer("smoke").Start(context.Background(), "work")

@@ -7,7 +7,7 @@ writing an alert.
 
 | Clock | What | Where it is known |
 |---|---|---|
-| event time | when the thing happened (exchange or producer timestamp in the payload) | after parsing the row |
+| event time | when the thing happened (source or producer timestamp in the payload) | after parsing the row |
 | arrival time | the Kafka record timestamp | the consumer |
 | processing time | now, when Pathway handles the row | everywhere |
 
@@ -15,7 +15,7 @@ writing an alert.
 - `latency_ms` = processing time - event time (or arrival time when the payload has none). It includes the delay of the producer,
   Kafka, and Pathway's batching; it is not a service-only number.
 - `last_message_age_ms` = now - newest live input processed; `latest_event_timestamp_seconds` is that row's event time, and the
-  dashboard shows `time() - value` as the latest event age. Closed markets or quiet topics make both grow without limit: that is
+  dashboard shows `time() - value` as the latest event age. Idle sources or quiet topics make both grow without limit: that is
   normal, alert on `running`, `kafka_healthy` and lag instead.
 - Keep hosts on NTP; compute with `max(0, ...)` so skew never gives negative latencies.
 

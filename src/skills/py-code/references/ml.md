@@ -21,9 +21,9 @@ Notebooks are for exploration only: anything that will run twice moves into the 
 ## Rules
 
 - **Data with polars** (lazy frames for large data), numpy for arrays; no pandas (ruff bans it).
-- **No leakage, no look-ahead.** Market and order data split **by time**, never at random: train on
+- **No leakage, no look-ahead.** Time-ordered data splits **by time**, never at random: train on
   the past, validate on the next window, test on a later one. Features at time t use only data
-  available before t (shift, then roll). Watch survivorship bias in symbol lists.
+  available before t (shift, then roll). Watch survivorship bias in lists of entities (only the ones that still exist).
 - **Reproducible:** a config (a `msgspec.Struct`) holds every hyperparameter and the data snapshot id;
   set every seed (`random`, `numpy`, the framework's); dependencies locked with `uv lock`.
 - **The model card** saved next to the model: code commit, config, data snapshot id and row counts,

@@ -47,5 +47,5 @@ fn ema_frame(py: Python<'_>, df: PyDataFrame, column: &str, period: usize) -> Py
 
 ## Example usage
 
-- “Add a Rust rolling indicator that takes a polars DataFrame and returns the frame with a new column.”
+- “Add a Rust rolling computation that takes a polars DataFrame and returns the frame with a new column.”
 - “Why do two polars versions in my wheel crash on import?”

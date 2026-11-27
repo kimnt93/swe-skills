@@ -8,4 +8,4 @@ EX ttl`, release = Lua compare-and-delete; every key has a TTL; no `KEYS` (use `
 
 ## Example usage
 
-- “Add a per-account lock around the settlement job.”
+- “Add a per-key lock around the nightly export job.”
