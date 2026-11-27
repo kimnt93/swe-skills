@@ -44,6 +44,7 @@ Never start a new HTTP API in Python or Rust without a reason written in the PR.
    [prototype](references/prototype.md) playbook.
 7. **Measured numbers** go through the **explain-the-number** principle before you report them.
 8. **Done** only when `make verify` exits 0 on the committed head and its tail is in your reply.
+   Run heavy builds (Cargo, maturin, `docker build`, native extensions) through the **build-slot** skill.
 9. **Before review**, run the `deslop` skill over the diff.
 10. **Respect the architecture.** Read the project's `ARCHITECTURE.md` before a structural change;
     never breach it (`make verify` runs the layering checks). A needed breach is a design change: the
