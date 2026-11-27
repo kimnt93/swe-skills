@@ -18,6 +18,12 @@ How the `<name>:` name is produced
   * The router skill `<name>` keeps its own name everywhere, so the entry command is `/<name>` (Claude Code accepts a
     plugin skill named like its plugin as `/<name>`), `$<name>:<name>` (Codex), `/skill:<name>` (omp) and `<name>` elsewhere.
 Every installed directory carries a `.<name>-install` marker; uninstall and updates touch only directories that have it.
+
+The command `<name>-build-slot` (the build-slot skill's script) goes into a bin directory with every user-scope install
+and uninstall: --bin-dir, default ~/.local/bin (on Windows the same path under %USERPROFILE%, with a
+`<name>-build-slot.cmd` launcher). It never overwrites a file it did not write, warns when the directory is not on
+PATH and edits no shell profile. --no-bin skips it; --bin-only does only that (the native way on Windows, where make may be missing):
+    python scripts/build.py && python dist/<name>/scripts/install.py install --bin-only
 Standard library only.
 """
 
@@ -116,6 +122,99 @@ AGENTS: dict[str, Agent] = {
     "kimchi": Agent("Kimchi", "~/.config/kimchi/harness/skills", ".kimchi/skills", (), ("~/.config/kimchi",)),
     "adal": Agent("AdaL", "~/.adal/skills", ".adal/skills", (), ("~/.adal",)),
 }
+
+
+COMMAND = f"{PLUGIN}-build-slot"
+COMMAND_SOURCE = SKILLS / "build-slot" / "scripts" / f"{COMMAND}.py"
+COMMAND_MARK = f"{COMMAND}: installed by the {PLUGIN} installer; uninstall removes it"
+# Windows: find the py launcher, else python; pass every argument and the exit code through. No ( ) block:
+# an unquoted ) in the arguments would end it.
+CMD_LAUNCHER = """@echo off
+rem {mark}
+setlocal
+set "SCRIPT=%~dp0{command}.py"
+where py >nul 2>nul || goto python
+py -3 "%SCRIPT%" %*
+exit /b %ERRORLEVEL%
+:python
+python "%SCRIPT%" %*
+exit /b %ERRORLEVEL%
+"""
+
+
+def command_files(windows: bool) -> dict[str, bytes]:
+    shebang, rest = COMMAND_SOURCE.read_text(encoding="utf-8").split("\n", 1)
+    script = f"{shebang}\n# {COMMAND_MARK}\n{rest}".encode("utf-8")
+    if not windows:
+        return {COMMAND: script}
+    launcher = CMD_LAUNCHER.format(mark=COMMAND_MARK, command=COMMAND).replace("\n", "\r\n").encode("ascii")
+    return {f"{COMMAND}.py": script, f"{COMMAND}.cmd": launcher}
+
+
+def written_by_us(path: Path) -> bool:
+    return path.is_file() and not path.is_symlink() and COMMAND_MARK.encode() in path.read_bytes()
+
+
+def on_path(directory: Path) -> bool:
+    want = os.path.normcase(os.path.realpath(directory))
+    entries = [e for e in os.environ.get("PATH", "").split(os.pathsep) if e]
+    return any(os.path.normcase(os.path.realpath(os.path.expanduser(e))) == want for e in entries)
+
+
+def path_hint(directory: Path) -> None:
+    if on_path(directory):
+        return
+    print(f"  warning: {directory} is not on PATH, so `{COMMAND}` is not found by name. This installer edits no shell "
+          "profile; add it yourself, then open a new shell:")
+    if os.name == "nt":
+        print(f"    PowerShell: [Environment]::SetEnvironmentVariable('Path', "
+              f"[Environment]::GetEnvironmentVariable('Path', 'User') + ';{directory}', 'User')")
+    else:
+        print(f"    bash: echo 'export PATH=\"{directory}:$PATH\"' >> ~/.bashrc")
+        print(f"    zsh:  echo 'export PATH=\"{directory}:$PATH\"' >> ~/.zshrc")
+        print(f"    fish: fish_add_path {directory}")
+    print(f"  Until then run it by its full path: {directory / (COMMAND + ('.cmd' if os.name == 'nt' else ''))}")
+
+
+def install_command(bin_dir: Path, dry: bool) -> int:
+    files = command_files(os.name == "nt")
+    foreign = [bin_dir / n for n in files if ((bin_dir / n).exists() or (bin_dir / n).is_symlink())
+               and not written_by_us(bin_dir / n)]
+    for path in foreign:
+        print(f"  {COMMAND}: NOT installed: {path} exists and this installer did not write it; "
+              "remove it yourself or pass --bin-dir <another directory>")
+    if foreign:
+        return 1
+    for name, data in files.items():
+        target = bin_dir / name
+        if dry:
+            print(f"  would write {target}")
+            continue
+        bin_dir.mkdir(parents=True, exist_ok=True)
+        temporary = target.with_name(f".{name}.tmp")
+        temporary.write_bytes(data)
+        if os.name != "nt":
+            os.chmod(temporary, 0o755)
+        os.replace(temporary, target)
+    print(f"  -> {'would install' if dry else 'installed'} the command {COMMAND} in {bin_dir}")
+    path_hint(bin_dir)
+    return 0
+
+
+def uninstall_command(bin_dir: Path, dry: bool) -> int:
+    removed = 0
+    for name in command_files(os.name == "nt"):
+        target = bin_dir / name
+        if written_by_us(target):
+            if dry:
+                print(f"  would remove {target}")
+            else:
+                target.unlink()
+            removed += 1
+        elif target.exists() or target.is_symlink():
+            print(f"  kept {target}: this installer did not write it")
+    print(f"  -> {'would remove' if dry else 'removed'} {removed} file(s) of the command {COMMAND} from {bin_dir}")
+    return 0
 
 
 def home() -> Path:
@@ -326,6 +425,9 @@ def main() -> int:
                         help="Claude Code / Codex: install as the namespaced plugin (auto: when the CLI exists)")
     parser.add_argument("--dir", help="install into this skills directory (any harness that reads one); skills are copied with --prefix")
     parser.add_argument("--names", action="store_true", help="with `agents`: print only the harness names (used by the Makefile)")
+    parser.add_argument("--bin-dir", help=f"where the {COMMAND} command goes (default: ~/.local/bin)")
+    parser.add_argument("--no-bin", action="store_true", help=f"do not install or remove the {COMMAND} command")
+    parser.add_argument("--bin-only", action="store_true", help=f"install or remove only the {COMMAND} command")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     if args.dir:
@@ -344,12 +446,25 @@ def main() -> int:
             print(f"{key:15} {mark}  {kind}{agent.user}  (project: {agent.project})  {agent.label}")
         return 0
 
+    bin_dir = Path(args.bin_dir).expanduser() if args.bin_dir else home() / ".local" / "bin"
+    if args.command == "status":
+        files = [bin_dir / n for n in command_files(os.name == "nt")]
+        state = "installed" if all(written_by_us(f) for f in files) else "not installed"
+        print(f"{COMMAND:15} {state} in {bin_dir}" + ("" if on_path(bin_dir) else " (not on PATH)"))
+    bin_code = 0
+    if args.command in ("install", "uninstall") and args.scope == "user" and not args.no_bin:
+        print(f"{COMMAND}: command")
+        step = install_command if args.command == "install" else uninstall_command
+        bin_code = step(bin_dir, args.dry_run)
+    if args.bin_only:
+        return bin_code
+
     agents = select_agents(args)
     if not agents:
         print("no harness detected: pass --agent <name> (see `make harness`) or --all")
         return 1
     names = skill_names(only)
-    exit_code = 0
+    exit_code = bin_code
 
     if args.command == "status":
         for key in agents:

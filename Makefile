@@ -12,6 +12,7 @@
 #   make validate | docs | test | package | publish | status | clean
 #
 # Options: SCOPE=user|project  PROJECT_DIR=.  PREFIX=<name>  SKILLS="go-code py-code"  PLUGIN=auto|yes|no  DRY_RUN=1
+#          BIN_DIR=~/.local/bin (where install puts the <name>-build-slot command)
 -include plugin.local.env
 include plugin.env
 export PLUGIN_NAME PLUGIN_TITLE PLUGIN_OWNER PLUGIN_VERSION PLUGIN_HOMEPAGE PLUGIN_DESCRIPTION PLUGIN_DOMAIN
@@ -30,7 +31,8 @@ space       := $(subst ,, )
 INSTALL      = $(PY) $(DIST)/scripts/install.py
 ACTION       = $(if $(REMOVE),uninstall,install)
 FLAGS        = --scope $(SCOPE) --project-dir $(PROJECT_DIR) --prefix "$(PREFIX)" --plugin $(PLUGIN) \
-               $(if $(SKILLS),--skill "$(subst $(space),$(comma),$(strip $(SKILLS)))") $(if $(DRY_RUN),--dry-run)
+               $(if $(SKILLS),--skill "$(subst $(space),$(comma),$(strip $(SKILLS)))") $(if $(DRY_RUN),--dry-run) \
+               $(if $(filter-out file,$(origin BIN_DIR)),--bin-dir "$(BIN_DIR)")
 HARNESSES   := claude codex omp devin opencode hermes universal amp gemini-cli cursor github-copilot windsurf goose \
                cline roo kilo droid qwen-code trae continue augment crush junie kiro-cli openhands mistral-vibe \
                antigravity qoder codebuddy iflow-cli openclaw \
