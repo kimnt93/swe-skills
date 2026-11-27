@@ -121,7 +121,10 @@ measured heavy. **Say.** `python3 "<skill-dir>/scripts/build-slot.py" cargo test
 (`BUILD_SLOT_SLOTS`), with its queue position on stderr, gets `CARGO_BUILD_JOBS=6` when unset (`BUILD_SLOT_JOBS`), runs
 as given with no shell and returns its exit code. A dead or interrupted waiter leaves the queue, a nested call reuses
 the outer slot, and `BUILD_SLOT_TIMEOUT` exits 75 without running. The queue lives in `~/.cache/build-slot`
-(`BUILD_SLOT_DIR`), shared by every installed copy. **You get** at most that many heavy builds at once.
+(`BUILD_SLOT_DIR`), shared by every installed copy, readable by you only; it records the program's name, never its
+arguments. For `make`: read what the target runs first; wrap a build-only target whole; for a mixed target such as
+`verify` pass the wrapper in the Makefile's `BUILD_SLOT ?=` prefix variable (empty by default) so only the compile
+lines take a slot, else wrap the whole `make` call. **You get** at most that many heavy builds at once.
 **Files.** `scripts/build-slot.py` (standard library only), tested by `tests/build_slot_test.py`.
 
 ### verify-maintain
