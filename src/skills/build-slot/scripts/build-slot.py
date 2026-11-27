@@ -119,7 +119,13 @@ def shown(line: str) -> str:
 # --- OS locks ---------------------------------------------------------------------------------------
 
 def open_lock(path: Path) -> int:
-    return os.open(str(path), os.O_RDWR | os.O_CREAT, 0o600)
+    fd = os.open(str(path), os.O_RDWR | os.O_CREAT, 0o600)
+    if not WINDOWS:
+        try:
+            os.fchmod(fd, 0o600)  # also a lock file made with a wider mode
+        except OSError:
+            pass
+    return fd
 
 
 def try_lock(fd: int) -> bool:

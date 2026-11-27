@@ -280,7 +280,14 @@ class BuildSlotTest(unittest.TestCase):
         wait_until(started.exists, what="the build holding a slot")
 
         def leaks() -> list[str]:
-            found = [str(p) for p in self.queue.rglob("*") if p.is_file() and secret.encode() in p.read_bytes()]
+            found = []
+            for path in (p for p in self.queue.rglob("*") if p.is_file()):
+                try:
+                    data = path.read_bytes()
+                except PermissionError:  # Windows: a held lock file cannot be read; lock files stay empty
+                    data = b"" if path.stat().st_size == 0 else secret.encode()
+                if secret.encode() in data:
+                    found.append(str(path))
             status = self.run_wrapper(["--status"]).stdout
             return found + (["--status"] if secret in status else [])
 
