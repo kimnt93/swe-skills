@@ -55,6 +55,7 @@ finding goes straight to the PASS. When the linked issue comes from an accepted 
 
 ## 3. Merge and confirm
 
+Read and obey the project's [business rules](../principles/references/business-rules.md) first.
 Right before the merge, all of these hold on the current head:
 
 ```bash

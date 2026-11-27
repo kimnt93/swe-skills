@@ -93,7 +93,8 @@ Distinguish configuration intent, observed infrastructure and functional accepta
 performed and missing evidence; never claim an unverified rollout. A setup request covers repository
 changes and local verification. A staging deploy through the project's normal pipeline needs no further question, within
 the project's own deploy rules; execute any other rollout only when the user authorized that target
-([the asking rule](../principles/references/never-block-on-the-human.md)).
+([the asking rule](../principles/references/never-block-on-the-human.md)). Before any deploy, read and obey the project's
+[business rules](../principles/references/business-rules.md).
 
 ## Language stacks
 

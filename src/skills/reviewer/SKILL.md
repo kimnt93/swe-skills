@@ -110,7 +110,8 @@ version.
 ## Merging
 
 Only when the playbook names the reviewer as the one who merges, only after a PASS at the current head, and only as its
-merge step says. The commands are the `github` skill's [merge](../github/references/pull-requests.md#merge).
+merge step says. The commands are the `github` skill's [merge](../github/references/pull-requests.md#merge). First read
+and obey the project's [business rules](../principles/references/business-rules.md); the high-risk paths they add count in your review.
 
 ## Last line, exactly one of
 

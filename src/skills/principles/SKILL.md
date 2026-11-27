@@ -3,7 +3,7 @@ name: principles
 description: "The engineering principles of the @PLUGIN@ plugin, one short file each with what it means in Go, Python, Rust and TypeScript: when it applies and what it requires. Read the index at the start of a task and open every principle whose applies line matches: idempotency for Kafka consumers, explain-the-number for a benchmark or a model score, money-path for orders and P&L."
 metadata:
   group: process
-  summary: "22 engineering principles; the router opens the ones that apply (money-path, idempotency, ...)"
+  summary: "23 engineering principles; the router opens the ones that apply (money-path, idempotency, ...)"
 ---
 
 # Principles
@@ -49,6 +49,7 @@ Open a principle when its "applies" text matches the task, then follow it. Name 
 |---|---|
 | [guard-the-context-window](references/guard-the-context-window.md) | Apply when output is large: long logs, big files, many search results, profiles, fan-out planning. |
 | [never-block-on-the-human](references/never-block-on-the-human.md) | Apply before you ask a question, end a turn to wait for an answer, or record a decision as open. |
+| [business-rules](references/business-rules.md) | Apply before a merge or a deploy, and when you rate a change's risk. |
 | [encode-lessons-in-structure](references/encode-lessons-in-structure.md) | Apply when the same instruction is written a second time, or the same correction is made twice. |
 
 ## Domain

@@ -85,13 +85,15 @@ body: `Closes #<n>`, both test lines (or why one kind cannot apply) and the word
 
 ## 3. Self-check, then merge
 
+Before the merge, read and obey the project's [business rules](../principles/references/business-rules.md).
 All of this holds for **one head SHA**, the PR's. Any new commit or rebase starts the list again.
 
 1. **Yours and unjudged:** `agent_identity.py check --author "<you>"` reports 0 problems, so you wrote every commit.
    `pr_loop.py state` and `gh pr view <n> --comments` show no verdict, change request or stop, and nobody asks to hold.
    A PR somebody else wrote or judged is never merged here: that is `playbook-ship`.
 2. **Not a money path:** no `risk:money-path` label on the PR or a linked issue, and the diff touches no orders, fills,
-   positions, balances, risk limits or P&L ([step 5](#5-a-money-path-or-a-blocked-issue)).
+   positions, balances, risk limits or P&L, nor a high-risk path the project's business rules add
+   ([step 5](#5-a-money-path-or-a-blocked-issue)).
 3. **`Done when`:** exits 0 on the committed head, with a clean tree.
 4. **Security:** the [security-review](../security-review/SKILL.md) skill on the diff: run the installed scan, resolve
    every item, list every path data leaves by, work the topics the diff touches and prove each suspicion. It must end

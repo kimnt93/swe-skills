@@ -116,6 +116,8 @@ its self-check, which is not an independent review and posts no verdict. `can-me
 that merge, so none of its refusals protects it: solo's own steps check the money path, the judgments and the head.
 A project whose rules reserve the merge for a person wins.
 
+Read and obey the project's [business rules](../../principles/references/business-rules.md) first.
+
 Before: the [merge rules](#merge-rules) allow it, the checked SHA is still the head, required checks are green, the branch is
 not behind `main`.
 

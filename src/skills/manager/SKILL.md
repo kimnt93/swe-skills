@@ -33,6 +33,8 @@ A question never starts a run, and work never starts without an acceptance done-
 **Asking** follows [the asking rule](../principles/references/never-block-on-the-human.md); your roles' questions come
 to you.
 
+**Before a merge or a deploy**, read and obey the project's [business rules](../principles/references/business-rules.md).
+
 ---
 
 ## Agents: one table

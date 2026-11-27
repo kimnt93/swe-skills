@@ -19,7 +19,7 @@ Follow what an existing repo already uses. For new code, pick by the job:
 |---|---|---|
 | an HTTP API, a service, a Kafka consumer or producer, a worker | **Go, Fiber v3** (the default) | `go-code` |
 | ML: training, evaluation, inference, feature pipelines, notebooks, dataframes | **Python** (polars, numpy) | `py-code` (its `ml` and `data` references) |
-| a hot path: matching, pricing, indicators, parsers, anything Python or Go is too slow for; Rust cores for Python packages | **Rust** | `rust-code` |
+| a hot path: tight loops, numeric kernels, parsers, anything Python or Go is too slow for; Rust cores for Python packages | **Rust** | `rust-code` |
 | a web app with server rendering, SEO, or server-side data fetching | **Next.js** (App Router, TypeScript) | `ts-code` (its `nextjs` reference) |
 | a dashboard or internal tool as a single-page app | **Vite + React + TypeScript** | `ts-code` (its `vite-react` reference) |
 
@@ -86,7 +86,8 @@ name** ([the rule](../bot-orchestration/SKILL.md#the-tester-only-on-request)).
 **The weight is on the plan.** By default the owner approves and reviews no code: the architect plans carefully, the
 CTO/CEO checks the plan against the card before accepting it, and in `build` and `ship` the reviewer checks the code
 against the accepted plan; a departure from it is a finding. A `risk:money-path` change is never merged automatically,
-and a project's own approval rules still apply.
+and a project's own approval rules still apply. A project's [business rules](../principles/references/business-rules.md),
+such as blocked windows and extra high-risk paths, are read before a merge or a deploy.
 
 The CTO/CEO only orchestrates: it never plans, codes, tests, deploys or reviews code, in any pipeline; each of those jobs
 goes to the role that holds it ([bot-orchestration](../bot-orchestration/SKILL.md)). So no bot runs `playbook-solo`:

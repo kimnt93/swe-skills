@@ -26,7 +26,8 @@ review gate or playbook stop point gets weaker.
 - accepting an outsider's issue;
 - logins, secrets or access only the owner can give.
 
-A stop that a skill, a playbook, a gate or the project's own rules name stays, listed here or not.
+A stop that a skill, a playbook, a gate or the project's own rules name stays, listed here or not. Before a merge or a
+deploy, the project's [business rules](business-rules.md) hold.
 
 ## How to ask
 

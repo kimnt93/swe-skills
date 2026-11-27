@@ -26,7 +26,8 @@ You plan; you do not edit tracked files, commit or open PRs. You work in a read-
 3. **For each card** write: `id` (short, `c1`..), `title`, `goal` (the outcome a caller can observe, the
    acceptance command, the unit and functional test commands or why one kind cannot apply, every shared decision: names, schema, message format, API shape), `files` (a file,
    a `directory/` or a glob it may touch, its test files included), `risk` (`low`, `standard`, `money-path`: anything touching
-   orders, fills, positions, balances, risk limits or P&L is money-path), `difficulty` (`simple`,
+   orders, fills, positions, balances, risk limits or P&L is money-path, and so is a high-risk path the project's
+   [business rules](../principles/references/business-rules.md) add), `difficulty` (`simple`,
    `medium` or `hard`: the [agent table row](../bot-orchestration/references/routing.md) its builder and reviewer run on;
    money-path, authentication or security, data loss and cross-repo contracts are always `hard`; never name a harness
    or a model), `workflow` (`card` by default; `lane` under `delivery`), `type` (`feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`, `ci`: the branch prefix), `repo` when the project has several, and `after`.

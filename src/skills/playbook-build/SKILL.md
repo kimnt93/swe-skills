@@ -193,6 +193,8 @@ to the bot that started it. A reviewer **bot** sends the CTO/CEO the [review rep
 
 ### CTO/CEO: trust the verdict, merge, confirm
 
+**Before the merge**, read and obey the project's [business rules](../principles/references/business-rules.md).
+
 **Trust it: do not review again.** A reviewer bot has already checked its agent's work. With **no reviewer bot** the
 verdict is your own agent's, and you are the bot that must verify it: run its evidence command once on that head before
 you rely on it. That checks the claim; it is not a second review. Then check that it is a real verdict on what you are

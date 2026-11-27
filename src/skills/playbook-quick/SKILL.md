@@ -134,7 +134,8 @@ the full head SHA, the `Done when` result, the check state and what you did not 
 
 **There is no check of the code.** Do not read the diff or run the PR's commands. Asking for this playbook gives the
 CTO/CEO the merge of its PRs; **a project whose rules reserve the merge for a person, or ask for a review, wins**: stop
-and ask that person. Merge only when every mechanical condition holds, with the head SHA the developer reported:
+and ask that person. Read and obey the project's [business rules](../principles/references/business-rules.md) first.
+Merge only when every mechanical condition holds, with the head SHA the developer reported:
 
 ```bash
 python3 <github skill>/scripts/pr_loop.py can-merge --pr <n> --repo <owner>/<repo> --unreviewed --head <reported sha>

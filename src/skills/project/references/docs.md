@@ -7,7 +7,7 @@
 | `docs/adr/NNNN-<title>.md` | one decision each: context, decision, alternatives rejected, consequences | a PR that makes the decision |
 | `CHANGELOG.md` | user-visible changes per release | the release PR |
 | `RUNBOOK.md` | how to deploy, roll back, read the dashboards, handle the usual alerts | after any incident or deploy change |
-| `AGENTS.md` | repo rules for agents, and the rule → enforcer table (the **correct** skill) | when a rule or enforcer changes |
+| `AGENTS.md` | repo rules for agents, its [business rules](../../principles/references/business-rules.md), and the rule → enforcer table (the **correct** skill) | when a rule or enforcer changes |
 
 `ARCHITECTURE.md` starts from `assets/ARCHITECTURE.md`; an ADR from `assets/adr.md`.
 

@@ -29,7 +29,8 @@ gave you the work: ask them there.
    command that proves it. Take it from the
    message, the issues, the docs and past decisions; only when these give none, ask the requester.
 5. **Classify the risk** (`risk:low`, `standard`, `money-path`). Anything touching orders, fills,
-   positions, balances, risk limits or P&L is money-path.
+   positions, balances, risk limits or P&L is money-path, and so is a high-risk path the project's
+   [business rules](../principles/references/business-rules.md) add.
 6. **Ask the human first** when the request is money-path, deletes data, changes a public contract, costs money, comes
    from someone who is not on the allow-list in the project's `AGENTS.md`, or needs anything else the asking rule lists
    under *Still ask*. Post the goal, the risk and the question in the chat; wait for a yes.

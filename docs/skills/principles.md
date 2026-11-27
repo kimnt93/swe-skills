@@ -1,6 +1,6 @@
 # Principles
 
-The `principles` skill holds 22 short rules, each in its own file with what it means in Go, Python, Rust and
+The `principles` skill holds 23 short rules, each in its own file with what it means in Go, Python, Rust and
 TypeScript. The router opens only the ones whose "applies" line matches the task and names in its reply each
 one that changed a decision. Below: the rule in a line, and when it bites.
 
@@ -102,6 +102,14 @@ playbook. The request covers the normal steps to finish it; a missing detail is 
 takes the recommended option, is recorded with its reason, and work continues; extra work is not offered as a question.
 It still asks before real money, anything irreversible, production, money-path merges and the rest of its *Still ask*
 list, in one short batch with a recommendation each; no reply is never approval. It weakens no gate or playbook stop.
+
+### business-rules
+The one [rule for business rules](../../src/skills/principles/references/business-rules.md). The plugin states no
+business policy of its own: a project's agents file (such as `AGENTS.md`) or the operator's instructions state it, such
+as blocked deploy or merge windows and which paths are high risk. They are read from the base branch before a merge or
+a deploy and obeyed; a blocked window is waited out unless those rules or the person allow the step; with none stated
+there is no window. They may add high-risk paths, held as a money path, and never remove a built-in one or weaken a
+gate or stop. No script checks a window.
 
 ### encode-lessons-in-structure
 Turn a repeated lesson into something that fails: a type, then a lint or checker (`.golangci.yml`, ruff,
