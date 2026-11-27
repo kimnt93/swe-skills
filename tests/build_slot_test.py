@@ -160,15 +160,16 @@ class BuildSlotTest(unittest.TestCase):
         self.env["BUILD_SLOT_SLOTS"] = "2"
         running = self.tmp / "running"
         running.mkdir()
-        peaks = self.tmp / "peaks.txt"
+        peaks = self.tmp / "peaks"  # one file per build: two builds run at once, and a shared append can lose a line
+        peaks.mkdir()
         code = (f"import os, time, uuid\nmine = os.path.join({str(running)!r}, uuid.uuid4().hex)\n"
                 f"open(mine, 'w').close()\nn = len(os.listdir({str(running)!r}))\n"
                 f"time.sleep(0.3)\nn = max(n, len(os.listdir({str(running)!r})))\n"
-                f"open({str(peaks)!r}, 'a').write(str(n) + chr(10))\nos.remove(mine)\n")
+                f"open(os.path.join({str(peaks)!r}, os.path.basename(mine)), 'w').write(str(n))\nos.remove(mine)\n")
         procs = [self.start(py(code)) for _ in range(8)]
         for proc in procs:
             self.wait_ok(proc)
-        counts = [int(x) for x in peaks.read_text().split()]
+        counts = [int(p.read_text()) for p in peaks.iterdir()]
         self.assertEqual(len(counts), 8)
         self.assertLessEqual(max(counts), 2, counts)
         self.assertEqual(self.tickets(), [])
