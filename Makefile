@@ -62,6 +62,7 @@ test:
 	bash tests/harness_test.sh
 	bash tests/frontend_test.sh
 	bash tests/testing_skills_test.sh
+	$(PY) tests/build_slot_test.py
 	bash cli/tests/selftest.sh
 	bash cli/tests/install_test.sh
 
