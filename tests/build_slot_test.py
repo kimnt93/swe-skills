@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""Tests of src/skills/build-slot/scripts/build-slot.py on Linux, macOS and Windows.
+"""Tests of the build-slot command (src/skills/build-slot/scripts/@PLUGIN@-build-slot.py, run as built) and of its
+install by scripts/install.py, on Linux, macOS and Windows.
 
     python3 tests/build_slot_test.py [-v]
 
-Each test uses its own temporary queue directory and tiny Python commands, never a real build, and
-never touches the user's own queue. Standard library only.
+It builds dist/<name> first. Each test uses its own temporary queue directory, home and tiny Python commands,
+never a real build, and never touches the user's own queue, bin directory or Go settings. Standard library only.
 """
 
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -19,8 +21,24 @@ import time
 import unittest
 from pathlib import Path
 
-SCRIPT = Path(__file__).resolve().parents[1] / "src" / "skills" / "build-slot" / "scripts" / "build-slot.py"
+ROOT = Path(__file__).resolve().parents[1]
 WINDOWS = os.name == "nt"
+
+
+def build() -> tuple[str, Path]:
+    """Builds the plugin (as make build does) and returns its name and dist directory."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith("PLUGIN_")}
+    run = subprocess.run([sys.executable, str(ROOT / "scripts" / "build.py")], env=env, capture_output=True, text=True)
+    if run.returncode:
+        sys.exit(f"build failed:\n{run.stdout}{run.stderr}")
+    name = re.search(r"built dist/(\S+):", run.stdout).group(1)
+    return name, ROOT / "dist" / name
+
+
+NAME, DIST = build()
+COMMAND = f"{NAME}-build-slot"
+SCRIPT = DIST / "skills" / "build-slot" / "scripts" / f"{COMMAND}.py"
+INSTALLER = DIST / "scripts" / "install.py"
 WAIT = 30.0
 
 
@@ -43,9 +61,11 @@ class BuildSlotTest(unittest.TestCase):
         self.queue = self.tmp / "queue"
         self.procs: list[subprocess.Popen] = []
         self.releases: list[Path] = []
-        self.env = {k: v for k, v in os.environ.items() if not k.startswith("BUILD_SLOT") and k != "CARGO_BUILD_JOBS"}
-        self.env["BUILD_SLOT_DIR"] = str(self.queue)
-        self.env["BUILD_SLOT_SLOTS"] = "1"
+        own = ("BUILD_SLOT", "SWE_BUILD_SLOT", "CARGO_BUILD_JOBS", "CMAKE_BUILD_PARALLEL_LEVEL", "GOFLAGS", "PLUGIN_")
+        self.env = {k: v for k, v in os.environ.items() if not k.startswith(own)}
+        self.env["GOENV"] = "off"  # never the user's `go env -w` settings
+        self.env["SWE_BUILD_SLOT_DIR"] = str(self.queue)
+        self.env["SWE_BUILD_SLOT_MAX"] = "1"
         self.count = 0
 
     def tearDown(self) -> None:
@@ -129,12 +149,79 @@ class BuildSlotTest(unittest.TestCase):
         show = py("import os, sys; sys.stdout.write(os.environ['CARGO_BUILD_JOBS'])")
         self.assertEqual(self.run_wrapper(show).stdout, "6")
         self.assertEqual(self.run_wrapper(show, CARGO_BUILD_JOBS="3").stdout, "3")
-        self.assertEqual(self.run_wrapper(show, BUILD_SLOT_JOBS="4").stdout, "4")
-        self.assertEqual(self.run_wrapper(show, BUILD_SLOT_JOBS="4", CARGO_BUILD_JOBS="2").stdout, "2")
-        self.assertEqual(self.run_wrapper(show, BUILD_SLOT_SLOTS="0").returncode, 2)
+        self.assertEqual(self.run_wrapper(show, SWE_BUILD_SLOT_JOBS="4").stdout, "4")
+        self.assertEqual(self.run_wrapper(show, SWE_BUILD_SLOT_JOBS="4", CARGO_BUILD_JOBS="2").stdout, "2")
+        self.assertEqual(self.run_wrapper(show, SWE_BUILD_SLOT_MAX="0").returncode, 2)
+
+    def test_job_limits_for_cmake_and_go_never_override(self) -> None:
+        show = py("import os, sys; sys.stdout.write(os.environ.get(sys.argv[1], '<unset>'))")
+        cmake, goflags = show + ["CMAKE_BUILD_PARALLEL_LEVEL"], show + ["GOFLAGS"]
+        self.assertEqual(self.run_wrapper(cmake).stdout, "6")
+        self.assertEqual(self.run_wrapper(cmake, CMAKE_BUILD_PARALLEL_LEVEL="").stdout, "")
+        self.assertEqual(self.run_wrapper(cmake, SWE_BUILD_SLOT_JOBS="3").stdout, "3")
+        self.assertEqual(self.run_wrapper(goflags).stdout, "-p=6")
+        self.assertEqual(self.run_wrapper(goflags, GOFLAGS="-mod=mod -tags=a,b").stdout, "-mod=mod -tags=a,b -p=6")
+        self.assertEqual(self.run_wrapper(goflags, GOFLAGS="-p=2 -mod=mod").stdout, "-p=2 -mod=mod")
+        self.assertEqual(self.run_wrapper(goflags, GOFLAGS="-mod=mod --p=3").stdout, "-mod=mod --p=3")
+        for untouched in ("GOMAXPROCS", "MAKEFLAGS"):  # passed on exactly as the caller has them (make sets MAKEFLAGS)
+            self.assertEqual(self.run_wrapper(show + [untouched]).stdout, self.env.get(untouched, "<unset>"))
+        # GOFLAGS set with `go env -w` lives in the Go env file; the wrapper keeps it
+        go_env = self.tmp / "go-env"
+        go_env.write_text("GOFLAGS=-mod=vendor -trimpath\nGOPROXY=off\n")
+        self.assertEqual(self.run_wrapper(goflags, GOENV=str(go_env)).stdout, "-mod=vendor -trimpath -p=6")
+        go_env.write_text("GOFLAGS=-p=1\n")
+        self.assertEqual(self.run_wrapper(goflags, GOENV=str(go_env)).stdout, "<unset>")
+
+    @unittest.skipUnless(shutil.which("go"), "go is not installed")
+    def test_go_reads_the_goflags_it_gets(self) -> None:
+        go_env = self.tmp / "go-env"
+        go_env.write_text("GOFLAGS=-mod=mod\n")
+        result = self.run_wrapper(["go", "env", "GOFLAGS"], GOENV=str(go_env))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "-mod=mod -p=6")
+
+    def test_old_setting_names_are_reported(self) -> None:
+        del self.env["SWE_BUILD_SLOT_MAX"]
+        result = self.run_wrapper(py("pass"), BUILD_SLOT_SLOTS="5")
+        self.assertEqual(result.returncode, 0)
+        self.assertNotIn("no longer read", self.run_wrapper(py("pass"), BUILD_SLOT_SLOTS="5",
+                                                            SWE_BUILD_SLOT_MAX="2").stderr)
+        self.assertIn("BUILD_SLOT_SLOTS is no longer read: set SWE_BUILD_SLOT_MAX", result.stderr)
+
+    def test_help_lists_the_settings(self) -> None:
+        result = self.run_wrapper(["--help"])
+        self.assertEqual(result.returncode, 0)
+        for word in ("SWE_BUILD_SLOT_MAX", "SWE_BUILD_SLOT_JOBS", "SWE_BUILD_SLOT_TIMEOUT", "SWE_BUILD_SLOT_DIR",
+                     "CARGO_BUILD_JOBS", "CMAKE_BUILD_PARALLEL_LEVEL", "GOFLAGS", f"{COMMAND} <command>"):
+            self.assertIn(word, result.stdout)
+        self.assertNotIn("@PLUGIN@", result.stdout)
+
+    def concurrent(self, builds: int) -> tuple[list, list[Path]]:
+        holders = [self.holder(f"c{i}") for i in range(builds)]
+        return holders, [h[1] for h in holders]
+
+    def test_default_max_is_two(self) -> None:
+        del self.env["SWE_BUILD_SLOT_MAX"]
+        holders, started = self.concurrent(3)
+        wait_until(lambda: sum(p.exists() for p in started) == 2, what="two builds running")
+        wait_until(lambda: len(self.tickets()) == 1, what="the third build queued")
+        time.sleep(0.5)
+        self.assertEqual(sum(p.exists() for p in started), 2)
+
+    def test_max_raised_by_the_environment(self) -> None:
+        self.env["SWE_BUILD_SLOT_MAX"] = "3"
+        holders, started = self.concurrent(4)
+        wait_until(lambda: sum(p.exists() for p in started) == 3, what="three builds running together")
+        wait_until(lambda: len(self.tickets()) == 1, what="the fourth build queued")
+        time.sleep(0.5)
+        running = [h for h in holders if h[1].exists()]
+        self.assertEqual(len(running), 3)
+        self.assertTrue(all(h[0].poll() is None for h in running), "the three builds must run at the same time")
+        running[0][2].touch()
+        wait_until(lambda: all(p.exists() for p in started), what="the fourth build to start")
 
     def test_queueing_with_two_slots(self) -> None:
-        self.env["BUILD_SLOT_SLOTS"] = "2"
+        self.env["SWE_BUILD_SLOT_MAX"] = "2"
         a, a_started, a_release, _ = self.holder("a")
         b, b_started, b_release, _ = self.holder("b")
         wait_until(lambda: a_started.exists() and b_started.exists(), what="two builds in two slots")
@@ -158,7 +245,7 @@ class BuildSlotTest(unittest.TestCase):
         self.assertEqual(self.tickets(), [])
 
     def test_never_more_builds_than_slots(self) -> None:
-        self.env["BUILD_SLOT_SLOTS"] = "2"
+        self.env["SWE_BUILD_SLOT_MAX"] = "2"
         running = self.tmp / "running"
         running.mkdir()
         peaks = self.tmp / "peaks"  # one file per build: two builds run at once, and a shared append can lose a line
@@ -224,7 +311,7 @@ class BuildSlotTest(unittest.TestCase):
         h, started, release, _ = self.holder("h")
         wait_until(started.exists, what="the holder")
         begin = time.monotonic()
-        result = self.run_wrapper(self.appender("late"), BUILD_SLOT_TIMEOUT="1")
+        result = self.run_wrapper(self.appender("late"), SWE_BUILD_SLOT_TIMEOUT="1")
         self.assertEqual(result.returncode, 75, result.stderr)
         self.assertLess(time.monotonic() - begin, 15)
         self.assertIn("did not run", result.stderr)
@@ -236,14 +323,14 @@ class BuildSlotTest(unittest.TestCase):
     def test_nested_call_reuses_the_slot(self) -> None:
         inner = [sys.executable, str(SCRIPT)] + py("raise SystemExit(7)")
         # with one slot, an inner call that queued would wait for itself; the timeout makes that exit 75, not hang
-        result = self.run_wrapper([sys.executable, str(SCRIPT)] + inner, BUILD_SLOT_TIMEOUT="10")
+        result = self.run_wrapper([sys.executable, str(SCRIPT)] + inner, SWE_BUILD_SLOT_TIMEOUT="10")
         self.assertEqual(result.returncode, 7, result.stderr)
         self.assertNotIn("waiting", result.stderr)
 
     def test_a_forged_holder_does_not_skip_the_queue(self) -> None:
         h, started, release, _ = self.holder("h")
         wait_until(started.exists, what="the holder")
-        result = self.run_wrapper(self.appender("forged"), BUILD_SLOT_TIMEOUT="1", BUILD_SLOT_HOLDER="0:forged")
+        result = self.run_wrapper(self.appender("forged"), SWE_BUILD_SLOT_TIMEOUT="1", BUILD_SLOT_HOLDER="0:forged")
         self.assertEqual(result.returncode, 75, result.stderr)
         release.touch()
         self.wait_ok(h)
@@ -255,18 +342,18 @@ class BuildSlotTest(unittest.TestCase):
         h.wait(timeout=WAIT)
         if WINDOWS:
             # the Job Object ends the build with its wrapper: the slot is free and the build never finishes
-            result = self.run_wrapper(self.appender("next"), BUILD_SLOT_TIMEOUT="20")
+            result = self.run_wrapper(self.appender("next"), SWE_BUILD_SLOT_TIMEOUT="20")
             self.assertEqual(result.returncode, 0, result.stderr)
             release.touch()
             time.sleep(1.0)
             self.assertFalse(done.exists(), "the build kept running after its wrapper was killed")
             return
         # the build inherited the slot's lock: it keeps the slot until it ends
-        result = self.run_wrapper(self.appender("next"), BUILD_SLOT_TIMEOUT="1")
+        result = self.run_wrapper(self.appender("next"), SWE_BUILD_SLOT_TIMEOUT="1")
         self.assertEqual(result.returncode, 75, result.stderr)
         release.touch()
         wait_until(done.exists, what="the orphaned build to finish")
-        result = self.run_wrapper(self.appender("next"), BUILD_SLOT_TIMEOUT="20")
+        result = self.run_wrapper(self.appender("next"), SWE_BUILD_SLOT_TIMEOUT="20")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.order(), ["next"])
 
@@ -322,7 +409,7 @@ class BuildSlotTest(unittest.TestCase):
         other = self.tmp / "other"
         other.mkdir(mode=0o755)
         os.chmod(other, 0o755)
-        self.assertEqual(self.run_wrapper(py("pass"), BUILD_SLOT_DIR=str(other)).returncode, 0)
+        self.assertEqual(self.run_wrapper(py("pass"), SWE_BUILD_SLOT_DIR=str(other)).returncode, 0)
         self.assertEqual(other.stat().st_mode & 0o777, 0o755)
 
     # --- make: the BUILD_SLOT prefix variable of a project's Makefile --------------------------------------
@@ -383,7 +470,7 @@ class BuildSlotTest(unittest.TestCase):
         project = self.makefile()
         wrapper = [sys.executable, str(SCRIPT)]
         result = subprocess.run(self.make(project, prefix=wrapper), capture_output=True, text=True, timeout=WAIT,
-                                env={**self.env, "BUILD_SLOT": self.spaced_wrapper(), "BUILD_SLOT_TIMEOUT": "10"})
+                                env={**self.env, "BUILD_SLOT": self.spaced_wrapper(), "SWE_BUILD_SLOT_TIMEOUT": "10"})
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         compiled, tested = self.recorded(project)
         self.assertNotEqual(compiled, "none")
@@ -398,6 +485,111 @@ class BuildSlotTest(unittest.TestCase):
         result = self.run_wrapper(["slot-tool", "hello"], PATH=path)
         self.assertEqual(result.returncode, 5, result.stderr)
         self.assertEqual((tools / "arg.txt").read_text().strip(), "hello")
+
+
+class InstallTest(unittest.TestCase):
+    """scripts/install.py puts the command in a bin directory of a temporary home; never the real one."""
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp(prefix="build-slot-install-"))
+        self.home = self.tmp / "home"
+        self.home.mkdir()
+        own = ("BUILD_SLOT", "SWE_BUILD_SLOT", "PLUGIN_", "BIN_DIR")
+        self.env = {k: v for k, v in os.environ.items() if not k.startswith(own)}
+        self.env.update(PLUGIN_HOME=str(self.home), SWE_BUILD_SLOT_DIR=str(self.tmp / "queue"), GOENV="off")
+        self.bin = self.home / ".local" / "bin"
+        self.files = [f"{COMMAND}.cmd", f"{COMMAND}.py"] if WINDOWS else [COMMAND]
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def installer(self, *args: str, **env: str) -> subprocess.CompletedProcess:
+        return subprocess.run([sys.executable, str(INSTALLER), *args], env={**self.env, **env}, cwd=self.tmp,
+                              capture_output=True, text=True, timeout=120)
+
+    def test_install_status_reinstall_and_uninstall(self) -> None:
+        result = self.installer("install", "--bin-only")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(sorted(p.name for p in self.bin.iterdir()), sorted(self.files))
+        if not WINDOWS:
+            self.assertTrue(os.access(self.bin / COMMAND, os.X_OK))
+        self.assertIn("is not on PATH", result.stdout)
+        self.assertIn("SetEnvironmentVariable" if WINDOWS else "fish_add_path", result.stdout)
+        self.assertIn(f"{COMMAND:15} installed", self.installer("status", "--bin-only").stdout)
+        self.assertEqual(self.installer("install", "--bin-only").returncode, 0, "a reinstall replaces its own files")
+        result = self.installer("uninstall", "--bin-only")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(list(self.bin.iterdir()), [])
+        self.assertIn("not installed", self.installer("status", "--bin-only").stdout)
+
+    def test_dry_run_writes_nothing(self) -> None:
+        result = self.installer("install", "--bin-only", "--dry-run")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("would write", result.stdout)
+        self.assertFalse(self.bin.exists())
+        self.installer("install", "--bin-only")
+        self.assertIn("would remove", self.installer("uninstall", "--bin-only", "--dry-run").stdout)
+        self.assertEqual(sorted(p.name for p in self.bin.iterdir()), sorted(self.files))
+
+    def test_never_overwrites_a_file_it_did_not_write(self) -> None:
+        self.bin.mkdir(parents=True)
+        foreign = self.bin / self.files[0]
+        foreign.write_text("someone else's command\n")
+        result = self.installer("install", "--bin-only")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("did not write", result.stdout)
+        self.assertEqual(foreign.read_text(), "someone else's command\n")
+        self.assertEqual(self.installer("uninstall", "--bin-only").returncode, 0)
+        self.assertEqual(foreign.read_text(), "someone else's command\n")
+
+    def test_no_warning_when_on_path_and_project_scope_installs_no_command(self) -> None:
+        path = str(self.bin) + os.pathsep + self.env.get("PATH", "")
+        result = self.installer("install", "--bin-only", PATH=path)
+        self.assertNotIn("not on PATH", result.stdout)
+        other = self.tmp / "project"
+        other.mkdir()
+        self.installer("uninstall", "--bin-only")
+        result = self.installer("install", "--agent", "hermes", "--plugin", "no", "--scope", "project",
+                                "--project-dir", str(other))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(list(self.bin.iterdir()), [], "a project install must not write the user's bin directory")
+
+    def test_installed_command_runs_from_another_directory(self) -> None:
+        bin_dir = self.tmp / "my bin"
+        result = self.installer("install", "--bin-only", "--bin-dir", str(bin_dir))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        work = self.tmp / "some project"
+        work.mkdir()
+        code = ("import os, sys; open('out.txt', 'w').write('|'.join(sys.argv[1:]) + '|' + os.environ['CARGO_BUILD_JOBS'])"
+                "; sys.exit(5)")
+        command = [sys.executable, "-c", code, "a b", "c(d)", "e=f"]
+        path = str(bin_dir) + os.pathsep + self.env.get("PATH", "")
+        found = shutil.which(COMMAND, path=str(bin_dir))
+        self.assertIsNotNone(found)
+        if WINDOWS:
+            self.assertTrue(found.lower().endswith(".cmd"), found)
+            runs = [[found] + command, ["cmd", "/d", "/c", COMMAND] + command]
+        else:
+            runs = [[COMMAND] + command]
+        for argv in runs:
+            (work / "out.txt").unlink(missing_ok=True)
+            result = subprocess.run(argv, cwd=work, env={**self.env, "PATH": path}, capture_output=True, text=True,
+                                    timeout=60)
+            self.assertEqual(result.returncode, 5, f"{argv[:4]}: {result.stdout}{result.stderr}")
+            self.assertEqual((work / "out.txt").read_text(), "a b|c(d)|e=f|6")
+        status = subprocess.run((runs[0][:1]) + ["--status"], cwd=work, env={**self.env, "PATH": path},
+                                capture_output=True, text=True, timeout=60)
+        self.assertEqual(status.returncode, 0, status.stderr)
+        self.assertIn("2 slots", status.stdout)
+
+    @unittest.skipUnless(shutil.which("make") and not WINDOWS, "make is not installed")
+    def test_make_passes_bin_dir_only_when_given(self) -> None:
+        given = subprocess.run(["make", "-n", "-C", str(ROOT), "install", "BIN_DIR=/x/y"], capture_output=True,
+                               text=True, env=self.env)
+        self.assertIn('--bin-dir "/x/y"', given.stdout)
+        default = subprocess.run(["make", "-n", "-C", str(ROOT), "install"], capture_output=True, text=True,
+                                 env=self.env)
+        self.assertNotIn("--bin-dir", default.stdout)
 
 
 if __name__ == "__main__":

@@ -5,11 +5,17 @@ on:
     paths:
       - src/skills/build-slot/**
       - tests/build_slot_test.py
+      - scripts/build.py
+      - scripts/install.py
+      - Makefile
       - .github/workflows/build-slot.yml
   pull_request:
     paths:
       - src/skills/build-slot/**
       - tests/build_slot_test.py
+      - scripts/build.py
+      - scripts/install.py
+      - Makefile
       - .github/workflows/build-slot.yml
   workflow_dispatch:
 
